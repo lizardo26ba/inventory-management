@@ -1,0 +1,23 @@
+# Normaliza el fin de línea en el repositorio.
+# Sin esto, un equipo mixto de Windows y Linux produce diferencias completas en
+# archivos que nadie tocó, y la revisión de código se vuelve inútil.
+* text=auto eol=lf
+
+# Archivos que deben conservar el fin de línea de Windows para funcionar.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binarios: git no debe tocarlos.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+
+# El archivo de bloqueo de dependencias se genera: no tiene sentido revisarlo
+# línea por línea, pero sí debe versionarse.
+package-lock.json -diff linguist-generated

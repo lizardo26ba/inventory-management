@@ -1,0 +1,1071 @@
+// Esquema de datos del sistema de Inventario.
+//
+// Reglas que gobiernan este archivo: .claude/agents/database-architect.md
+// Decisiones de fondo:
+//   ADR 0002 - existencias como libro de movimientos inmutable
+//   ADR 0003 - multiempresa con identificador de organizacion
+//   ADR 0004 - autenticacion con credenciales propias
+//   ADR 0005 - super administrador de plataforma con acceso auditado
+//   ADR 0006 - operacion multipais con moneda base por organizacion
+//   ADR 0007 - sesion propia en base de datos, sin libreria de autenticacion
+//   ADR 0008 - rastreo por lote y por numero de serie
+//
+// Convenciones aplicadas:
+//   - Tablas y columnas en snake_case mediante @map / @@map.
+//   - Clave primaria UUID v7, ordenable en el tiempo. Requiere Prisma 6 o superior.
+//   - Importes y cantidades en Decimal(18,4). Nunca punto flotante.
+//   - Fechas en timestamptz, siempre en UTC.
+//   - organizationId presente en toda tabla de negocio, y primero en cada indice.
+//   - Los sellos de auditoria createdById / updatedById son escalares sin relacion de
+//     Prisma, para no generar decenas de relaciones inversas en User. La clave foranea
+//     real se crea en una migracion SQL. Es una decision consciente, no un olvido.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Unico lugar del proyecto, junto al modulo de configuracion, autorizado a leer
+// variables de entorno. Prisma lo exige en tiempo de generacion.
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// =============================================================================
+// Enumeraciones
+// =============================================================================
+
+enum PermissionScope {
+  ORGANIZATION
+  PLATFORM
+
+  @@map("permission_scope")
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+
+  @@map("user_status")
+}
+
+/// Como se rastrea un producto. Determina el grano del saldo de existencias.
+enum TrackingMode {
+  /// Solo cantidad por producto y almacen.
+  NONE
+  /// Cantidad por producto, almacen y lote. El lote puede tener caducidad.
+  LOT
+  /// Cada unidad tiene numero de serie unico. La cantidad siempre es uno.
+  SERIAL
+
+  @@map("tracking_mode")
+}
+
+enum SerialStatus {
+  IN_STOCK
+  SHIPPED
+  RETURNED
+  SCRAPPED
+
+  @@map("serial_status")
+}
+
+enum MovementType {
+  RECEIPT // entrada
+  ISSUE // salida
+  TRANSFER_IN // entrada por transferencia
+  TRANSFER_OUT // salida por transferencia
+  ADJUSTMENT // ajuste por conteo
+  CORRECTION // correccion de un movimiento anterior
+
+  @@map("movement_type")
+}
+
+enum MovementReason {
+  PURCHASE_RECEIPT
+  SALES_SHIPMENT
+  TRANSFER
+  CYCLE_COUNT
+  DAMAGE
+  LOSS
+  RETURN_FROM_CUSTOMER
+  RETURN_TO_SUPPLIER
+  CORRECTION
+  INITIAL_LOAD
+
+  @@map("movement_reason")
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SUBMITTED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+
+  @@map("purchase_order_status")
+}
+
+enum SalesOrderStatus {
+  DRAFT
+  CONFIRMED
+  PARTIALLY_SHIPPED
+  SHIPPED
+  CANCELLED
+
+  @@map("sales_order_status")
+}
+
+// =============================================================================
+// Catalogos globales. Ver ADR 0006.
+// No llevan organizationId: son datos del producto, iguales para todos.
+// =============================================================================
+
+/// Paises soportados, segun ISO 3166-1 alfa-2.
+model Country {
+  id                  String  @id @default(uuid(7))
+  /// Codigo ISO de dos letras. GT, MX, ES, US.
+  code                String  @unique @db.Char(2)
+  name                String
+  defaultCurrencyCode String  @map("default_currency_code") @db.Char(3)
+  /// Zona horaria IANA por omision para las organizaciones de este pais.
+  defaultTimeZone     String  @map("default_time_zone")
+  /// Etiqueta local del identificador fiscal: NIT, RFC, RUC, CUIT, NIF.
+  taxIdLabel          String  @map("tax_id_label")
+  /// Expresion regular de validacion del identificador fiscal en este pais.
+  taxIdPattern        String? @map("tax_id_pattern")
+  phonePrefix         String  @map("phone_prefix")
+  isActive            Boolean @default(true) @map("is_active")
+
+  defaultCurrency Currency       @relation(fields: [defaultCurrencyCode], references: [code], onDelete: Restrict)
+  organizations   Organization[]
+  warehouses      Warehouse[]
+  suppliers       Supplier[]
+  customers       Customer[]
+
+  @@map("countries")
+}
+
+/// Monedas soportadas, segun ISO 4217.
+model Currency {
+  id            String  @id @default(uuid(7))
+  /// Codigo ISO de tres letras. GTQ, MXN, USD, EUR.
+  code          String  @unique @db.Char(3)
+  name          String
+  symbol        String
+  /// Decimales de presentacion. Tres para KWD, cero para JPY, dos en la mayoria.
+  /// El almacenamiento siempre usa Decimal(18,4), independiente de este valor.
+  decimalPlaces Int     @default(2) @map("decimal_places")
+  isActive      Boolean @default(true) @map("is_active")
+
+  countries      Country[]
+  organizations  Organization[]
+  purchaseOrders PurchaseOrder[]
+  salesOrders    SalesOrder[]
+  ratesFrom      ExchangeRate[]  @relation("ExchangeRateFrom")
+  ratesTo        ExchangeRate[]  @relation("ExchangeRateTo")
+
+  @@map("currencies")
+}
+
+/// Tipo de cambio con vigencia diaria. El documento congela la tasa que usó,
+/// de modo que un cambio posterior de la tasa no altere importes historicos.
+model ExchangeRate {
+  id           String   @id @default(uuid(7))
+  fromCurrency String   @map("from_currency") @db.Char(3)
+  toCurrency   String   @map("to_currency") @db.Char(3)
+  /// Unidades de destino por una unidad de origen.
+  rate         Decimal  @db.Decimal(18, 8)
+  validOn      DateTime @map("valid_on") @db.Date
+  source       String
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  from Currency @relation("ExchangeRateFrom", fields: [fromCurrency], references: [code], onDelete: Restrict)
+  to   Currency @relation("ExchangeRateTo", fields: [toCurrency], references: [code], onDelete: Restrict)
+
+  @@unique([fromCurrency, toCurrency, validOn])
+  @@index([validOn])
+  @@map("exchange_rates")
+}
+
+// =============================================================================
+// Organizacion, identidad y control de acceso
+// =============================================================================
+
+model Organization {
+  id               String  @id @default(uuid(7))
+  slug             String  @unique
+  name             String
+  countryCode      String  @map("country_code") @db.Char(2)
+  /// Moneda de valoracion del inventario y de los informes de esta organizacion.
+  /// Todo costo de existencias se almacena convertido a esta moneda.
+  baseCurrencyCode String  @map("base_currency_code") @db.Char(3)
+  /// Zona horaria IANA de la organizacion. Determina el corte de los informes
+  /// diarios. Los almacenes de otro pais pueden tener la suya propia.
+  timeZone         String  @map("time_zone")
+  /// Idioma de respaldo de la organizacion, usado solo cuando un usuario nuevo
+  /// todavia no ha elegido el suyo. El idioma real es preferencia del usuario,
+  /// no de la empresa. RN-010.
+  locale           String  @default("en")
+  taxId            String? @map("tax_id")
+
+  isActive  Boolean   @default(true) @map("is_active")
+  version   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  country      Country      @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+  baseCurrency Currency     @relation(fields: [baseCurrencyCode], references: [code], onDelete: Restrict)
+  memberships  Membership[]
+  roles        Role[]
+
+  @@index([countryCode])
+  @@map("organizations")
+}
+
+/// Identidad global. Una persona puede pertenecer a varias organizaciones.
+/// No lleva organizationId: el vinculo se expresa en Membership.
+model User {
+  id                  String     @id @default(uuid(7))
+  email               String     @unique
+  passwordHash        String     @map("password_hash")
+  fullName            String     @map("full_name")
+  status              UserStatus @default(INVITED)
+  /// Idioma de la interfaz. Es preferencia del usuario, no de la empresa. RN-010.
+  locale              String     @default("en")
+  emailVerifiedAt     DateTime?  @map("email_verified_at") @db.Timestamptz(6)
+  /// Obliga a cambiar la contrasena antes de poder hacer cualquier otra cosa.
+  /// Nace en verdadero para las cuentas creadas por semilla o por invitacion,
+  /// donde la contrasena inicial la conoce alguien mas que su dueno.
+  mustChangePassword  Boolean    @default(false) @map("must_change_password")
+  /// Secreto del segundo factor, cifrado en reposo por la aplicacion.
+  twoFactorSecret     String?    @map("two_factor_secret")
+  twoFactorEnabledAt  DateTime?  @map("two_factor_enabled_at") @db.Timestamptz(6)
+  failedLoginAttempts Int        @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?  @map("locked_until") @db.Timestamptz(6)
+  lastLoginAt         DateTime?  @map("last_login_at") @db.Timestamptz(6)
+  version             Int        @default(0)
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  memberships    Membership[]
+  sessions       Session[]
+  passwordResets PasswordResetToken[]
+  auditLogs      AuditLog[]           @relation("AuditLogActor")
+  platformAdmin  PlatformAdmin?       @relation("PlatformAdminUser")
+  grantedAdmins  PlatformAdmin[]      @relation("PlatformAdminGrantedBy")
+
+  @@index([status])
+  @@map("users")
+}
+
+/// Super administrador de la plataforma. Ver ADR 0005.
+///
+/// Se modela como tabla aparte y no como bandera en User por tres razones:
+/// queda registrado quien concedio el acceso y por que, la revocacion deja
+/// rastro en lugar de borrar el hecho, y la consulta de "quienes son super
+/// administradores" es una sola lectura auditable.
+///
+/// Un super administrador NO obtiene datos por omision. Debe elegir de forma
+/// explicita la organizacion en la que actua, lo que rota su sesion y queda
+/// asentado en la bitacora de auditoria.
+model PlatformAdmin {
+  id          String    @id @default(uuid(7))
+  userId      String    @unique @map("user_id")
+  /// Motivo por el que se concedio. Obligatorio: sirve en la revision periodica.
+  reason      String
+  grantedById String    @map("granted_by_id")
+  grantedAt   DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(6)
+  revokedById String?   @map("revoked_by_id")
+
+  user      User @relation("PlatformAdminUser", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy User @relation("PlatformAdminGrantedBy", fields: [grantedById], references: [id], onDelete: Restrict)
+
+  @@index([revokedAt])
+  @@map("platform_admins")
+}
+
+model Session {
+  id                    String    @id @default(uuid(7))
+  /// Hash del token de sesion. El valor en claro solo existe en la cookie.
+  tokenHash             String    @unique @map("token_hash")
+  userId                String    @map("user_id")
+  /// Organizacion activa de la sesion. Cambiarla rota la sesion.
+  organizationId        String?   @map("organization_id")
+  /// Verdadero cuando un super administrador entra a una organizacion de la que
+  /// no es miembro. Hace visible el privilegio elevado en cada registro de
+  /// auditoria y permite mostrarlo en la interfaz mientras esta activo.
+  actingAsPlatformAdmin Boolean   @default(false) @map("acting_as_platform_admin")
+  /// Segundo factor superado en esta sesion. Obligatorio para los super
+  /// administradores antes de poder elegir organizacion.
+  twoFactorVerifiedAt   DateTime? @map("two_factor_verified_at") @db.Timestamptz(6)
+  ipAddress             String?   @map("ip_address")
+  userAgent             String?   @map("user_agent")
+  expiresAt             DateTime  @map("expires_at") @db.Timestamptz(6)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid(7))
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+/// Pertenencia de un usuario a una organizacion. Los roles se asignan aqui,
+/// de modo que la misma persona tenga permisos distintos en cada organizacion.
+model Membership {
+  id             String    @id @default(uuid(7))
+  userId         String    @map("user_id")
+  organizationId String    @map("organization_id")
+  isActive       Boolean   @default(true) @map("is_active")
+  version        Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  roles        MembershipRole[]
+  warehouses   WarehouseAccess[]
+
+  @@unique([userId, organizationId])
+  @@index([organizationId, isActive])
+  @@map("memberships")
+}
+
+/// Catalogo global de permisos, en formato recurso:accion.
+/// No lleva organizationId: el conjunto de permisos posibles es del producto,
+/// no de cada cliente. Lo que varia por organizacion es como se agrupan en roles.
+model Permission {
+  id          String          @id @default(uuid(7))
+  code        String          @unique
+  resource    String
+  action      String
+  description String
+  /// ORGANIZATION: se concede mediante roles dentro de una organizacion.
+  /// PLATFORM: solo lo obtiene un super administrador. Nunca se asigna a un rol.
+  scope       PermissionScope @default(ORGANIZATION)
+
+  roles RolePermission[]
+
+  @@index([resource])
+  @@index([scope])
+  @@map("permissions")
+}
+
+model Role {
+  id             String   @id @default(uuid(7))
+  organizationId String   @map("organization_id")
+  name           String
+  description    String?
+  /// Rol creado por el sistema al dar de alta la organizacion. No se puede borrar.
+  isSystem       Boolean  @default(false) @map("is_system")
+  version        Int      @default(0)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  permissions  RolePermission[]
+  memberships  MembershipRole[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("roles")
+}
+
+model RolePermission {
+  roleId       String   @map("role_id")
+  permissionId String   @map("permission_id")
+  grantedAt    DateTime @default(now()) @map("granted_at") @db.Timestamptz(6)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model MembershipRole {
+  membershipId String   @map("membership_id")
+  roleId       String   @map("role_id")
+  assignedAt   DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  assignedById String?  @map("assigned_by_id")
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([membershipId, roleId])
+  @@index([roleId])
+  @@map("membership_roles")
+}
+
+/// Restringe a que almacenes alcanza una membresia. Sin filas, la membresia
+/// alcanza todos los almacenes de su organizacion.
+model WarehouseAccess {
+  id           String   @id @default(uuid(7))
+  membershipId String   @map("membership_id")
+  warehouseId  String   @map("warehouse_id")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  warehouse  Warehouse  @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, warehouseId])
+  @@index([warehouseId])
+  @@map("warehouse_access")
+}
+
+// =============================================================================
+// Catalogos
+// =============================================================================
+
+model Warehouse {
+  id             String    @id @default(uuid(7))
+  organizationId String    @map("organization_id")
+  code           String
+  name           String
+  address        String?
+  /// Una organizacion puede operar almacenes en varios paises. El pais y la
+  /// zona horaria del almacen mandan sobre los de la organizacion para el
+  /// corte de inventario y la hora que se muestra en los movimientos.
+  countryCode    String    @map("country_code") @db.Char(2)
+  timeZone       String    @map("time_zone")
+  isActive       Boolean   @default(true) @map("is_active")
+  version        Int       @default(0)
+  createdById    String?   @map("created_by_id")
+  updatedById    String?   @map("updated_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  country        Country           @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+  access         WarehouseAccess[]
+  stockLevels    StockLevel[]
+  movements      StockMovement[]
+  serialNumbers  SerialNumber[]
+  purchaseOrders PurchaseOrder[]
+  salesOrders    SalesOrder[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, isActive])
+  @@index([countryCode])
+  @@map("warehouses")
+}
+
+model UnitOfMeasure {
+  id             String    @id @default(uuid(7))
+  organizationId String    @map("organization_id")
+  code           String
+  name           String
+  /// Si es falso, las cantidades de sus productos deben ser enteras.
+  allowsFraction Boolean   @default(false) @map("allows_fraction")
+  version        Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  products Product[]
+
+  @@unique([organizationId, code])
+  @@map("units_of_measure")
+}
+
+model Category {
+  id             String    @id @default(uuid(7))
+  organizationId String    @map("organization_id")
+  parentId       String?   @map("parent_id")
+  name           String
+  version        Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, parentId])
+  @@map("categories")
+}
+
+model Product {
+  id             String   @id @default(uuid(7))
+  organizationId String   @map("organization_id")
+  sku            String
+  barcode        String?
+  name           String
+  description    String?
+  categoryId     String?  @map("category_id")
+  unitId         String   @map("unit_id")
+  /// Umbral de reposicion. Cero significa sin alerta.
+  minimumStock   Decimal  @default(0) @map("minimum_stock") @db.Decimal(18, 4)
+  maximumStock   Decimal? @map("maximum_stock") @db.Decimal(18, 4)
+  standardCost   Decimal  @default(0) @map("standard_cost") @db.Decimal(18, 4)
+  salePrice      Decimal  @default(0) @map("sale_price") @db.Decimal(18, 4)
+  isActive       Boolean  @default(true) @map("is_active")
+
+  /// Grano con el que se rastrea este producto. Cambiarlo con existencias
+  /// distintas de cero esta prohibido: obligaria a inventar lotes o series
+  /// para el saldo que ya existe.
+  trackingMode    TrackingMode @default(NONE) @map("tracking_mode")
+  /// Vida util en dias desde la fabricacion. Solo aplica con rastreo por lote.
+  /// Sirve para proponer la caducidad al recibir, no la impone.
+  shelfLifeDays   Int?         @map("shelf_life_days")
+  /// Dias antes de la caducidad en que el producto entra en alerta.
+  expiryAlertDays Int?         @map("expiry_alert_days")
+
+  version     Int       @default(0)
+  createdById String?   @map("created_by_id")
+  updatedById String?   @map("updated_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  category           Category?           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  unit               UnitOfMeasure       @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  stockLevels        StockLevel[]
+  movements          StockMovement[]
+  lots               Lot[]
+  serialNumbers      SerialNumber[]
+  purchaseOrderLines PurchaseOrderLine[]
+  salesOrderLines    SalesOrderLine[]
+
+  @@unique([organizationId, sku])
+  @@unique([organizationId, barcode])
+  @@index([organizationId, isActive, name])
+  @@index([organizationId, categoryId])
+  @@map("products")
+}
+
+model Supplier {
+  id             String    @id @default(uuid(7))
+  organizationId String    @map("organization_id")
+  code           String
+  name           String
+  countryCode    String    @map("country_code") @db.Char(2)
+  /// El formato y la etiqueta del identificador fiscal dependen del pais.
+  /// La validacion usa el patron declarado en Country.
+  taxId          String?   @map("tax_id")
+  email          String?
+  phone          String?
+  address        String?
+  isActive       Boolean   @default(true) @map("is_active")
+  version        Int       @default(0)
+  createdById    String?   @map("created_by_id")
+  updatedById    String?   @map("updated_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  country        Country         @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+  purchaseOrders PurchaseOrder[]
+  lots           Lot[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, isActive, name])
+  @@index([countryCode])
+  @@map("suppliers")
+}
+
+model Customer {
+  id             String    @id @default(uuid(7))
+  organizationId String    @map("organization_id")
+  code           String
+  name           String
+  countryCode    String    @map("country_code") @db.Char(2)
+  taxId          String?   @map("tax_id")
+  email          String?
+  phone          String?
+  address        String?
+  isActive       Boolean   @default(true) @map("is_active")
+  version        Int       @default(0)
+  createdById    String?   @map("created_by_id")
+  updatedById    String?   @map("updated_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  country     Country      @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+  salesOrders SalesOrder[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, isActive, name])
+  @@index([countryCode])
+  @@map("customers")
+}
+
+// =============================================================================
+// Existencias. Ver ADR 0002 y ADR 0008.
+// =============================================================================
+
+/// Lote de un producto. Solo existe para productos con rastreo por lote.
+/// El saldo de esos productos se lleva por lote, no solo por almacen.
+model Lot {
+  id             String    @id @default(uuid(7))
+  organizationId String    @map("organization_id")
+  productId      String    @map("product_id")
+  /// Codigo de lote del fabricante o del proveedor.
+  code           String
+  manufacturedAt DateTime? @map("manufactured_at") @db.Date
+  /// Fecha de caducidad. Nula cuando el producto no caduca.
+  expiresAt      DateTime? @map("expires_at") @db.Date
+  /// Proveedor del que llego el lote, para trazabilidad de retiradas.
+  supplierId     String?   @map("supplier_id")
+  notes          String?
+
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  product       Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  supplier      Supplier?       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  stockLevels   StockLevel[]
+  movements     StockMovement[]
+  serialNumbers SerialNumber[]
+
+  @@unique([organizationId, productId, code])
+  /// Indice que sostiene la salida por caducidad mas proxima y la alerta de
+  /// productos por vencer.
+  @@index([organizationId, productId, expiresAt])
+  @@index([organizationId, expiresAt])
+  @@index([supplierId])
+  @@map("lots")
+}
+
+/// Unidad individual identificada. Solo existe para productos con rastreo por
+/// serie. Su ubicacion y estado viven aqui, no en el saldo agregado.
+model SerialNumber {
+  id             String       @id @default(uuid(7))
+  organizationId String       @map("organization_id")
+  productId      String       @map("product_id")
+  serial         String
+  /// Un producto puede rastrearse por serie y pertenecer ademas a un lote.
+  lotId          String?      @map("lot_id")
+  status         SerialStatus @default(IN_STOCK)
+  /// Almacen donde esta la unidad. Nulo cuando ya salio.
+  warehouseId    String?      @map("warehouse_id")
+  /// Costo de adquisicion de esta unidad, en moneda base.
+  unitCost       Decimal?     @map("unit_cost") @db.Decimal(18, 4)
+
+  version   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  product   Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  lot       Lot?                  @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  warehouse Warehouse?            @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  movements StockMovementSerial[]
+
+  @@unique([organizationId, productId, serial])
+  @@index([organizationId, status, warehouseId])
+  @@index([lotId])
+  @@map("serial_numbers")
+}
+
+/// Libro mayor de existencias. Tabla de SOLO INSERCION.
+/// Nunca se actualiza ni se borra una fila. Una correccion es un movimiento
+/// nuevo de signo contrario que apunta al original en correctsMovementId.
+model StockMovement {
+  id             String         @id @default(uuid(7))
+  organizationId String         @map("organization_id")
+  productId      String         @map("product_id")
+  warehouseId    String         @map("warehouse_id")
+  /// Lote afectado. Obligatorio cuando el producto se rastrea por lote,
+  /// nulo cuando no. La aplicacion lo exige segun trackingMode del producto.
+  lotId          String?        @map("lot_id")
+  type           MovementType
+  reason         MovementReason
+  /// Cantidad con signo. Positiva entra, negativa sale. Nunca cero.
+  quantity       Decimal        @db.Decimal(18, 4)
+  /// Costo unitario del movimiento, SIEMPRE en la moneda base de la
+  /// organizacion. La conversion ocurre al registrar el movimiento, usando la
+  /// tasa congelada en el documento de origen. Guardarlo ya convertido evita
+  /// que el valor del inventario cambie al fluctuar el tipo de cambio.
+  unitCost       Decimal?       @map("unit_cost") @db.Decimal(18, 4)
+
+  /// Documento de origen. Se guarda como par tipo mas identificador en lugar de
+  /// una clave foranea por cada tipo de documento, para no acoplar el libro a
+  /// cada proceso que lo alimenta.
+  referenceType String? @map("reference_type")
+  referenceId   String? @map("reference_id")
+
+  /// Movimiento que esta fila corrige, si aplica.
+  correctsMovementId String? @map("corrects_movement_id")
+
+  note        String?
+  occurredAt  DateTime @map("occurred_at") @db.Timestamptz(6)
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  product     Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse   Warehouse             @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  lot         Lot?                  @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  corrects    StockMovement?        @relation("MovementCorrection", fields: [correctsMovementId], references: [id], onDelete: Restrict)
+  correctedBy StockMovement[]       @relation("MovementCorrection")
+  serials     StockMovementSerial[]
+
+  @@index([organizationId, productId, warehouseId, occurredAt])
+  @@index([organizationId, occurredAt])
+  @@index([organizationId, referenceType, referenceId])
+  @@index([warehouseId])
+  @@index([lotId])
+  @@map("stock_movements")
+}
+
+/// Unidades con numero de serie que participan en un movimiento.
+/// Un movimiento de producto serializado mueve tantas unidades como filas
+/// tenga aqui, y su cantidad debe coincidir con ese conteo.
+model StockMovementSerial {
+  movementId     String @map("movement_id")
+  serialNumberId String @map("serial_number_id")
+
+  movement StockMovement @relation(fields: [movementId], references: [id], onDelete: Restrict)
+  serial   SerialNumber  @relation(fields: [serialNumberId], references: [id], onDelete: Restrict)
+
+  @@id([movementId, serialNumberId])
+  @@index([serialNumberId])
+  @@map("stock_movement_serials")
+}
+
+/// Saldo materializado. Se actualiza SIEMPRE en la misma transaccion que
+/// inserta el movimiento, en aislamiento serializable.
+model StockLevel {
+  id             String  @id @default(uuid(7))
+  organizationId String  @map("organization_id")
+  productId      String  @map("product_id")
+  warehouseId    String  @map("warehouse_id")
+  /// Lote al que corresponde este saldo. Nulo para productos sin rastreo por
+  /// lote. La unicidad se declara en la migracion con NULLS NOT DISTINCT,
+  /// porque en PostgreSQL dos valores nulos no chocan por omision y eso
+  /// permitiria dos saldos para el mismo producto y almacen.
+  lotId          String? @map("lot_id")
+
+  quantity         Decimal @default(0) @db.Decimal(18, 4)
+  /// Costo promedio ponderado, recalculado en cada entrada.
+  averageCost      Decimal @default(0) @map("average_cost") @db.Decimal(18, 4)
+  /// Cantidad comprometida por pedidos de venta confirmados y no despachados.
+  reservedQuantity Decimal @default(0) @map("reserved_quantity") @db.Decimal(18, 4)
+
+  version   Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  lot       Lot?      @relation(fields: [lotId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, warehouseId, lotId])
+  @@index([organizationId, warehouseId])
+  @@index([lotId])
+  @@map("stock_levels")
+}
+
+// =============================================================================
+// Compras
+// =============================================================================
+
+model PurchaseOrder {
+  id             String              @id @default(uuid(7))
+  organizationId String              @map("organization_id")
+  number         String
+  supplierId     String              @map("supplier_id")
+  warehouseId    String              @map("warehouse_id")
+  status         PurchaseOrderStatus @default(DRAFT)
+  orderedAt      DateTime            @map("ordered_at") @db.Timestamptz(6)
+  expectedAt     DateTime?           @map("expected_at") @db.Timestamptz(6)
+  notes          String?
+
+  /// Moneda en la que se pacto la compra. Puede diferir de la moneda base.
+  currencyCode    String  @map("currency_code") @db.Char(3)
+  /// Tasa hacia la moneda base, congelada al confirmar el documento. Nunca se
+  /// recalcula: un cambio posterior del tipo de cambio no altera el historico.
+  exchangeRate    Decimal @default(1) @map("exchange_rate") @db.Decimal(18, 8)
+  /// Total en la moneda del documento.
+  totalAmount     Decimal @default(0) @map("total_amount") @db.Decimal(18, 4)
+  /// Mismo total convertido a la moneda base de la organizacion. Se almacena
+  /// para que los informes no dependan de una tabla de tasas al consultar.
+  totalAmountBase Decimal @default(0) @map("total_amount_base") @db.Decimal(18, 4)
+
+  version     Int      @default(0)
+  createdById String   @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  currency  Currency            @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+  supplier  Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  warehouse Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  lines     PurchaseOrderLine[]
+  receipts  PurchaseReceipt[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status, orderedAt])
+  @@index([organizationId, supplierId])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id               String  @id @default(uuid(7))
+  organizationId   String  @map("organization_id")
+  purchaseOrderId  String  @map("purchase_order_id")
+  productId        String  @map("product_id")
+  quantityOrdered  Decimal @map("quantity_ordered") @db.Decimal(18, 4)
+  /// Denormalizado desde las recepciones para evitar agregar en cada consulta.
+  /// Se actualiza en la misma transaccion que la recepcion.
+  quantityReceived Decimal @default(0) @map("quantity_received") @db.Decimal(18, 4)
+  unitCost         Decimal @map("unit_cost") @db.Decimal(18, 4)
+  lineTotal        Decimal @map("line_total") @db.Decimal(18, 4)
+
+  purchaseOrder PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  receiptLines  PurchaseReceiptLine[]
+
+  @@unique([purchaseOrderId, productId])
+  @@index([organizationId, productId])
+  @@map("purchase_order_lines")
+}
+
+model PurchaseReceipt {
+  id              String   @id @default(uuid(7))
+  organizationId  String   @map("organization_id")
+  purchaseOrderId String   @map("purchase_order_id")
+  number          String
+  receivedAt      DateTime @map("received_at") @db.Timestamptz(6)
+  notes           String?
+  createdById     String   @map("created_by_id")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  purchaseOrder PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  lines         PurchaseReceiptLine[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, receivedAt])
+  @@map("purchase_receipts")
+}
+
+model PurchaseReceiptLine {
+  id                  String  @id @default(uuid(7))
+  organizationId      String  @map("organization_id")
+  purchaseReceiptId   String  @map("purchase_receipt_id")
+  purchaseOrderLineId String  @map("purchase_order_line_id")
+  quantity            Decimal @db.Decimal(18, 4)
+  unitCost            Decimal @map("unit_cost") @db.Decimal(18, 4)
+  /// Lote al que entra la mercancia. Obligatorio si el producto se rastrea por
+  /// lote. Se crea en la recepcion si el codigo no existia todavia.
+  lotId               String? @map("lot_id")
+
+  receipt   PurchaseReceipt   @relation(fields: [purchaseReceiptId], references: [id], onDelete: Cascade)
+  orderLine PurchaseOrderLine @relation(fields: [purchaseOrderLineId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseOrderLineId])
+  @@map("purchase_receipt_lines")
+}
+
+// =============================================================================
+// Ventas
+// =============================================================================
+
+model SalesOrder {
+  id             String           @id @default(uuid(7))
+  organizationId String           @map("organization_id")
+  number         String
+  customerId     String           @map("customer_id")
+  warehouseId    String           @map("warehouse_id")
+  status         SalesOrderStatus @default(DRAFT)
+  orderedAt      DateTime         @map("ordered_at") @db.Timestamptz(6)
+  notes          String?
+
+  currencyCode    String  @map("currency_code") @db.Char(3)
+  exchangeRate    Decimal @default(1) @map("exchange_rate") @db.Decimal(18, 8)
+  totalAmount     Decimal @default(0) @map("total_amount") @db.Decimal(18, 4)
+  totalAmountBase Decimal @default(0) @map("total_amount_base") @db.Decimal(18, 4)
+
+  version     Int      @default(0)
+  createdById String   @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  currency  Currency         @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+  customer  Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  warehouse Warehouse        @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  lines     SalesOrderLine[]
+  shipments SalesShipment[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status, orderedAt])
+  @@index([organizationId, customerId])
+  @@map("sales_orders")
+}
+
+model SalesOrderLine {
+  id              String  @id @default(uuid(7))
+  organizationId  String  @map("organization_id")
+  salesOrderId    String  @map("sales_order_id")
+  productId       String  @map("product_id")
+  quantityOrdered Decimal @map("quantity_ordered") @db.Decimal(18, 4)
+  quantityShipped Decimal @default(0) @map("quantity_shipped") @db.Decimal(18, 4)
+  unitPrice       Decimal @map("unit_price") @db.Decimal(18, 4)
+  lineTotal       Decimal @map("line_total") @db.Decimal(18, 4)
+
+  salesOrder    SalesOrder          @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  product       Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
+  shipmentLines SalesShipmentLine[]
+
+  @@unique([salesOrderId, productId])
+  @@index([organizationId, productId])
+  @@map("sales_order_lines")
+}
+
+model SalesShipment {
+  id             String   @id @default(uuid(7))
+  organizationId String   @map("organization_id")
+  salesOrderId   String   @map("sales_order_id")
+  number         String
+  shippedAt      DateTime @map("shipped_at") @db.Timestamptz(6)
+  notes          String?
+  createdById    String   @map("created_by_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  salesOrder SalesOrder          @relation(fields: [salesOrderId], references: [id], onDelete: Restrict)
+  lines      SalesShipmentLine[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, shippedAt])
+  @@map("sales_shipments")
+}
+
+model SalesShipmentLine {
+  id               String  @id @default(uuid(7))
+  organizationId   String  @map("organization_id")
+  salesShipmentId  String  @map("sales_shipment_id")
+  salesOrderLineId String  @map("sales_order_line_id")
+  quantity         Decimal @db.Decimal(18, 4)
+  /// Lote del que sale la mercancia. Obligatorio si el producto se rastrea por
+  /// lote. Por omision se propone el de caducidad mas proxima.
+  lotId            String? @map("lot_id")
+
+  shipment  SalesShipment  @relation(fields: [salesShipmentId], references: [id], onDelete: Cascade)
+  orderLine SalesOrderLine @relation(fields: [salesOrderLineId], references: [id], onDelete: Restrict)
+
+  @@index([salesOrderLineId])
+  @@map("sales_shipment_lines")
+}
+
+// =============================================================================
+// Infraestructura: auditoria, idempotencia y bandeja de salida
+// =============================================================================
+
+/// Bitacora de auditoria. Tabla de SOLO INSERCION.
+/// Nunca contiene contrasenas, secretos ni datos personales innecesarios.
+model AuditLog {
+  id             String   @id @default(uuid(7))
+  organizationId String?  @map("organization_id")
+  actorId        String?  @map("actor_id")
+  action         String
+  entityType     String   @map("entity_type")
+  entityId       String?  @map("entity_id")
+  before         Json?
+  after          Json?
+  ipAddress      String?  @map("ip_address")
+  userAgent      String?  @map("user_agent")
+  correlationId  String   @map("correlation_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actor User? @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, entityType, entityId])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+/// Correlativo de documentos. RN-060.
+///
+/// Se modela como tabla y no como secuencia de PostgreSQL porque una secuencia
+/// no es transaccional: al revertir una operacion el numero se pierde y quedan
+/// huecos, que en varios paises no son aceptables fiscalmente. Aqui el numero
+/// se reserva bloqueando esta fila dentro de la misma transaccion que crea el
+/// documento, de modo que si la operacion falla el numero vuelve a estar libre.
+///
+/// El precio de esa garantia es que las creaciones del mismo tipo de documento
+/// en la misma empresa se serializan. Es aceptable: son operaciones humanas,
+/// no masivas.
+model DocumentSequence {
+  id             String @id @default(uuid(7))
+  organizationId String @map("organization_id")
+  /// Pais al que pertenece la serie. Una empresa que opera en dos paises lleva
+  /// correlativos independientes en cada uno.
+  countryCode    String @map("country_code") @db.Char(2)
+  /// Tipo de documento: PURCHASE_ORDER, PURCHASE_RECEIPT, SALES_ORDER,
+  /// SALES_SHIPMENT, STOCK_ADJUSTMENT, STOCK_TRANSFER.
+  documentType   String @map("document_type")
+  /// Ejercicio al que pertenece la serie. El correlativo reinicia cada año.
+  year           Int
+  /// Ultimo numero entregado. El siguiente documento recibe este valor mas uno.
+  lastNumber     Int    @default(0) @map("last_number")
+  /// Prefijo mostrado. Ejemplo: OC para orden de compra.
+  prefix         String
+  /// Digitos de relleno del correlativo. Con cuatro digitos, 000001 seria 0001.
+  padding        Int    @default(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([organizationId, countryCode, documentType, year])
+  @@map("document_sequences")
+}
+
+/// Evita que un doble envio o un reintento del cliente genere movimientos
+/// duplicados. Se purga por antiguedad.
+model IdempotencyKey {
+  id             String   @id @default(uuid(7))
+  organizationId String   @map("organization_id")
+  scope          String
+  key            String
+  requestHash    String   @map("request_hash")
+  responseBody   Json?    @map("response_body")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz(6)
+
+  @@unique([organizationId, scope, key])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+/// Bandeja de salida. Todo efecto externo que deba ocurrir exactamente una vez
+/// se escribe aqui dentro de la transaccion de negocio y se procesa despues.
+model OutboxEvent {
+  id             String    @id @default(uuid(7))
+  organizationId String    @map("organization_id")
+  type           String
+  payload        Json
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error")
+  availableAt    DateTime  @default(now()) @map("available_at") @db.Timestamptz(6)
+  processedAt    DateTime? @map("processed_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([processedAt, availableAt])
+  @@map("outbox_events")
+}
