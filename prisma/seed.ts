@@ -58,6 +58,9 @@ const COUNTRIES = [
     // antes de rechazar capturas de usuarios reales.
     taxIdPattern: '^[0-9]{2,12}-?[0-9Kk]$',
     phonePrefix: '+502',
+    // Guatemala numera con ocho digitos y se escriben en dos grupos de cuatro.
+    phoneMask: '#### ####',
+    phoneExample: '5555 4444',
   },
 ] as const;
 
@@ -91,6 +94,8 @@ async function seedCountries(): Promise<void> {
         taxIdLabel: country.taxIdLabel,
         taxIdPattern: country.taxIdPattern,
         phonePrefix: country.phonePrefix,
+        phoneMask: country.phoneMask,
+        phoneExample: country.phoneExample,
       },
       create: country,
     });
@@ -158,7 +163,8 @@ async function seedPlatformAdmin(): Promise<void> {
         data: {
           email: normalizedEmail,
           passwordHash: await hash(password, ARGON2_OPTIONS),
-          fullName: 'Super administrador',
+          firstName: 'Super',
+          lastName: 'administrador',
           status: 'ACTIVE',
           locale: 'en',
           // Nace obligada a cambiarla: la contraseña inicial estuvo en un

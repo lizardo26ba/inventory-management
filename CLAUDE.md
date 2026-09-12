@@ -14,7 +14,7 @@ versión funcional cubre existencias, compras y ventas.
 | Stack               | Next.js, PostgreSQL, Prisma, TypeScript                         | [ADR 0001](docs/adr/0001-stack-tecnologico.md)                              |
 | Existencias         | Libro de movimientos inmutable con saldo materializado          | [ADR 0002](docs/adr/0002-existencias-como-libro-de-movimientos.md)          |
 | Multiempresa        | Base compartida con `organization_id` en toda tabla de negocio  | [ADR 0003](docs/adr/0003-multiempresa-con-identificador-de-organizacion.md) |
-| Autenticación       | Credenciales propias con Argon2id y sesión en cookie            | [ADR 0004](docs/adr/0004-autenticacion-con-credenciales-propias.md)         |
+| Autenticación       | Credenciales propias con Argon2id y sesión en base de datos     | [ADR 0007](docs/adr/0007-sesion-propia-sin-libreria-de-autenticacion.md)    |
 | Super administrador | Acceso transversal, con segundo factor y auditoría obligatorios | [ADR 0005](docs/adr/0005-super-administrador-de-plataforma.md)              |
 | Multipaís           | Moneda base por organización, tasa congelada en cada documento  | [ADR 0006](docs/adr/0006-operacion-multipais-y-multimoneda.md)              |
 | Despliegue          | Local por ahora. Contenedor listo para Azure más adelante       | Pendiente                                                                   |
@@ -33,7 +33,7 @@ ventas, y bitácora de auditoría.
 | ORM           | Prisma                                           | Consultas SQL concatenadas        |
 | Base de datos | PostgreSQL                                       | NoSQL para datos transaccionales  |
 | Validación    | Zod (esquemas compartidos cliente/servidor)      | Validación solo en cliente        |
-| Autenticación | Auth.js con sesión en cookie                     | Tokens en `localStorage`          |
+| Autenticación | Sesión propia en base de datos                   | Auth.js, tokens en `localStorage` |
 | Pruebas       | Vitest, Testcontainers, Playwright               | Pruebas contra base de producción |
 
 Cualquier dependencia nueva requiere un ADR (ver `docs/standards/documentation-rules.md`).
@@ -58,6 +58,10 @@ Cualquier dependencia nueva requiere un ADR (ver `docs/standards/documentation-r
    ni cadena de conexión aparece en el código. Todo valor se clasifica y se ubica según
    `docs/standards/configuration-and-secrets.md`, y `process.env` solo se lee dentro del
    módulo de configuración.
+9. **Primero el prototipo, después el componente, al final la aplicación.** Ninguna pieza
+   visual entra en una pantalla real antes de existir en el prototipo y antes de existir
+   como componente compartido en `src/components/ui`. El orden no se salta ni se invierte.
+   Ver `docs/standards/prototype-and-components.md`.
 
 ## 3. Estructura de carpetas
 
@@ -107,6 +111,11 @@ por la interfaz pública declarada en su `index.ts`.
 - Prohibidos los números y cadenas mágicos. Se declaran como constantes con nombre.
 - Toda función exportada tiene tipo de retorno explícito.
 - Los comentarios explican el porqué. El qué lo explica el código.
+- **Todo instante se guarda en tiempo universal coordinado, y lo que se guarda es el
+  momento actual en esa escala:** `new Date()` en el código, `now()` en SQL. La zona
+  horaria se aplica al presentar y al cortar informes, nunca al guardar. Una operación
+  llama al reloj una sola vez y reparte ese instante.
+  Ver `docs/standards/dates-and-times.md`.
 
 ## 5. Definition of Done
 
@@ -117,6 +126,8 @@ Un cambio está terminado cuando cumple todo lo siguiente:
 - [ ] Verificación de permisos en servidor, con prueba negativa que confirme el rechazo.
 - [ ] Sin secretos, datos personales ni identificadores reales en el código o los logs.
 - [ ] Migración reversible y probada sobre una copia con datos representativos.
+- [ ] Toda pieza visual nueva pasó por el prototipo y por `src/components/ui` antes de
+      llegar a una pantalla real.
 - [ ] Documentación actualizada según `docs/standards/documentation-rules.md`.
 - [ ] Sin regresión de rendimiento en las consultas afectadas.
 
@@ -132,6 +143,8 @@ Un cambio está terminado cuando cumple todo lo siguiente:
 | Documentación            | `.claude/agents/docs-writer.md`               |
 | Configuración y secretos | `docs/standards/configuration-and-secrets.md` |
 | Reglas de documentación  | `docs/standards/documentation-rules.md`       |
+| Prototipo y componentes  | `docs/standards/prototype-and-components.md`  |
+| Fechas y horas           | `docs/standards/dates-and-times.md`           |
 | Reglas de API            | `docs/standards/api-documentation-rules.md`   |
 | Plantilla de ADR         | `docs/standards/adr-template.md`              |
 | Convenciones de Git      | `docs/standards/git-conventions.md`           |

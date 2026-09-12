@@ -44,6 +44,7 @@ export const PERMISSIONS = [
   platform('read', 'organization', 'Ver la lista de todas las empresas'),
   platform('update', 'organization', 'Editar los datos de cualquier empresa'),
   platform('suspend', 'organization', 'Suspender o reactivar una empresa'),
+  platform('delete', 'organization', 'Eliminar una empresa y todo lo que contiene'),
   platform('enter', 'organization', 'Entrar a una empresa de la que no se es miembro'),
   platform('grant', 'admin', 'Conceder el privilegio de super administrador'),
   platform('revoke', 'admin', 'Revocar el privilegio de super administrador'),

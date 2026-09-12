@@ -88,6 +88,13 @@ export const adjustStock = withPermission(
   envío o un reintento del cliente no genere movimientos duplicados.
 - El patrón bandeja de salida se usa para todo efecto externo que deba ocurrir
   exactamente una vez.
+- **El reloj se consulta una sola vez por operación.** Todo instante se guarda en tiempo
+  universal coordinado, y el valor que se escribe es el momento actual en esa escala:
+  `new Date()`. Si una operación marca varias filas, ese instante se calcula una vez y se
+  reparte, porque dos llamadas al reloj dentro de la misma transacción harían que el dato
+  diga que dos cosas simultáneas no lo fueron. Una fecha con hora que llegue del cliente
+  no se guarda tal cual: pasa por el esquema de la frontera, y solo se acepta con zona
+  declarada. Ver `docs/standards/dates-and-times.md`.
 
 ## 6. Seguridad de la superficie de servidor
 

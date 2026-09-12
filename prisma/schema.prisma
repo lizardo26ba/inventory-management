@@ -14,7 +14,9 @@
 //   - Tablas y columnas en snake_case mediante @map / @@map.
 //   - Clave primaria UUID v7, ordenable en el tiempo. Requiere Prisma 6 o superior.
 //   - Importes y cantidades en Decimal(18,4). Nunca punto flotante.
-//   - Fechas en timestamptz, siempre en UTC.
+//   - Fechas en timestamptz, siempre en UTC, y el valor que se escribe es el momento
+//     actual en esa escala: now() al insertar, @updatedAt al modificar. La zona horaria
+//     se aplica al presentar, nunca al guardar. Ver docs/standards/dates-and-times.md
 //   - organizationId presente en toda tabla de negocio, y primero en cada indice.
 //   - Los sellos de auditoria createdById / updatedById son escalares sin relacion de
 //     Prisma, para no generar decenas de relaciones inversas en User. La clave foranea
@@ -137,6 +139,10 @@ model Country {
   /// Expresion regular de validacion del identificador fiscal en este pais.
   taxIdPattern        String? @map("tax_id_pattern")
   phonePrefix         String  @map("phone_prefix")
+  /// Plantilla del numero nacional: cada # es un digito, el resto separadores.
+  phoneMask           String  @default("") @map("phone_mask")
+  /// Un numero de ejemplo, ya separado, para el texto de ayuda del formulario.
+  phoneExample        String  @default("") @map("phone_example")
   isActive            Boolean @default(true) @map("is_active")
 
   defaultCurrency Currency       @relation(fields: [defaultCurrencyCode], references: [code], onDelete: Restrict)
@@ -197,7 +203,11 @@ model ExchangeRate {
 model Organization {
   id               String  @id @default(uuid(7))
   slug             String  @unique
+  /// Nombre comercial, el que usa la gente a diario.
   name             String
+  /// Nombre que aparece en los documentos fiscales. No suele coincidir con el
+  /// comercial y es el que se imprime en una factura.
+  legalName        String  @map("legal_name")
   countryCode      String  @map("country_code") @db.Char(2)
   /// Moneda de valoracion del inventario y de los informes de esta organizacion.
   /// Todo costo de existencias se almacena convertido a esta moneda.
@@ -211,6 +221,12 @@ model Organization {
   locale           String  @default("en")
   taxId            String? @map("tax_id")
 
+  /// Datos de contacto. Acaban impresos en documentos, asi que viven con la
+  /// organizacion y no en una tabla aparte.
+  email   String?
+  phone   String?
+  address String?
+
   isActive  Boolean   @default(true) @map("is_active")
   version   Int       @default(0)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -223,6 +239,12 @@ model Organization {
   roles        Role[]
 
   @@index([countryCode])
+  /// Dos organizaciones del mismo pais no pueden compartir identificador fiscal:
+  /// es una identidad ante una administracion tributaria, y repetirla significa
+  /// que una de las dos esta mal registrada. Entre paises no choca, porque cada
+  /// administracion numera por su cuenta. El indice se crea como parcial en una
+  /// migracion SQL, para que las organizaciones todavia sin identificador no
+  /// choquen entre ellas.
   @@map("organizations")
 }
 
@@ -232,7 +254,12 @@ model User {
   id                  String     @id @default(uuid(7))
   email               String     @unique
   passwordHash        String     @map("password_hash")
-  fullName            String     @map("full_name")
+  /// El nombre va partido en dos columnas porque las listas se ordenan y se
+  /// buscan por apellido. Quien tenga dos apellidos los escribe juntos en el
+  /// segundo campo: partirlo mas seria inventar una estructura que no todos los
+  /// paises comparten.
+  firstName           String     @map("first_name")
+  lastName            String     @map("last_name")
   status              UserStatus @default(INVITED)
   /// Idioma de la interfaz. Es preferencia del usuario, no de la empresa. RN-010.
   locale              String     @default("en")

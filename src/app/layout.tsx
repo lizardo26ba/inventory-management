@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 
+import { cookies } from 'next/headers';
+
 import './globals.css';
+import { LANGUAGE_COOKIE_NAME, LanguageProvider, resolveLanguage } from '@/lib/i18n';
 
 export const metadata: Metadata = {
   title: 'Inventario',
@@ -18,16 +21,28 @@ export const viewport: Viewport = {
 };
 
 /**
- * El idioma se fija provisionalmente en inglés. Pasará a resolverse desde la
- * preferencia del usuario cuando entre la infraestructura de traducciones.
- * RN-010.
+ * El idioma se resuelve aquí, en el servidor, leyendo la cookie que deja el
+ * selector. Así la primera pintura ya llega en el idioma elegido y el atributo
+ * lang del documento es correcto desde el principio, sin destello ni corrección
+ * posterior. RN-010.
+ *
+ * Leer la cookie obliga a renderizar bajo demanda en lugar de estáticamente. Es
+ * el precio correcto: todo lo que hay detrás del acceso es personal de quien
+ * mira y no se podría servir desde una caché compartida de todos modos.
  */
-export default function RootLayout({
+export default async function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>): React.ReactElement {
+}: Readonly<{ children: React.ReactNode }>): Promise<React.ReactElement> {
+  const store = await cookies();
+  const language = resolveLanguage(store.get(LANGUAGE_COOKIE_NAME)?.value);
+
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="min-h-dvh">{children}</body>
+    // El tema claro es el de partida, sin importar la preferencia del sistema.
+    // Quien prefiera el oscuro lo pide con el conmutador del encabezado.
+    <html lang={language} data-theme="light" suppressHydrationWarning>
+      <body className="min-h-dvh">
+        <LanguageProvider initialLanguage={language}>{children}</LanguageProvider>
+      </body>
     </html>
   );
 }

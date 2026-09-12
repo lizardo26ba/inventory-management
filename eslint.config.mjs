@@ -63,6 +63,49 @@ export default tseslint.config(
   },
 
   {
+    // El prototipo es un boceto y vive aparte. No importa nada de la aplicación
+    // real: tiene sus propias copias en src/app/prototype/ui. Así se puede
+    // rediseñar una pantalla sin tocar lo que ya está en uso.
+    // Ver docs/standards/prototype-and-components.md
+    files: ['src/app/prototype/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/components/*', '@/modules/*'],
+              message:
+                'El prototipo no usa los componentes reales. Copia la pieza en src/app/prototype/ui y trabájala ahí.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
+    // Lo contrario también: nada de la aplicación real puede depender del
+    // prototipo, que se borra cuando deja de hacer falta.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/app/prototype/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/app/prototype/*', '**/prototype/*'],
+              message:
+                'El prototipo es un boceto desechable. Lleva la pieza a src/components/ui y úsala desde ahí.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
     // La semilla y los guiones corren fuera de la aplicación: necesitan leer el
     // entorno y escribir en la consola.
     files: ['prisma/**/*.ts', 'scripts/**/*.ts'],

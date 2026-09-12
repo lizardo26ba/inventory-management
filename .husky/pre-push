@@ -1,0 +1,26 @@
+# Impide subir directamente a la rama principal.
+#
+# Esto es un recordatorio local, no una garantía: solo protege esta copia del
+# repositorio y cualquiera puede saltárselo con --no-verify. El bloqueo real
+# vive en las reglas de rama de GitHub, que se aplican a todo el mundo.
+#
+# Ver docs/standards/git-conventions.md
+
+protected_branch="main"
+
+# Git entrega por la entrada estándar una línea por referencia que se va a
+# subir, con el formato: <ref local> <sha local> <ref remota> <sha remoto>
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "refs/heads/$protected_branch" ]; then
+    echo ""
+    echo "  Bloqueado: no se sube directo a '$protected_branch'."
+    echo ""
+    echo "  Crea una rama y abre una propuesta de cambio:"
+    echo "    git switch -c feat/descripcion-corta"
+    echo "    git push -u origin feat/descripcion-corta"
+    echo ""
+    exit 1
+  fi
+done
+
+exit 0

@@ -93,8 +93,42 @@ manual entre ambos es una fuente permanente de defectos.
   la tabla y acciones masivas por selección.
 - Los mensajes se escriben en el idioma del usuario, en segunda persona y sin jerga
   técnica. Todo texto pasa por la capa de internacionalización, nada se escribe fijo.
+- Las fechas llegan del servidor como instantes en tiempo universal coordinado, sin
+  formatear, y se pintan con `src/lib/format.ts`. Ninguna pantalla llama a `Intl` por su
+  cuenta: la zona y el idioma se resuelven en un solo sitio, que hoy fija el tiempo
+  universal para que servidor y navegador dibujen lo mismo, y mañana recibirá la zona del
+  almacén y el idioma del usuario. Un formulario que capture un instante lo envía con zona
+  declarada. Ver `docs/standards/dates-and-times.md`.
 
-## 7. Seguridad en el cliente
+## 7. Prototipo y componentes compartidos
+
+Regla completa en [`docs/standards/prototype-and-components.md`](../../docs/standards/prototype-and-components.md).
+
+- **El prototipo es un boceto y vive aislado.** `src/app/prototype/` tiene sus propias
+  copias de la interfaz en `src/app/prototype/ui/` y no importa nada de
+  `src/components` ni de `src/modules`. La duplicación es deliberada: un boceto que
+  comparte piezas con producción no se puede tocar sin miedo, y entonces no sirve para
+  decidir nada. En sentido contrario, ninguna pantalla real importa del prototipo.
+- **El orden es obligatorio: primero el prototipo, después el componente, al final la
+  aplicación.** Ninguna pieza visual entra en una pantalla real antes de existir en el
+  prototipo y antes de existir como componente compartido. Si la pieza todavía no existe,
+  se dibuja en `src/app/prototype/ui/` y se usa allí; si ya existe escrita a mano en
+  varios sitios, se factoriza allí primero. Solo entonces se lleva a `src/components/ui/`,
+  y solo entonces la usan las pantallas reales. Si alguna no cambió al cambiar el
+  componente, es que dibujaba la pieza por su cuenta, y ese es el defecto.
+- **Se salta el orden solo lo que no es diseño:** arreglar un fallo funcional, renombrar,
+  mover, tipar, cubrir con pruebas, o cualquier pieza que no se vea.
+- **Portar es traducir, no pegar.** El prototipo trabaja con datos falsos y estado en
+  memoria. El componente real recibe sus datos por propiedad, valida con Zod y no sabe de
+  dónde vienen. Se porta la forma, nunca el relleno.
+- **Una marca visual escrita a mano dos veces es un componente que falta.** Antes de
+  copiar un encabezado de tabla, una tarjeta o un campo, se sube a `src/components/ui/`.
+- Lo que sí comparten los dos árboles son los textos de `src/lib/i18n` y los formatos de
+  `src/lib/format`: eso es contenido, no diseño.
+- Las dos direcciones están cerradas con `no-restricted-imports`, así que romperlas falla
+  en la verificación y no en revisión.
+
+## 8. Seguridad en el cliente
 
 - La interfaz oculta lo que el usuario no puede hacer por comodidad, **jamás** por
   seguridad. El servidor vuelve a verificar cada permiso.
@@ -105,7 +139,7 @@ manual entre ambos es una fuente permanente de defectos.
 - Ningún dato sensible en `localStorage` ni en parámetros de la URL.
 - Los enlaces externos llevan `rel="noopener noreferrer"`.
 
-## 8. Rendimiento
+## 9. Rendimiento
 
 - Presupuesto de paquete de JavaScript por ruta con un límite verificado en integración
   continua. Un aumento significativo bloquea la fusión.
@@ -117,7 +151,7 @@ manual entre ambos es una fuente permanente de defectos.
   segundos y medio, desplazamiento acumulado de diseño por debajo de una décima.
 - La memorización se aplica cuando un perfilado la justifica, no por costumbre.
 
-## 9. Lista de verificación antes de entregar
+## 10. Lista de verificación antes de entregar
 
 - [ ] El componente es de servidor salvo justificación explícita.
 - [ ] Existen los cuatro estados: carga, vacío, error y sin permiso.
@@ -126,4 +160,6 @@ manual entre ambos es una fuente permanente de defectos.
 - [ ] Navegable por completo con teclado, con foco visible y etiquetas correctas.
 - [ ] Verificado en ancho de móvil, tableta y escritorio, en tema claro y oscuro.
 - [ ] Sin texto escrito fijo fuera de la capa de traducción.
+- [ ] Ninguna marca visual copiada: lo repetido vive en `src/components/ui/`.
+- [ ] El prototipo sigue aislado, sin importar de la aplicación real ni al revés.
 - [ ] Sin aumento no justificado del tamaño del paquete.

@@ -16,6 +16,7 @@ aplicación tiene el andamiaje montado y una página provisional.
 | Modelo de datos y migraciones       | Completo  |
 | Semillas                            | Completas |
 | Andamiaje de Next.js                | Completo  |
+| Prototipo de diseño                 | En curso  |
 | Módulo de configuración             | Pendiente |
 | Traducciones                        | Pendiente |
 | Autenticación y autorización        | Pendiente |
