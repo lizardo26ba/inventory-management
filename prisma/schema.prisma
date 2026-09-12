@@ -147,6 +147,7 @@ model Country {
 
   defaultCurrency Currency       @relation(fields: [defaultCurrencyCode], references: [code], onDelete: Restrict)
   organizations   Organization[]
+  users           User[]
   warehouses      Warehouse[]
   suppliers       Supplier[]
   customers       Customer[]
@@ -260,6 +261,11 @@ model User {
   /// paises comparten.
   firstName           String     @map("first_name")
   lastName            String     @map("last_name")
+  /// Pais de la persona, no de la empresa: una misma persona puede trabajar para
+  /// empresas de varios paises. Se usa para presentar sus datos y para el
+  /// formato telefonico. Opcional porque las cuentas creadas antes de que
+  /// existiera la columna no lo tienen, y adivinarlo seria inventar un dato.
+  countryCode         String?    @map("country_code") @db.Char(2)
   status              UserStatus @default(INVITED)
   /// Idioma de la interfaz. Es preferencia del usuario, no de la empresa. RN-010.
   locale              String     @default("en")
@@ -279,6 +285,7 @@ model User {
   updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt           DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
+  country        Country?             @relation(fields: [countryCode], references: [code], onDelete: Restrict)
   memberships    Membership[]
   sessions       Session[]
   passwordResets PasswordResetToken[]
@@ -287,6 +294,7 @@ model User {
   grantedAdmins  PlatformAdmin[]      @relation("PlatformAdminGrantedBy")
 
   @@index([status])
+  @@index([countryCode])
   @@map("users")
 }
 
@@ -402,6 +410,11 @@ model Permission {
 model Role {
   id             String   @id @default(uuid(7))
   organizationId String   @map("organization_id")
+  /// Identificador estable de un rol del sistema: admin, purchasing, sales,
+  /// warehouse, viewer. Permite que la interfaz muestre su nombre en el idioma
+  /// de quien mira, y que renombrarlo no rompa nada. Los roles que crea una
+  /// empresa no llevan codigo: su nombre es el que su autor escribio.
+  code           String?
   name           String
   description    String?
   /// Rol creado por el sistema al dar de alta la organizacion. No se puede borrar.
@@ -415,6 +428,7 @@ model Role {
   memberships  MembershipRole[]
 
   @@unique([organizationId, name])
+  @@unique([organizationId, code])
   @@index([organizationId])
   @@map("roles")
 }

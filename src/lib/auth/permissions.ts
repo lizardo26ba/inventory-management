@@ -46,6 +46,14 @@ export const PERMISSIONS = [
   platform('suspend', 'organization', 'Suspender o reactivar una empresa'),
   platform('delete', 'organization', 'Eliminar una empresa y todo lo que contiene'),
   platform('enter', 'organization', 'Entrar a una empresa de la que no se es miembro'),
+  // Usuarios vistos desde encima de las empresas. No se confunden con los
+  // permisos de empresa del mismo nombre: estos alcanzan a cualquier persona del
+  // sistema, incluidas las de empresas donde quien mira no es miembro.
+  platform('read', 'user', 'Ver los usuarios de toda la plataforma'),
+  platform('create', 'user', 'Crear cuentas de usuario'),
+  platform('update', 'user', 'Editar cualquier usuario y sus accesos a empresas'),
+  platform('suspend', 'user', 'Suspender o reactivar cualquier usuario'),
+  platform('delete', 'user', 'Eliminar una cuenta de usuario'),
   platform('grant', 'admin', 'Conceder el privilegio de super administrador'),
   platform('revoke', 'admin', 'Revocar el privilegio de super administrador'),
   platform('read', 'audit', 'Consultar la bitácora de auditoría de toda la plataforma'),
@@ -136,7 +144,16 @@ export const PLATFORM_PERMISSIONS = PERMISSIONS.filter(
  *
  * RN-009, todavía por confirmar con negocio.
  */
+export type SystemRoleCode = 'admin' | 'purchasing' | 'sales' | 'warehouse' | 'viewer';
+
 export interface RoleTemplate {
+  /**
+   * Lo estable del rol. El nombre de abajo se guarda en la base para quien la
+   * consulte a mano, pero lo que la interfaz muestra sale del catálogo de textos
+   * a partir de este código, así que un rol del sistema se lee en el idioma de
+   * quien mira y renombrarlo no rompe nada.
+   */
+  readonly code: SystemRoleCode;
   readonly name: string;
   readonly description: string;
   /** Marca el rol que recibe todo permiso de empresa, incluidos los futuros. */
@@ -146,11 +163,13 @@ export interface RoleTemplate {
 
 export const ROLE_TEMPLATES = [
   {
+    code: 'admin',
     name: 'Administrador',
     description: 'Control total dentro de la empresa.',
     grantsEveryOrganizationPermission: true,
   },
   {
+    code: 'purchasing',
     name: 'Compras',
     description: 'Gestiona proveedores, órdenes de compra y recepciones.',
     permissions: [
@@ -170,6 +189,7 @@ export const ROLE_TEMPLATES = [
     ],
   },
   {
+    code: 'sales',
     name: 'Ventas',
     description: 'Gestiona clientes, pedidos de venta y despachos.',
     permissions: [
@@ -188,6 +208,7 @@ export const ROLE_TEMPLATES = [
     ],
   },
   {
+    code: 'warehouse',
     name: 'Almacén',
     description: 'Opera el movimiento físico de mercancía.',
     permissions: [
@@ -207,6 +228,7 @@ export const ROLE_TEMPLATES = [
     ],
   },
   {
+    code: 'viewer',
     name: 'Consulta',
     description: 'Solo lectura. No puede modificar nada.',
     permissions: [
@@ -224,3 +246,24 @@ export const ROLE_TEMPLATES = [
     ],
   },
 ] as const satisfies readonly RoleTemplate[];
+
+/** El rol que se propone al conceder un acceso nuevo: el que menos alcanza. */
+export const DEFAULT_SYSTEM_ROLE_CODE: SystemRoleCode = 'viewer';
+
+export function isSystemRoleCode(value: string): value is SystemRoleCode {
+  return ROLE_TEMPLATES.some((template) => template.code === value);
+}
+
+/**
+ * Los permisos que lleva una plantilla, ya resueltos.
+ *
+ * La plantilla del administrador no los enumera: dice que alcanza todo lo de
+ * empresa. Resolverlo aquí, y no en quien crea la empresa, evita que cada sitio
+ * que lea las plantillas tenga que acordarse de esa bifurcación.
+ */
+export function permissionsForRoleTemplate(template: RoleTemplate): readonly PermissionCode[] {
+  if (template.grantsEveryOrganizationPermission === true) {
+    return ORGANIZATION_PERMISSIONS.map((permission) => permission.code);
+  }
+  return template.permissions ?? [];
+}

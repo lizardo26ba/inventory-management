@@ -15,6 +15,7 @@ import { PrismaClient } from '@prisma/client';
 import { hash } from '@node-rs/argon2';
 
 import { PERMISSIONS } from '../src/lib/auth/permissions.js';
+import { createSystemRoles } from '../src/lib/db/system-roles.js';
 
 const prisma = new PrismaClient();
 
@@ -194,13 +195,44 @@ async function seedPlatformAdmin(): Promise<void> {
   );
 }
 
+/**
+ * Los roles del sistema en las empresas que ya existen.
+ *
+ * Una empresa creada de ahora en adelante nace con ellos. Esto es para las
+ * anteriores, y para añadir a las que ya los tienen cualquier permiso nuevo que
+ * haya entrado en el catálogo desde la última vez.
+ */
+async function seedSystemRoles(): Promise<void> {
+  const organizations = await prisma.organization.findMany({
+    where: { deletedAt: null },
+    select: { id: true, slug: true },
+  });
+
+  let rolesCreated = 0;
+  let permissionsGranted = 0;
+
+  for (const organization of organizations) {
+    const result = await createSystemRoles(prisma, organization.id);
+    rolesCreated += result.rolesCreated;
+    permissionsGranted += result.permissionsGranted;
+  }
+
+  console.log(
+    `  Roles del sistema: ${organizations.length} empresas revisadas` +
+      (rolesCreated > 0 ? `, ${rolesCreated} roles creados` : '') +
+      (permissionsGranted > 0 ? `, ${permissionsGranted} permisos atados` : ''),
+  );
+}
+
 async function main(): Promise<void> {
   console.log('Sembrando datos base...');
 
-  // El orden importa: los países referencian monedas.
+  // El orden importa: los países referencian monedas, y los roles del sistema
+  // atan permisos que la siembra de permisos tiene que haber insertado ya.
   await seedCurrencies();
   await seedCountries();
   await seedPermissions();
+  await seedSystemRoles();
   await seedPlatformAdmin();
 
   console.log('Listo.');

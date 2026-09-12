@@ -24,6 +24,10 @@ export const CONTROL_CLASS =
 /** El control de texto tal como va bajo una etiqueta. */
 export const INPUT_CLASS = `mt-1.5 ${CONTROL_CLASS}`;
 
+/** El mismo control, al alto que cabe dentro de una fila de una lista. */
+export const SMALL_CONTROL_CLASS =
+  'h-8 w-full rounded-control border bg-surface px-2 text-sm placeholder:text-text-muted';
+
 /** El borde del control según tenga error o no. */
 export function inputBorderClass(hasError: boolean): string {
   return hasError ? 'border-danger' : 'border-border';
@@ -106,26 +110,47 @@ export function Select({
   value,
   onChange,
   hasError = false,
+  disabled = false,
+  size = 'md',
+  label,
+  className = '',
   children,
 }: {
-  readonly id: string;
+  readonly id?: string;
   readonly value: string;
   readonly onChange: (next: string) => void;
   readonly hasError?: boolean;
+  /** Para un dato que existe pero ya no se puede cambiar. */
+  readonly disabled?: boolean;
+  /**
+   * El tamaño pequeño es para los desplegables que van dentro de una fila, donde
+   * el alto de un campo de formulario rompería el renglón.
+   */
+  readonly size?: 'sm' | 'md';
+  /** Se anuncia cuando no hay etiqueta visible, como dentro de una fila. */
+  readonly label?: string;
+  /** Para el ancho, que lo decide el sitio donde va. */
+  readonly className?: string;
   readonly children: React.ReactNode;
 }): React.ReactElement {
+  const isSmall = size === 'sm';
+
   return (
-    <div className="relative mt-1.5">
+    <div className={`relative ${isSmall ? '' : 'mt-1.5'} ${className}`.trim()}>
       <select
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         aria-invalid={hasError}
-        className={`${CONTROL_CLASS} ${inputBorderClass(hasError)} appearance-none pr-9`}
+        aria-label={label}
+        disabled={disabled}
+        className={`${isSmall ? SMALL_CONTROL_CLASS : CONTROL_CLASS} ${inputBorderClass(hasError)} appearance-none ${isSmall ? 'pr-8' : 'pr-9'} disabled:cursor-not-allowed disabled:opacity-70`}
       >
         {children}
       </select>
-      <IconChevronDown className="text-text-muted pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2" />
+      <IconChevronDown
+        className={`text-text-muted pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 ${isSmall ? 'right-2' : 'right-3'}`}
+      />
     </div>
   );
 }

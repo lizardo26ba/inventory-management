@@ -25,6 +25,7 @@ import { IconPlus } from '../../ui/icons';
 import { TablePagination } from '../../ui/pagination';
 import { SearchInput } from '../../ui/search-input';
 import { SummaryCard, SummaryCardGrid } from '../../ui/summary-card';
+import { Tag, TagRow } from '../../ui/tag';
 import { TableBody, TableProgress } from '../../ui/table-loading';
 import { useSimulatedQuery } from '../../simulated-query';
 import { SortableHeader, sortRows, useTableSort } from '../../ui/table-sort';
@@ -248,16 +249,11 @@ export function UsersView(): React.ReactElement {
                         </td>
 
                         <td className="text-text-muted hidden px-4 py-2.5 xl:table-cell">
-                          <span className="flex flex-wrap gap-1">
+                          <TagRow>
                             {roleNames(user).map((name) => (
-                              <span
-                                key={name}
-                                className="bg-surface-muted rounded-control px-1.5 py-0.5 text-xs whitespace-nowrap"
-                              >
-                                {name}
-                              </span>
+                              <Tag key={name}>{name}</Tag>
                             ))}
-                          </span>
+                          </TagRow>
                         </td>
 
                         <td className="text-text-muted hidden px-4 py-2.5 whitespace-nowrap tabular-nums lg:table-cell">

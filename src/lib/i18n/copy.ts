@@ -50,6 +50,11 @@ export const copyEn = {
     incompletePhone: 'That number is not complete for the country you chose.',
     invalidTaxId: 'That does not match the tax number format for this country.',
     duplicateTaxId: 'Another company in this country already uses it.',
+    emailTaken: 'Another account already uses this email.',
+    tooMany: 'That is more than this field accepts.',
+    duplicatedOrganization: 'A company appears twice in the access list.',
+    unknownOrganization: 'One of those companies no longer exists. Reload the page.',
+    roleNotInOrganization: 'That role belongs to another company. Reload the page.',
   },
 
   /** Lo que se enseña cuando una operación entera falla. */
@@ -282,6 +287,9 @@ export const copyEn = {
     columnActions: 'Actions',
     resultCount: 'users',
     empty: 'No user matches this search.',
+    none: 'No user has been created yet.',
+    staleVersion:
+      'Someone else changed this account while you were editing. Reload to see their changes.',
     rowMenu: 'Open actions',
     edit: 'Edit',
     delete: 'Delete',
@@ -332,6 +340,27 @@ export const copyEn = {
     notFound: 'That user no longer exists.',
     requiredField: 'This field is required.',
     invalidEmail: 'That does not look like an email address.',
+    createdTitle: 'Account created',
+    createdHelp:
+      'Hand this password over in person, or through a channel they already trust. It is shown once and cannot be retrieved.',
+    createdEmail: 'Signs in with',
+    createdPassword: 'Temporary password',
+    createdChange: 'They must choose their own password the first time they sign in.',
+    createdCopy: 'Copy password',
+    createdCopied: 'Copied',
+    createdDone: 'Back to users',
+  },
+
+  /**
+   * Nombres de los roles que toda empresa tiene. Se muestran por su código, así
+   * que se leen en el idioma de quien mira y no en el de quien creó la empresa.
+   */
+  roles: {
+    admin: 'Company administrator',
+    purchasing: 'Purchasing',
+    sales: 'Sales',
+    warehouse: 'Warehouse',
+    viewer: 'Read only',
   },
 
   audit: {
