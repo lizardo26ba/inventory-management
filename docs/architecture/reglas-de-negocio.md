@@ -37,6 +37,12 @@ el cómo se resuelve.
 | RN-008 | Un usuario puede quedar limitado a ciertos almacenes dentro de su empresa.                               | Supuesta   |
 | RN-009 | Roles iniciales: administrador, compras, ventas, almacén y consulta.                                     | Supuesta   |
 
+RN-005 está suspendida de forma temporal y declarada. Sus pantallas de alta y de
+verificación no existen todavía, así que la regla se apagaría sola dejando el despliegue
+inservible. Mientras dure, el segundo factor se exige o se salta con la variable
+`PLATFORM_ADMIN_TWO_FACTOR`, que por omisión lo exige. Ver la enmienda del
+[ADR 0005](../adr/0005-super-administrador-de-plataforma.md).
+
 ## 2. Idioma y presentación
 
 | Id     | Regla                                                                                                                | Estado     |

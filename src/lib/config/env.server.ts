@@ -59,11 +59,12 @@ const serverSchema = z.object({
   /**
    * Si el super administrador debe superar un segundo factor antes de entrar a
    * una empresa. El ADR 0005 lo exige; esta variable permite saltarlo mientras
-   * el sistema corre solo en local y las pantallas de alta del segundo factor
-   * todavía no existen.
+   * las pantallas de alta y de verificación del segundo factor todavía no
+   * existen.
    *
-   * Por omisión está exigido. Apagarlo hay que escribirlo, y más abajo se
-   * comprueba que no se pueda apagar en producción.
+   * Por omisión está exigido, en todos los entornos. Apagarlo hay que
+   * escribirlo, y donde se apague queda dicho en el registro de arranque. Ver la
+   * enmienda del ADR 0005.
    */
   PLATFORM_ADMIN_TWO_FACTOR: z.enum(['required', 'skipped']).default('required'),
 });
@@ -102,19 +103,25 @@ export const isTest = serverEnv.NODE_ENV === 'test';
 /**
  * Si hay que exigir el segundo factor al super administrador.
  *
- * En producción vale siempre cierto: la variable ni se mira. Se resuelve así, y
- * no lanzando al arrancar, porque Next compila en modo producción también para
- * una construcción local, y un error ahí convertiría un permiso de desarrollo en
- * una construcción rota. Ignorar el valor inseguro es tan estricto como
- * rechazarlo, y no se lleva nada por delante.
+ * Manda la variable, en todos los entornos, y su valor por omisión es exigirlo.
+ * Antes producción lo imponía sin mirar la variable, y eso dejaba el despliegue
+ * bloqueado sin salida: la puerta pide una marca que ninguna pantalla puede
+ * poner todavía, así que toda pantalla de plataforma respondía con un error.
+ *
+ * Es una concesión con fecha de caducidad, no un permiso permanente. Se retira
+ * en cuanto existan las pantallas de alta y de verificación, y entonces esta
+ * variable desaparece. Ver la enmienda del ADR 0005.
  */
 export const requiresPlatformAdminTwoFactor =
-  isProduction || serverEnv.PLATFORM_ADMIN_TWO_FACTOR === 'required';
+  serverEnv.PLATFORM_ADMIN_TWO_FACTOR === 'required';
 
-// Que se vea en el registro de arranque. Un control de seguridad apagado no
-// puede ser algo que solo sepa quien editó el archivo de entorno.
+// Que se vea en el registro de arranque, y con más voz en producción. Un control
+// de seguridad apagado no puede ser algo que solo sepa quien editó la
+// configuración del despliegue.
 if (!requiresPlatformAdminTwoFactor) {
   console.warn(
-    '[configuración] Segundo factor del super administrador SALTADO. Solo válido fuera de producción. Ver ADR 0005.',
+    isProduction
+      ? '[configuración] PRODUCCIÓN con el segundo factor del super administrador SALTADO. Concesión temporal mientras no existen sus pantallas. Ver la enmienda del ADR 0005.'
+      : '[configuración] Segundo factor del super administrador SALTADO. Ver ADR 0005.',
   );
 }
