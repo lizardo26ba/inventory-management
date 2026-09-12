@@ -74,11 +74,16 @@ segunda pantalla la necesita hay que desatarla, y mientras tanto ya hay dos copi
 divergiendo. Y el diseño acaba discutiéndose sobre código en producción, que es el sitio
 más caro para cambiar de opinión.
 
-### Lo que no se salta el orden
+### Lo que queda fuera del orden
+
+Estos cambios no pasan por el prototipo, porque no son decisiones de diseño:
 
 - Un arreglo de un fallo funcional en una pantalla real. Eso no es diseño.
 - Un cambio que no se ve: renombrar, mover, tipar, cubrir con pruebas.
 - Una pieza que no es visual: un esquema, un servicio, un repositorio.
+
+Lo que sí pasa por el orden, aunque parezca menor: cualquier cambio de aspecto, por pequeño
+que sea, incluido mover una pieza de sitio en la pantalla o cambiarle un color.
 
 ## 4. Qué es un componente compartido
 
