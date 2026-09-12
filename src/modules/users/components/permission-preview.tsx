@@ -16,9 +16,16 @@
  * no se pueden anticipar aquí. Se dice, en lugar de mostrar una lista incompleta
  * como si estuviera completa.
  *
- * Los permisos se nombran por su código y no por una frase. Es el mismo texto que
- * aparecerá en la bitácora, es igual en los dos idiomas, y traducir cincuenta y
- * cinco descripciones es un trabajo aparte que todavía no está hecho.
+ * Cada permiso se enseña con su frase traducida, no con su código. El código es
+ * lo que guarda la base de datos y lo que aparece en la bitácora, pero quien
+ * concede un acceso necesita entender qué está dando, y `purchase_order:approve`
+ * no se lo dice. Si un permiso entra al catálogo y nadie lo traduce, se cae al
+ * código en vez de dejar el renglón vacío, y la prueba de traducciones lo señala.
+ *
+ * Se escriben con la letra normal del formulario y no con la monoespaciada que el
+ * sistema reserva para los identificadores, como el código de empresa o el de la
+ * bitácora. Así este bloque se lee igual que el resto del formulario y igual que
+ * en el prototipo, que es donde se acordó.
  */
 
 import { Checkbox } from '@/components/ui/checkbox';
@@ -27,7 +34,7 @@ import {
   ROLE_TEMPLATES,
   permissionsForRoleTemplate,
 } from '@/lib/auth/permissions';
-import { useCopy } from '@/lib/i18n';
+import { useCopy, type Copy } from '@/lib/i18n';
 
 import { type AccessInput } from '../schema';
 import { type OrganizationChoice } from '../types';
@@ -77,6 +84,14 @@ export function PermissionPreview({
 }): React.ReactElement {
   const copy = useCopy();
 
+  function groupLabel(resource: string): string {
+    return copy.permissionGroups[resource as keyof Copy['permissionGroups']] ?? resource;
+  }
+
+  function permissionLabel(code: string): string {
+    return copy.permissions[code as keyof Copy['permissions']] ?? code;
+  }
+
   if (accesses.length === 0) {
     return <p className="text-text-muted text-sm">{copy.userForm.permissionsEmpty}</p>;
   }
@@ -89,7 +104,7 @@ export function PermissionPreview({
         {[...GROUPS].map(([resource, permissionCodes]) => (
           <div key={resource}>
             <p className="text-text-muted text-xs font-semibold tracking-wide uppercase">
-              {resource}
+              {groupLabel(resource)}
             </p>
             <ul className="mt-2 space-y-1.5">
               {permissionCodes.map((code) => {
@@ -97,12 +112,12 @@ export function PermissionPreview({
                 return (
                   <li
                     key={code}
-                    className={`flex items-center gap-2 font-mono text-xs ${
+                    className={`flex items-center gap-2 text-sm ${
                       isGranted ? '' : 'text-text-muted'
                     }`}
                   >
-                    <Checkbox checked={isGranted} label={code} isReadOnly />
-                    {code}
+                    <Checkbox checked={isGranted} label={permissionLabel(code)} isReadOnly />
+                    {permissionLabel(code)}
                   </li>
                 );
               })}
