@@ -45,7 +45,7 @@ import { TableBody, TableProgress } from '../../ui/table-loading';
 import { useSimulatedQuery } from '../../simulated-query';
 import { SortableHeader, sortRows, useTableSort } from '../../ui/table-sort';
 import { Toggle } from '../../ui/toggle';
-import { RowMenu } from './row-menu';
+import { CompanyRowMenu } from './row-menu';
 import { buttonClass } from '../../ui/button';
 import { TablePagination } from '../../ui/pagination';
 import { SearchInput } from '../../ui/search-input';
@@ -310,7 +310,7 @@ export function CompaniesView(): React.ReactElement {
                       </span>
                     </td>
                     <td className={`${TABLE_CELL_CLASS} text-right`}>
-                      <RowMenu company={company} />
+                      <CompanyRowMenu company={company} />
                     </td>
                   </TableRow>
                 ))}

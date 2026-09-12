@@ -19,6 +19,7 @@ import 'server-only';
 import { type Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/db/client';
+import { createSystemRoles } from '@/lib/db/system-roles';
 
 import {
   type OrganizationDetail,
@@ -259,12 +260,19 @@ export async function createOrganization(data: {
   readonly phone: string | null;
   readonly address: string | null;
 }): Promise<{ readonly id: string; readonly slug: string }> {
-  const created = await prisma.organization.create({
-    data,
-    select: { id: true, slug: true },
-  });
+  // La empresa y sus roles nacen juntos. Una empresa sin roles no puede recibir
+  // a nadie: conceder un acceso exige elegir con qué alcance, y sin roles no hay
+  // alcance que elegir. Si algo falla a mitad, no queda ni la empresa.
+  return prisma.$transaction(async (tx) => {
+    const created = await tx.organization.create({
+      data,
+      select: { id: true, slug: true },
+    });
 
-  return created;
+    await createSystemRoles(tx, created.id);
+
+    return created;
+  });
 }
 
 /**

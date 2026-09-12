@@ -37,6 +37,11 @@ export const copyEs: Copy = {
     incompletePhone: 'Ese número no está completo para el país que elegiste.',
     invalidTaxId: 'Eso no encaja con el formato del identificador fiscal de este país.',
     duplicateTaxId: 'Otra empresa de este país ya lo usa.',
+    emailTaken: 'Otra cuenta ya usa este correo.',
+    tooMany: 'Eso es más de lo que acepta este campo.',
+    duplicatedOrganization: 'Una empresa aparece dos veces en la lista de accesos.',
+    unknownOrganization: 'Una de esas empresas ya no existe. Recarga la página.',
+    roleNotInOrganization: 'Ese rol es de otra empresa. Recarga la página.',
   },
 
   errors: {
@@ -267,6 +272,9 @@ export const copyEs: Copy = {
     columnActions: 'Acciones',
     resultCount: 'usuarios',
     empty: 'Ningún usuario coincide con esta búsqueda.',
+    none: 'Todavía no se ha creado ningún usuario.',
+    staleVersion:
+      'Otra persona cambió esta cuenta mientras la editabas. Recarga para ver sus cambios.',
     rowMenu: 'Abrir las acciones',
     edit: 'Editar',
     delete: 'Eliminar',
@@ -317,6 +325,23 @@ export const copyEs: Copy = {
     notFound: 'Ese usuario ya no existe.',
     requiredField: 'Este campo es obligatorio.',
     invalidEmail: 'Eso no parece una dirección de correo.',
+    createdTitle: 'Cuenta creada',
+    createdHelp:
+      'Entrega esta contraseña en persona, o por un medio que esa persona ya use con confianza. Se muestra una sola vez y no se puede recuperar.',
+    createdEmail: 'Entra con',
+    createdPassword: 'Contraseña temporal',
+    createdChange: 'Tendrá que elegir la suya la primera vez que entre.',
+    createdCopy: 'Copiar la contraseña',
+    createdCopied: 'Copiada',
+    createdDone: 'Volver a usuarios',
+  },
+
+  roles: {
+    admin: 'Administrador de empresa',
+    purchasing: 'Compras',
+    sales: 'Ventas',
+    warehouse: 'Almacén',
+    viewer: 'Solo consulta',
   },
 
   audit: {

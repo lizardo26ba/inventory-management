@@ -25,9 +25,10 @@ import { useCompanyStore } from '../../company-store';
 import { useCopy } from '@/lib/i18n';
 import { CountrySelect } from '../../ui/country-select';
 import { buttonClass } from '../../ui/button';
-import { Field, INPUT_CLASS, Section } from '../../ui/form';
+import { Checkbox } from '../../ui/checkbox';
+import { FilterInput } from '../../ui/filter-input';
+import { Field, INPUT_CLASS, Section, Select } from '../../ui/form';
 import { CountryFlag } from '../../ui/flag';
-import { IconSearch } from '../../ui/icons';
 import { PhotoField } from '../../photo-field';
 import { countryOptions } from '../../fake-data';
 import { useUserStore, type UserInput } from '../../user-store';
@@ -214,17 +215,11 @@ export function UserForm({
       </Section>
 
       <Section title={copy.userForm.sectionAccess} help={copy.userForm.accessHelp}>
-        <div className="relative">
-          <IconSearch className="text-text-muted pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <input
-            type="search"
-            value={companyFilter}
-            onChange={(event) => setCompanyFilter(event.target.value)}
-            placeholder={copy.organizations.searchPlaceholder}
-            aria-label={copy.organizations.searchPlaceholder}
-            className="border-border bg-canvas rounded-control placeholder:text-text-muted h-9 w-full border pr-3 pl-9 text-sm"
-          />
-        </div>
+        <FilterInput
+          value={companyFilter}
+          onChange={setCompanyFilter}
+          placeholder={copy.organizations.searchPlaceholder}
+        />
 
         {/* La lista se desplaza dentro de su caja. Con veintidós empresas, y
             más adelante muchas más, el formulario entero no puede crecer. */}
@@ -237,12 +232,10 @@ export function UserForm({
                 key={company.id}
                 className="border-border flex items-center gap-3 border-b px-3 py-2 last:border-0"
               >
-                <input
+                <Checkbox
                   id={`grant-${company.id}`}
-                  type="checkbox"
                   checked={isGranted}
-                  onChange={(event) => toggleCompany(company.id, event.target.checked)}
-                  className="accent-primary h-4 w-4 shrink-0"
+                  onChange={(next) => toggleCompany(company.id, next)}
                 />
                 <CountryFlag countryCode={company.countryCode} className="h-4 w-4" />
                 <label
@@ -252,19 +245,20 @@ export function UserForm({
                   {company.name}
                 </label>
 
-                <select
+                <Select
                   value={roleCode ?? ''}
                   disabled={!isGranted}
-                  onChange={(event) => setRole(company.id, event.target.value)}
-                  aria-label={`${copy.userForm.roleColumn} · ${company.name}`}
-                  className="border-border bg-surface rounded-control h-8 w-40 shrink-0 border px-2 text-sm disabled:opacity-40"
+                  onChange={(next) => setRole(company.id, next)}
+                  size="sm"
+                  label={`${copy.userForm.roleColumn} · ${company.name}`}
+                  className="w-40 shrink-0"
                 >
                   {roles.map((role) => (
                     <option key={role.code} value={role.code}>
                       {role.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             );
           })}
@@ -295,14 +289,7 @@ export function UserForm({
                           isGranted ? '' : 'text-text-muted'
                         }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={isGranted}
-                          disabled
-                          readOnly
-                          aria-label={permission.label}
-                          className="accent-primary h-4 w-4 shrink-0"
-                        />
+                        <Checkbox checked={isGranted} label={permission.label} isReadOnly />
                         {permission.label}
                       </li>
                     );

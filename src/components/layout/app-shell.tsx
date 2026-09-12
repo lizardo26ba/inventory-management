@@ -30,6 +30,7 @@ import {
   IconMoon,
   IconOrganizations,
   IconSignOut,
+  IconUsers,
   IconSun,
 } from '@/components/ui/icons';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
@@ -64,11 +65,12 @@ type NavItem = {
 /**
  * Lo que hay construido de administración.
  *
- * Usuarios y bitácora entrarán aquí cuando existan sus pantallas. Están
- * dibujados en el prototipo y todavía no tienen ruta real.
+ * La bitácora entrará aquí cuando exista su pantalla. Está dibujada en el
+ * prototipo y todavía no tiene ruta real.
  */
 const ADMINISTRATION_ITEMS = [
   { href: '/organizations', label: (copy) => copy.nav.organizations, Icon: IconOrganizations },
+  { href: '/users', label: (copy) => copy.nav.users, Icon: IconUsers },
 ] as const satisfies readonly NavItem[];
 
 function NavGroup({
