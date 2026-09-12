@@ -197,6 +197,9 @@ export async function summarizeUsers(): Promise<UsersSummary> {
 
 const DETAIL_SELECT = {
   ...LIST_SELECT,
+  // El motivo solo hace falta en la ficha, para poder editarlo. En la lista
+  // ocuparía sitio sin que nadie lo lea.
+  platformAdmin: { select: { revokedAt: true, reason: true } },
   version: true,
   mustChangePassword: true,
   lastLoginAt: true,
@@ -213,6 +216,10 @@ export async function findUserById(id: string): Promise<UserDetail | null> {
   return {
     ...toListItem(row),
     version: row.version,
+    platformAdminReason:
+      row.platformAdmin !== null && row.platformAdmin.revokedAt === null
+        ? row.platformAdmin.reason
+        : null,
     mustChangePassword: row.mustChangePassword,
     lastLoginAt: row.lastLoginAt,
   };
@@ -279,7 +286,44 @@ export type CreateUserData = {
   readonly lastName: string;
   readonly countryCode: string;
   readonly accesses: readonly { readonly organizationId: string; readonly roleId: string }[];
+  /** Presente solo cuando además se concede el acceso de plataforma. */
+  readonly platformAdmin?: {
+    readonly reason: string;
+    readonly grantedById: string;
+  };
 };
+
+/**
+ * Concede el acceso de plataforma, o revive una concesión revocada.
+ *
+ * Nunca borra la fila. Una concesión revocada es el rastro de que alguien tuvo
+ * ese poder y de quién se lo quitó, y eso es justo lo que se mira cuando algo
+ * sale mal. Volver a conceder limpia la revocación y deja el motivo nuevo.
+ */
+async function grantPlatformAdmin(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  reason: string,
+  grantedById: string,
+): Promise<void> {
+  await tx.platformAdmin.upsert({
+    where: { userId },
+    update: { reason, grantedById, grantedAt: new Date(), revokedAt: null, revokedById: null },
+    create: { userId, reason, grantedById },
+  });
+}
+
+/** Retira el acceso de plataforma dejando constancia de quién lo retiró. */
+async function revokePlatformAdmin(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  revokedById: string,
+): Promise<void> {
+  await tx.platformAdmin.updateMany({
+    where: { userId, revokedAt: null },
+    data: { revokedAt: new Date(), revokedById },
+  });
+}
 
 /**
  * Crea la cuenta y sus accesos de una vez.
@@ -316,6 +360,15 @@ export async function createUser(data: CreateUserData): Promise<{ readonly id: s
       });
     }
 
+    if (data.platformAdmin !== undefined) {
+      await grantPlatformAdmin(
+        tx,
+        created.id,
+        data.platformAdmin.reason,
+        data.platformAdmin.grantedById,
+      );
+    }
+
     return created;
   });
 }
@@ -331,6 +384,15 @@ export type UpdateUserData = {
   readonly lastName: string;
   readonly countryCode: string;
   readonly accesses: readonly { readonly organizationId: string; readonly roleId: string }[];
+  /**
+   * Cómo debe quedar el acceso de plataforma, y quién lo está decidiendo. La
+   * acción ya comprobó que esa persona puede conceder o revocar.
+   */
+  readonly platformAdmin: {
+    readonly isGranted: boolean;
+    readonly reason: string;
+    readonly actorId: string;
+  };
 };
 
 /**
@@ -369,6 +431,15 @@ export async function updateUser(
     });
 
     if (written.count === 0) return { outcome: 'STALE_VERSION' };
+
+    // El acceso de plataforma va dentro de la misma transacción que el resto.
+    // Conceder y que luego falle el ajuste de accesos dejaría a alguien con
+    // alcance a todas las empresas por un error a medio camino.
+    if (data.platformAdmin.isGranted) {
+      await grantPlatformAdmin(tx, id, data.platformAdmin.reason, data.platformAdmin.actorId);
+    } else {
+      await revokePlatformAdmin(tx, id, data.platformAdmin.actorId);
+    }
 
     const memberships = await tx.membership.findMany({
       where: { userId: id },

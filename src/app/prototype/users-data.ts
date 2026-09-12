@@ -164,6 +164,13 @@ export type User = {
   readonly memberships: readonly Membership[];
   /** Retrato, guardado como dato incrustado. Ver el comentario del formulario. */
   readonly photoDataUrl?: string;
+  /**
+   * Acceso de plataforma, por encima de todas las empresas. No es un rol: no se
+   * concede dentro de una empresa y no aparece en la lista de accesos.
+   */
+  readonly isPlatformAdmin?: boolean;
+  /** Por qué se concedió. Obligatorio: sirve en la revisión periódica. */
+  readonly platformAdminReason?: string;
 };
 
 const SEED_USERS_BASE = [
@@ -173,6 +180,8 @@ const SEED_USERS_BASE = [
     email: 'ana.morales@example.com',
     countryCode: 'GT',
     active: true,
+    isPlatformAdmin: true,
+    platformAdminReason: 'Responsable de la operación de la plataforma.',
     memberships: [
       { companyId: 'c-01', roleCode: 'admin' },
       { companyId: 'c-02', roleCode: 'warehouse' },

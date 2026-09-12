@@ -27,6 +27,8 @@ import { CountrySelect } from '../../ui/country-select';
 import { buttonClass } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
 import { FilterInput } from '../../ui/filter-input';
+import { Notice } from '../../ui/notice';
+import { Toggle } from '../../ui/toggle';
 import { Field, INPUT_CLASS, Section, Select } from '../../ui/form';
 import { CountryFlag } from '../../ui/flag';
 import { PhotoField } from '../../photo-field';
@@ -49,9 +51,11 @@ type FormValues = {
   countryCode: string;
   memberships: readonly Membership[];
   photoDataUrl: string | undefined;
+  isPlatformAdmin: boolean;
+  platformAdminReason: string;
 };
 
-type FieldName = 'firstName' | 'lastName' | 'email';
+type FieldName = 'firstName' | 'lastName' | 'email' | 'platformAdminReason';
 
 export function UserForm({
   userId,
@@ -76,6 +80,8 @@ export function UserForm({
     countryCode: initialValues?.countryCode ?? firstCountry?.code ?? '',
     memberships: initialValues?.memberships ?? [],
     photoDataUrl: initialValues?.photoDataUrl,
+    isPlatformAdmin: initialValues?.isPlatformAdmin ?? false,
+    platformAdminReason: initialValues?.platformAdminReason ?? '',
   });
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [companyFilter, setCompanyFilter] = useState('');
@@ -126,6 +132,13 @@ export function UserForm({
       nextErrors.email = copy.userForm.invalidEmail;
     }
 
+    // El motivo es obligatorio cuando se concede. La tabla de concesiones lo
+    // exige, y existe para la revisión periódica: sin él, dentro de seis meses
+    // nadie sabe por qué esa cuenta lo tiene.
+    if (values.isPlatformAdmin && values.platformAdminReason.trim() === '') {
+      nextErrors.platformAdminReason = copy.userForm.requiredField;
+    }
+
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -136,6 +149,8 @@ export function UserForm({
       countryCode: values.countryCode,
       memberships: values.memberships,
       photoDataUrl: values.photoDataUrl,
+      isPlatformAdmin: values.isPlatformAdmin,
+      platformAdminReason: values.platformAdminReason,
     };
 
     // Se navega después de que la escritura termine, no antes. Adelantarse
@@ -212,6 +227,48 @@ export function UserForm({
           />
           <p className="text-text-muted mt-1.5 text-xs">{copy.userForm.countryHelp}</p>
         </div>
+      </Section>
+
+      {/* El acceso de plataforma va antes que el de empresas y en su propia
+          sección a propósito. No es un rol más: no se concede dentro de una
+          empresa, alcanza a todas, y meterlo en la lista de accesos lo haría
+          parecer una casilla del mismo peso que las demás. */}
+      <Section title={copy.userForm.sectionPlatform} help={copy.userForm.platformHelp}>
+        <span className="flex items-center gap-2">
+          <Toggle
+            checked={values.isPlatformAdmin}
+            label={copy.userForm.platformToggle}
+            onChange={(next) => setValues((current) => ({ ...current, isPlatformAdmin: next }))}
+          />
+          <span className="text-sm">{copy.userForm.platformToggle}</span>
+        </span>
+
+        {values.isPlatformAdmin ? (
+          <>
+            <Notice>{copy.userForm.platformWarning}</Notice>
+
+            <Field
+              id="user-platform-reason"
+              label={copy.userForm.platformReason}
+              help={copy.userForm.platformReasonHelp}
+              error={errors.platformAdminReason}
+            >
+              <input
+                id="user-platform-reason"
+                type="text"
+                value={values.platformAdminReason}
+                onChange={(event) => {
+                  setValues((current) => ({
+                    ...current,
+                    platformAdminReason: event.target.value,
+                  }));
+                }}
+                aria-invalid={errors.platformAdminReason !== undefined}
+                className={`${INPUT_CLASS} ${borderFor('platformAdminReason')}`}
+              />
+            </Field>
+          </>
+        ) : null}
       </Section>
 
       <Section title={copy.userForm.sectionAccess} help={copy.userForm.accessHelp}>

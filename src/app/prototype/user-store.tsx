@@ -25,6 +25,8 @@ export type UserInput = {
   readonly countryCode: string;
   readonly memberships: readonly Membership[];
   readonly photoDataUrl?: string;
+  readonly isPlatformAdmin: boolean;
+  readonly platformAdminReason: string;
 };
 
 type UserStore = {
@@ -46,6 +48,8 @@ function normalize(input: UserInput): UserInput {
     countryCode: input.countryCode,
     memberships: input.memberships,
     photoDataUrl: input.photoDataUrl,
+    isPlatformAdmin: input.isPlatformAdmin,
+    platformAdminReason: input.platformAdminReason.trim(),
   };
 }
 

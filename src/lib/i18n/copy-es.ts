@@ -42,6 +42,8 @@ export const copyEs: Copy = {
     duplicatedOrganization: 'Una empresa aparece dos veces en la lista de accesos.',
     unknownOrganization: 'Una de esas empresas ya no existe. Recarga la página.',
     roleNotInOrganization: 'Ese rol es de otra empresa. Recarga la página.',
+    cannotRevokeOwnPlatformAccess:
+      'No puedes quitarte el acceso de plataforma a ti mismo. Pídeselo a otro super administrador.',
   },
 
   errors: {
@@ -305,6 +307,15 @@ export const copyEs: Copy = {
     photoRemove: 'Quitar',
     photoTooLarge: 'Esa imagen pasa de 2 MB. Elige una más pequeña.',
     photoInvalidType: 'Ese archivo no es una imagen.',
+    sectionPlatform: 'Acceso de plataforma',
+    platformHelp:
+      'Alcanza a todas las empresas. Se concede fuera del acceso a empresas, porque no es un rol.',
+    platformToggle: 'Super administrador de plataforma',
+    platformWarning:
+      'Podrá leer y cambiar datos de todas las empresas, incluidas las que no son suyas. Cada entrada queda registrada.',
+    platformReason: 'Por qué se le concede',
+    platformReasonHelp: 'Se lee en voz alta en la revisión periódica de quién lo tiene.',
+    platformBadge: 'Super administrador',
     sectionAccess: 'Acceso a empresas',
     sectionPermissions: 'Permisos resultantes',
     firstName: 'Nombre',

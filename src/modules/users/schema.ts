@@ -100,7 +100,37 @@ const accessesSchema = z
   .default([])
   .refine(hasUniqueOrganizations, 'duplicatedOrganization');
 
-export const createUserSchema = z.object({
+const MAX_REASON_LENGTH = 300;
+
+/**
+ * Los campos del acceso de plataforma.
+ *
+ * Van aparte de los accesos a empresas porque no son un rol: no se conceden
+ * dentro de una empresa, alcanzan a todas, y por eso no viajan en esa lista ni se
+ * pueden asignar a un rol. Ver ADR 0005.
+ *
+ * El motivo es obligatorio al conceder. La concesión existe para poder revisarse:
+ * sin motivo, dentro de seis meses nadie sabe por qué esa cuenta lo tiene.
+ */
+const platformAdminShape = {
+  isPlatformAdmin: z.boolean().default(false),
+  platformAdminReason: z.string().trim().max(MAX_REASON_LENGTH, 'tooLong').default(''),
+};
+
+function requireReasonWhenGranting(
+  data: { readonly isPlatformAdmin: boolean; readonly platformAdminReason: string },
+  context: z.RefinementCtx,
+): void {
+  if (data.isPlatformAdmin && data.platformAdminReason === '') {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['platformAdminReason'],
+      message: 'required',
+    });
+  }
+}
+
+const userFieldsSchema = z.object({
   firstName: z.string().trim().min(1, 'required').max(MAX_NAME_LENGTH, 'tooLong'),
   lastName: z.string().trim().min(1, 'required').max(MAX_NAME_LENGTH, 'tooLong'),
   // En minúsculas porque es la credencial de acceso: quien escribe su correo con
@@ -108,7 +138,10 @@ export const createUserSchema = z.object({
   email: z.string().trim().toLowerCase().max(MAX_EMAIL_LENGTH, 'tooLong').email('invalidEmail'),
   countryCode: z.string().trim().length(2, 'required').toUpperCase(),
   accesses: accessesSchema,
+  ...platformAdminShape,
 });
+
+export const createUserSchema = userFieldsSchema.superRefine(requireReasonWhenGranting);
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
@@ -129,10 +162,12 @@ export type SetUserActiveInput = z.infer<typeof setUserActiveSchema>;
  * pantalla, y sirve para que dos personas editando a la vez no se pisen en
  * silencio.
  */
-export const updateUserSchema = createUserSchema.extend({
-  id: z.string().uuid('required'),
-  version: z.coerce.number().int().min(0),
-});
+export const updateUserSchema = userFieldsSchema
+  .extend({
+    id: z.string().uuid('required'),
+    version: z.coerce.number().int().min(0),
+  })
+  .superRefine(requireReasonWhenGranting);
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 
