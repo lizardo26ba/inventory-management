@@ -7,8 +7,15 @@
  * navegador, así que quien eligió español no vuelve a elegirlo en cada visita.
  *
  * El cambio no recarga la página. Recargar pierde lo que estaba escrito a medias
- * en un formulario, el desplazamiento y la fila que se estaba mirando, y a
- * cambio no aporta nada: los textos ya están los dos en el navegador.
+ * en un formulario, el desplazamiento y la fila que se estaba mirando.
+ *
+ * Pero no todo el texto vive en el navegador. La mayor parte de las pantallas se
+ * pinta en el servidor, y allí el idioma sale de la cookie en el momento de
+ * pintar, no de este contexto. Cambiar la cookie no vuelve a pintar nada por sí
+ * solo, así que el cambio pide además un refresco de servidor. Sin él, los
+ * títulos, las cabeceras de tabla y las fichas se quedaban en el idioma viejo
+ * hasta que alguien recargaba, y solo cambiaban los textos de los componentes de
+ * cliente.
  *
  * A cambio hay que cuidar la transición, porque cambiar cada palabra de golpe es
  * un parpadeo desagradable y además hace saltar la altura de los bloques cuando
@@ -17,17 +24,31 @@
  * segundo: lo justo para que el ojo lea el cambio como una transición y no como
  * un fallo.
  *
+ * El desvanecido dura además lo que tarde el refresco del servidor. Eso no es
+ * adorno: es lo que impide ver media pantalla en un idioma y media en el otro
+ * mientras el servidor contesta.
+ *
  * Al entrar, el idioma lo resuelve el servidor leyendo una cookie, y llega ya
  * elegido a la primera pintura. Antes se resolvía en el navegador y el contenido
  * nacía invisible hasta que ese código corría: cualquier tropiezo del JavaScript
  * dejaba la aplicación entera en blanco, con el texto presente pero transparente.
  * Una página servida desde el servidor tiene que verse por sí sola.
  *
- * Por eso se guarda en cookie y no solo en el almacén del navegador: el almacén
- * el servidor no lo puede leer.
+ * Se guarda en cookie y no en el almacén del navegador, que el servidor no
+ * puede leer. Antes se escribían los dos y nadie leía el segundo.
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from 'react';
 
 import { copyEn, type Copy } from './copy';
 import { copyEs } from './copy-es';
@@ -42,8 +63,6 @@ const CATALOGUES: Record<LanguageCode, Copy> = {
   en: copyEn,
   es: copyEs,
 };
-
-const STORAGE_KEY = 'inventario.language';
 
 /** Lo que dura el desvanecido. Debe coincidir con la clase duration de abajo. */
 const FADE_MS = 180;
@@ -67,7 +86,23 @@ export function LanguageProvider({
   readonly initialLanguage?: LanguageCode;
 }): React.ReactElement {
   const [language, setLanguageValue] = useState<LanguageCode>(initialLanguage);
-  const [isSwitching, setIsSwitching] = useState(false);
+  const [isFading, setIsFading] = useState(false);
+
+  const router = useRouter();
+  // El refresco de servidor dentro de una transición avisa cuándo termina. Es lo
+  // único que sabe si el texto del servidor ya llegó en el idioma nuevo.
+  const [isRefreshing, startRefresh] = useTransition();
+  const fadeTimeoutRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (fadeTimeoutRef.current !== null) window.clearTimeout(fadeTimeoutRef.current);
+    },
+    [],
+  );
+
+  // Invisible mientras dura el desvanecido y mientras el servidor conteste.
+  const isSwitching = isFading || isRefreshing;
 
   // El idioma del documento no es un adorno: de él dependen la separación
   // silábica, las comillas y la voz que usa un lector de pantalla.
@@ -79,19 +114,25 @@ export function LanguageProvider({
     (next: LanguageCode) => {
       if (next === language || isSwitching) return;
 
-      window.localStorage.setItem(STORAGE_KEY, next);
-      // La cookie es la que hace que la próxima visita llegue ya en el idioma
-      // correcto desde el servidor, sin destello.
+      // La cookie manda dos veces: hace que la próxima visita llegue ya en el
+      // idioma correcto, y es lo que lee el servidor en el refresco de abajo.
       document.cookie = `${LANGUAGE_COOKIE_NAME}=${next}; path=/; max-age=${String(LANGUAGE_COOKIE_MAX_AGE_SECONDS)}; samesite=lax`;
-      setIsSwitching(true);
+      setIsFading(true);
       // El idioma se cambia con el contenido ya invisible. Cambiarlo antes
       // dejaría ver el texto nuevo entrando mientras el viejo todavía se va.
-      window.setTimeout(() => {
+      fadeTimeoutRef.current = window.setTimeout(() => {
         setLanguageValue(next);
-        setIsSwitching(false);
+        // Las dos orillas a la vez: el contexto atiende a los componentes de
+        // cliente y el refresco vuelve a pedir al servidor los suyos, que ahora
+        // leerán la cookie nueva. Se conserva lo escrito en los formularios,
+        // porque refrescar no es recargar.
+        startRefresh(() => {
+          router.refresh();
+        });
+        setIsFading(false);
       }, FADE_MS);
     },
-    [language, isSwitching],
+    [language, isSwitching, router],
   );
 
   const value = useMemo(
