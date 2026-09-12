@@ -22,6 +22,7 @@ const saveUser = vi.fn();
 const updateUserActive = vi.fn();
 const removeUser = vi.fn();
 const listOrganizationChoices = vi.fn();
+const findUser = vi.fn();
 
 vi.mock('@/modules/auth', () => ({
   requirePlatformPermission: (code: string) => requirePlatformPermission(code),
@@ -31,11 +32,17 @@ vi.mock('@/modules/auth', () => ({
 vi.mock('@/modules/users/repository', () => ({
   checkEmail: (...args: readonly unknown[]) => checkEmail(...args),
   createUser: (...args: readonly unknown[]) => insertUser(...args),
+  findUserById: (...args: readonly unknown[]) => findUser(...args),
   listOrganizationChoices: () => listOrganizationChoices(),
   setUserActive: (...args: readonly unknown[]) => updateUserActive(...args),
   softDeleteUser: (...args: readonly unknown[]) => removeUser(...args),
   updateUser: (...args: readonly unknown[]) => saveUser(...args),
 }));
+
+// Navegar y revalidar son cosa del marco. Aquí se anulan: esta prueba mira la
+// autorización, y el redirect de Next funciona lanzando.
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
 
 // El registro escribe el fallo por consola. Aquí estorba: el rechazo es el
 // resultado esperado, no un incidente.
@@ -121,5 +128,104 @@ describe('cada acción pide su propio permiso', () => {
     await deleteUser({ id: SOME_USER_ID });
 
     expect(requirePlatformPermission).toHaveBeenCalledWith('platform.user:delete');
+  });
+});
+
+/**
+ * El acceso de plataforma es una capacidad aparte.
+ *
+ * Poder crear cuentas no da derecho a repartir el privilegio que alcanza a todas
+ * las empresas, y poder editar no da derecho a retirarlo. ADR 0005.
+ */
+describe('acceso de plataforma', () => {
+  const ACTING_USER_ID = '00000000-0000-4000-8000-0000000000ff';
+
+  function allowExcept(deniedCode: string): void {
+    requirePlatformPermission.mockImplementation((code: string) => {
+      if (code === deniedCode) {
+        return Promise.reject(new AuthorizationError('Sin permiso para eso.'));
+      }
+      return Promise.resolve({ userId: ACTING_USER_ID });
+    });
+  }
+
+  it('crear con el interruptor encendido pide además el permiso de conceder', async () => {
+    requirePlatformPermission.mockResolvedValue({ userId: ACTING_USER_ID });
+    checkEmail.mockResolvedValue('FREE');
+    listOrganizationChoices.mockResolvedValue([]);
+    hashPassword.mockResolvedValue('huella');
+
+    await createUser({ ...NEW_USER, isPlatformAdmin: true, platformAdminReason: 'Soporte.' });
+
+    expect(requirePlatformPermission).toHaveBeenCalledWith('platform.user:create');
+    expect(requirePlatformPermission).toHaveBeenCalledWith('platform.admin:grant');
+  });
+
+  it('sin el permiso de conceder no se crea la cuenta', async () => {
+    allowExcept('platform.admin:grant');
+    checkEmail.mockResolvedValue('FREE');
+
+    const result = await createUser({
+      ...NEW_USER,
+      isPlatformAdmin: true,
+      platformAdminReason: 'Soporte.',
+    });
+
+    expect(result).toEqual({ ok: false, error: { code: 'NOT_AUTHORIZED' } });
+    expect(insertUser).not.toHaveBeenCalled();
+  });
+
+  it('conceder sin motivo no pasa la frontera', async () => {
+    requirePlatformPermission.mockResolvedValue({ userId: ACTING_USER_ID });
+
+    const result = await createUser({ ...NEW_USER, isPlatformAdmin: true });
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: 'VALIDATION_FAILED',
+        fieldErrors: { platformAdminReason: 'required' },
+      },
+    });
+    expect(insertUser).not.toHaveBeenCalled();
+  });
+
+  it('retirarlo al editar pide el permiso de revocar', async () => {
+    allowExcept('platform.admin:revoke');
+    findUser.mockResolvedValue({ id: SOME_USER_ID, isPlatformAdmin: true });
+
+    const result = await updateUser(EDITED_USER);
+
+    expect(requirePlatformPermission).toHaveBeenCalledWith('platform.admin:revoke');
+    expect(result).toEqual({ ok: false, error: { code: 'NOT_AUTHORIZED' } });
+    expect(saveUser).not.toHaveBeenCalled();
+  });
+
+  it('guardar sin tocar el privilegio no pide ni conceder ni revocar', async () => {
+    requirePlatformPermission.mockResolvedValue({ userId: ACTING_USER_ID });
+    findUser.mockResolvedValue({ id: SOME_USER_ID, isPlatformAdmin: false });
+    checkEmail.mockResolvedValue('FREE');
+    saveUser.mockResolvedValue({ outcome: 'UPDATED' });
+
+    await updateUser(EDITED_USER);
+
+    expect(requirePlatformPermission).not.toHaveBeenCalledWith('platform.admin:grant');
+    expect(requirePlatformPermission).not.toHaveBeenCalledWith('platform.admin:revoke');
+  });
+
+  it('nadie se lo quita a sí mismo: la plataforma se quedaría sin quien la administre', async () => {
+    requirePlatformPermission.mockResolvedValue({ userId: SOME_USER_ID });
+    findUser.mockResolvedValue({ id: SOME_USER_ID, isPlatformAdmin: true });
+
+    const result = await updateUser(EDITED_USER);
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: 'VALIDATION_FAILED',
+        fieldErrors: { isPlatformAdmin: 'cannotRevokeOwnPlatformAccess' },
+      },
+    });
+    expect(saveUser).not.toHaveBeenCalled();
   });
 });

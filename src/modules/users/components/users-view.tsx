@@ -204,6 +204,13 @@ export async function UsersView({
                         className={`${TABLE_CELL_CLASS} text-text-muted hidden xl:table-cell`}
                       >
                         <TagRow>
+                          {/* El acceso de plataforma va primero y no es un rol:
+                              alcanza a todas las empresas, así que enterarse de
+                              que una cuenta lo tiene no puede depender de abrir
+                              su ficha. */}
+                          {user.isPlatformAdmin ? (
+                            <Tag>{copy.userForm.platformBadge}</Tag>
+                          ) : null}
                           {roles.map((name) => (
                             <Tag key={name}>{name}</Tag>
                           ))}

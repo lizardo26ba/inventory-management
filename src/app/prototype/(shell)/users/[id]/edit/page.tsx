@@ -54,6 +54,8 @@ export default function EditUserPage(): React.ReactElement {
           countryCode: user.countryCode,
           memberships: user.memberships,
           photoDataUrl: user.photoDataUrl,
+          isPlatformAdmin: user.isPlatformAdmin ?? false,
+          platformAdminReason: user.platformAdminReason ?? '',
         }}
       />
     </div>

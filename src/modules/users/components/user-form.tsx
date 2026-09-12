@@ -30,6 +30,8 @@ import { CountrySelect, type CountryChoice } from '@/components/ui/country-selec
 import { DefinitionList, DefinitionRow } from '@/components/ui/definition-list';
 import { Field, INPUT_CLASS, Section, inputBorderClass } from '@/components/ui/form';
 import { FormAlert } from '@/components/ui/form-alert';
+import { Notice } from '@/components/ui/notice';
+import { Toggle } from '@/components/ui/toggle';
 import { useCopy } from '@/lib/i18n';
 
 import { createUser, updateUser } from '../actions';
@@ -47,6 +49,8 @@ export type UserFormValues = {
   readonly email: string;
   readonly countryCode: string;
   readonly accesses: readonly AccessInput[];
+  readonly isPlatformAdmin: boolean;
+  readonly platformAdminReason: string;
 };
 
 export type UserBeingEdited = {
@@ -84,6 +88,8 @@ export function UserForm({
       email: '',
       countryCode: firstCountry?.code ?? '',
       accesses: [],
+      isPlatformAdmin: false,
+      platformAdminReason: '',
     },
   );
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -290,6 +296,59 @@ export function UserForm({
           />
           <p className="text-text-muted mt-1.5 text-xs">{copy.userForm.countryHelp}</p>
         </div>
+      </Section>
+
+      {/* El acceso de plataforma va antes que el de empresas y en su propia
+          sección a propósito. No es un rol más: no se concede dentro de una
+          empresa, alcanza a todas, y meterlo entre las casillas de empresa lo
+          haría parecer del mismo peso que ellas. ADR 0005. */}
+      <Section title={copy.userForm.sectionPlatform} help={copy.userForm.platformHelp}>
+        <span className="flex items-center gap-2">
+          <Toggle
+            checked={values.isPlatformAdmin}
+            label={copy.userForm.platformToggle}
+            onChange={(next) => {
+              setValues((current) => ({ ...current, isPlatformAdmin: next }));
+              clearError('isPlatformAdmin');
+              clearError('platformAdminReason');
+            }}
+          />
+          <span className="text-sm">{copy.userForm.platformToggle}</span>
+        </span>
+
+        {messageFor('isPlatformAdmin') !== undefined ? (
+          <p role="alert" className="text-danger text-xs">
+            {messageFor('isPlatformAdmin')}
+          </p>
+        ) : null}
+
+        {values.isPlatformAdmin ? (
+          <>
+            <Notice>{copy.userForm.platformWarning}</Notice>
+
+            <Field
+              id="user-platform-reason"
+              label={copy.userForm.platformReason}
+              help={copy.userForm.platformReasonHelp}
+              error={messageFor('platformAdminReason')}
+            >
+              <input
+                id="user-platform-reason"
+                type="text"
+                value={values.platformAdminReason}
+                onChange={(event) => {
+                  setValues((current) => ({
+                    ...current,
+                    platformAdminReason: event.target.value,
+                  }));
+                  clearError('platformAdminReason');
+                }}
+                aria-invalid={messageFor('platformAdminReason') !== undefined}
+                className={`${INPUT_CLASS} ${borderFor('platformAdminReason')}`}
+              />
+            </Field>
+          </>
+        ) : null}
       </Section>
 
       <Section title={copy.userForm.sectionAccess} help={copy.userForm.accessHelp}>

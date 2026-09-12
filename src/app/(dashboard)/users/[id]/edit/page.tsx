@@ -64,6 +64,8 @@ export default async function EditUserPage({
               organizationId: access.organizationId,
               roleId: access.roleId,
             })),
+            isPlatformAdmin: user.isPlatformAdmin,
+            platformAdminReason: user.platformAdminReason ?? '',
           },
         }}
       />

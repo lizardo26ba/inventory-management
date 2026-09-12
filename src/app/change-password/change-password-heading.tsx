@@ -7,6 +7,7 @@
  * es forzoso la toma el servidor y llega ya resuelta.
  */
 
+import { Notice } from '@/components/ui/notice';
 import { useCopy } from '@/lib/i18n';
 
 export function ChangePasswordHeading({
@@ -23,9 +24,11 @@ export function ChangePasswordHeading({
       <h1 className="text-2xl font-semibold tracking-tight">{copy.changePassword.title}</h1>
       <p className="text-text-muted mt-1 text-sm">{email}</p>
       {isForced ? (
-        <p className="border-warning bg-warning-soft rounded-control mt-4 border px-3 py-2 text-sm">
-          {copy.changePassword.subtitle} {copy.changePassword.forced}
-        </p>
+        <div className="mt-4">
+          <Notice>
+            {copy.changePassword.subtitle} {copy.changePassword.forced}
+          </Notice>
+        </div>
       ) : null}
     </header>
   );

@@ -24,6 +24,7 @@ import { hashPassword, requirePlatformPermission } from '@/modules/auth';
 import {
   checkEmail,
   createUser as insertUser,
+  findUserById as findUser,
   listOrganizationChoices,
   setUserActive as updateUserActive,
   softDeleteUser as removeUser,
@@ -93,7 +94,7 @@ async function checkAccesses(
 
 export async function createUser(input: unknown): Promise<CreateUserResult> {
   try {
-    await requirePlatformPermission('platform.user:create');
+    const session = await requirePlatformPermission('platform.user:create');
 
     const parsed = createUserSchema.safeParse(input);
     if (!parsed.success) {
@@ -101,6 +102,13 @@ export async function createUser(input: unknown): Promise<CreateUserResult> {
         ok: false,
         error: { code: 'VALIDATION_FAILED', fieldErrors: toFieldErrors(parsed.error) },
       };
+    }
+
+    // Conceder el acceso de plataforma es una capacidad aparte de crear cuentas.
+    // Quien puede dar de alta gente no tiene por qué poder repartir el privilegio
+    // que alcanza a todas las empresas. ADR 0005.
+    if (parsed.data.isPlatformAdmin) {
+      await requirePlatformPermission('platform.admin:grant');
     }
 
     const checked = await checkAccesses(parsed.data.accesses);
@@ -122,6 +130,9 @@ export async function createUser(input: unknown): Promise<CreateUserResult> {
       lastName: parsed.data.lastName,
       countryCode: parsed.data.countryCode,
       accesses: parsed.data.accesses,
+      platformAdmin: parsed.data.isPlatformAdmin
+        ? { reason: parsed.data.platformAdminReason, grantedById: session.userId }
+        : undefined,
     });
 
     // La lista está en caché de ruta: sin esto, la cuenta recién creada no
@@ -166,13 +177,41 @@ function isUniqueViolation(error: unknown): boolean {
  */
 export async function updateUser(input: unknown): Promise<UserActionResult> {
   try {
-    await requirePlatformPermission('platform.user:update');
+    const session = await requirePlatformPermission('platform.user:update');
 
     const parsed = updateUserSchema.safeParse(input);
     if (!parsed.success) {
       return {
         ok: false,
         error: { code: 'VALIDATION_FAILED', fieldErrors: toFieldErrors(parsed.error) },
+      };
+    }
+
+    const current = await findUser(parsed.data.id);
+    if (current === null) throw new NotFoundError('La cuenta no existe o ya fue eliminada.');
+
+    // Solo se pide el permiso cuando el acceso de plataforma cambia. Guardar un
+    // apellido de alguien que ya lo tiene no es repartir privilegio.
+    if (parsed.data.isPlatformAdmin !== current.isPlatformAdmin) {
+      await requirePlatformPermission(
+        parsed.data.isPlatformAdmin ? 'platform.admin:grant' : 'platform.admin:revoke',
+      );
+    }
+
+    // Nadie se quita a sí mismo el acceso de plataforma. Si la última cuenta con
+    // el privilegio se lo retira, no queda nadie que pueda devolverlo y la
+    // administración de la plataforma se cierra sola.
+    if (
+      !parsed.data.isPlatformAdmin &&
+      current.isPlatformAdmin &&
+      current.id === session.userId
+    ) {
+      return {
+        ok: false,
+        error: {
+          code: 'VALIDATION_FAILED',
+          fieldErrors: { isPlatformAdmin: 'cannotRevokeOwnPlatformAccess' },
+        },
       };
     }
 
@@ -189,6 +228,11 @@ export async function updateUser(input: unknown): Promise<UserActionResult> {
       lastName: parsed.data.lastName,
       countryCode: parsed.data.countryCode,
       accesses: parsed.data.accesses,
+      platformAdmin: {
+        isGranted: parsed.data.isPlatformAdmin,
+        reason: parsed.data.platformAdminReason,
+        actorId: session.userId,
+      },
     });
 
     if (result.outcome === 'NOT_FOUND') {

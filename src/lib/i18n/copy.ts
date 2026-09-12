@@ -55,6 +55,8 @@ export const copyEn = {
     duplicatedOrganization: 'A company appears twice in the access list.',
     unknownOrganization: 'One of those companies no longer exists. Reload the page.',
     roleNotInOrganization: 'That role belongs to another company. Reload the page.',
+    cannotRevokeOwnPlatformAccess:
+      'You cannot take platform access away from your own account. Ask another super administrator.',
   },
 
   /** Lo que se enseña cuando una operación entera falla. */
@@ -320,6 +322,15 @@ export const copyEn = {
     photoRemove: 'Remove',
     photoTooLarge: 'That image is over 2 MB. Pick a smaller one.',
     photoInvalidType: 'That file is not an image.',
+    sectionPlatform: 'Platform access',
+    platformHelp:
+      'Reaches every company. Granted outside company access, because it is not a role.',
+    platformToggle: 'Platform super administrator',
+    platformWarning:
+      'They will read and change data in every company, including ones they are not a member of. Every entry is recorded.',
+    platformReason: 'Why they get it',
+    platformReasonHelp: 'Read out loud at the periodic review of who holds this.',
+    platformBadge: 'Super admin',
     sectionAccess: 'Company access',
     sectionPermissions: 'Resulting permissions',
     firstName: 'First name',

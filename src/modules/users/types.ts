@@ -55,6 +55,8 @@ export type UsersSummary = {
 
 export type UserDetail = UserListItem & {
   readonly version: number;
+  /** Motivo de la concesión de plataforma, o nulo si no la tiene. */
+  readonly platformAdminReason: string | null;
   readonly mustChangePassword: boolean;
   readonly lastLoginAt: Date | null;
 };

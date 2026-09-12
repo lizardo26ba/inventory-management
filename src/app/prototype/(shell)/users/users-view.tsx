@@ -250,6 +250,13 @@ export function UsersView(): React.ReactElement {
 
                         <td className="text-text-muted hidden px-4 py-2.5 xl:table-cell">
                           <TagRow>
+                            {/* El acceso de plataforma va primero y no es un rol:
+                                alcanza a todas las empresas, así que enterarse
+                                de que una cuenta lo tiene no puede depender de
+                                abrir su ficha. */}
+                            {user.isPlatformAdmin === true ? (
+                              <Tag>{copy.userForm.platformBadge}</Tag>
+                            ) : null}
                             {roleNames(user).map((name) => (
                               <Tag key={name}>{name}</Tag>
                             ))}
