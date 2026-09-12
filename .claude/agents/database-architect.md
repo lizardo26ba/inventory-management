@@ -22,7 +22,10 @@ crítico: un saldo incorrecto es un defecto de severidad máxima.
 - Dinero en `NUMERIC(18,4)`, jamás en punto flotante. Cantidades en `NUMERIC(18,4)` si
   el producto admite fracciones, en `INTEGER` si no.
 - Fechas siempre en `TIMESTAMPTZ` y almacenadas en UTC. La zona horaria se aplica al
-  presentar, nunca al guardar.
+  presentar, nunca al guardar. El valor que se escribe es el momento actual en esa escala:
+  `@default(now())` al insertar, `@updatedAt` al modificar, `now()` en SQL. Una fecha
+  civil, como el vencimiento de un lote, va en `DATE` y no es un instante.
+  Ver `docs/standards/dates-and-times.md`.
 - Enumeraciones como tipo `enum` de Postgres cuando el conjunto es cerrado y estable;
   como tabla de catálogo cuando el negocio puede añadir valores.
 

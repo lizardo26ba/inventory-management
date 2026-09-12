@@ -6,14 +6,58 @@ node_modules/
 .env
 .env.*
 !.env.example
+# direnv carga variables desde este archivo y no coincide con .env.*
+.envrc
+secrets/
+credentials.json
+serviceAccount*.json
+
+# Claves, certificados y almacenes de claves, en todos los formatos que usan las
+# herramientas del proyecto. Las claves de SSH no llevan extensión, así que se
+# nombran por su nombre habitual.
 *.pem
 *.key
 *.p12
 *.pfx
 *.crt
-secrets/
-credentials.json
-serviceAccount*.json
+*.cer
+*.der
+*.p8
+*.jks
+*.keystore
+*.ppk
+id_rsa*
+id_ed25519*
+*.asc
+*.gpg
+
+# Archivos donde las herramientas de línea de comandos dejan credenciales ya
+# autenticadas. Ninguno hace falta para construir el proyecto.
+.npmrc
+.netrc
+_netrc
+.pgpass
+# Servidores de herramientas de agente. La declaración puede llevar el token con
+# el que el servidor entra a un servicio.
+.mcp.json
+
+# Acceso a la nube y al despliegue. El contenedor va a Azure más adelante, así
+# que sus archivos de sesión se bloquean desde ahora.
+.azure/
+*.publishsettings
+.aws/
+.docker/config.json
+.kube/
+kubeconfig
+*.kubeconfig
+.vercel/
+
+# Infraestructura como código. El estado guarda en claro los secretos que la
+# infraestructura necesitó, incluidas las contraseñas de base de datos.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
 
 # Construcción
 .next/
@@ -40,6 +84,10 @@ tmp/
 *.sql.gz
 *.dump
 *.bak
+# Los volcados sin comprimir no se pueden filtrar por extensión, porque las
+# migraciones también son .sql. Por eso tienen carpeta propia: lo que se vuelca
+# se deja aquí y queda fuera del repositorio por el sitio donde está.
+dumps/
 
 # Editor y sistema operativo
 .vscode/*

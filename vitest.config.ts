@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig } from 'vitest/config';
 
 /**
@@ -9,10 +11,25 @@ import { defineConfig } from 'vitest/config';
  *
  * Reglas completas en .claude/agents/qa-test-engineer.md
  */
+/**
+ * El atajo de la arroba, resuelto una vez.
+ *
+ * Se repite en cada proyecto porque con la configuración por proyectos de Vitest
+ * la resolución de la raíz no baja a los hijos, y sin ella ningún import con
+ * arroba encuentra su archivo.
+ */
+const alias = {
+  // fileURLToPath y no .pathname: en Windows, .pathname devuelve una ruta con
+  // barra inicial y unidad, como /C:/..., que no existe para el sistema de
+  // archivos.
+  '@': fileURLToPath(new URL('./src/', import.meta.url)),
+};
+
 export default defineConfig({
   test: {
     projects: [
       {
+        resolve: { alias },
         test: {
           name: 'unit',
           include: ['tests/unit/**/*.test.ts'],
@@ -20,6 +37,7 @@ export default defineConfig({
         },
       },
       {
+        resolve: { alias },
         test: {
           name: 'integration',
           include: ['tests/integration/**/*.test.ts'],
@@ -33,9 +51,5 @@ export default defineConfig({
       },
     ],
   },
-  resolve: {
-    alias: {
-      '@': new URL('./src/', import.meta.url).pathname,
-    },
-  },
+  resolve: { alias },
 });
