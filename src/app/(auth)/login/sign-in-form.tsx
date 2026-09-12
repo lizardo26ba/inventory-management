@@ -15,8 +15,9 @@
 import { useState } from 'react';
 
 import { ActionButton, useAsyncAction } from '@/components/ui/action-button';
+import { Field, INPUT_CLASS, inputBorderClass } from '@/components/ui/form';
+import { FormAlert } from '@/components/ui/form-alert';
 import { IconLock } from '@/components/ui/icons';
-import { INPUT_CLASS } from '@/components/ui/form';
 import { useCopy } from '@/lib/i18n';
 import { signIn } from '@/modules/auth/actions';
 import { signInSchema, toFieldErrors } from '@/modules/auth/schema';
@@ -69,25 +70,11 @@ export function SignInForm(): React.ReactElement {
     });
   }
 
-  function borderFor(field: string): string {
-    return messageFor(field) === undefined ? 'border-border' : 'border-danger';
-  }
-
   return (
     <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-4">
-      {formError !== null ? (
-        <p
-          role="alert"
-          className="border-danger bg-danger-soft text-danger rounded-control border px-3 py-2 text-sm"
-        >
-          {formError}
-        </p>
-      ) : null}
+      {formError !== null ? <FormAlert>{formError}</FormAlert> : null}
 
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium">
-          {copy.login.email}
-        </label>
+      <Field id="email" label={copy.login.email} error={messageFor('email')}>
         <input
           id="email"
           name="email"
@@ -97,17 +84,12 @@ export function SignInForm(): React.ReactElement {
           onChange={(event) => setEmail(event.target.value)}
           placeholder={copy.login.emailPlaceholder}
           aria-invalid={messageFor('email') !== undefined}
-          className={`${INPUT_CLASS} ${borderFor('email')}`}
+          aria-describedby={messageFor('email') !== undefined ? 'email-error' : undefined}
+          className={`${INPUT_CLASS} ${inputBorderClass(messageFor('email') !== undefined)}`}
         />
-        {messageFor('email') !== undefined ? (
-          <p className="text-danger mt-1.5 text-xs">{messageFor('email')}</p>
-        ) : null}
-      </div>
+      </Field>
 
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium">
-          {copy.login.password}
-        </label>
+      <Field id="password" label={copy.login.password} error={messageFor('password')}>
         <input
           id="password"
           name="password"
@@ -117,12 +99,10 @@ export function SignInForm(): React.ReactElement {
           onChange={(event) => setPassword(event.target.value)}
           placeholder={copy.login.passwordPlaceholder}
           aria-invalid={messageFor('password') !== undefined}
-          className={`${INPUT_CLASS} ${borderFor('password')}`}
+          aria-describedby={messageFor('password') !== undefined ? 'password-error' : undefined}
+          className={`${INPUT_CLASS} ${inputBorderClass(messageFor('password') !== undefined)}`}
         />
-        {messageFor('password') !== undefined ? (
-          <p className="text-danger mt-1.5 text-xs">{messageFor('password')}</p>
-        ) : null}
-      </div>
+      </Field>
 
       <ActionButton
         type="submit"
