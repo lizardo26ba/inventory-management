@@ -7,20 +7,33 @@ La primera versión cubre existencias, compras y ventas.
 
 ## Estado
 
-En construcción. El modelo de datos y las reglas de arquitectura están completos. La
-aplicación tiene el andamiaje montado y una página provisional.
+En construcción. Las reglas y el modelo de datos están completos. La aplicación ya se usa
+para administrar la plataforma: se entra con credenciales propias y desde ahí se gestionan
+las empresas y las personas que acceden a ellas. Los dominios de negocio, que son
+existencias, compras y ventas, todavía no existen.
 
-| Pieza                               | Estado    |
-| ----------------------------------- | --------- |
-| Reglas de arquitectura y de negocio | Completas |
-| Modelo de datos y migraciones       | Completo  |
-| Semillas                            | Completas |
-| Andamiaje de Next.js                | Completo  |
-| Prototipo de diseño                 | En curso  |
-| Módulo de configuración             | Pendiente |
-| Traducciones                        | Pendiente |
-| Autenticación y autorización        | Pendiente |
-| Módulos de negocio                  | Pendiente |
+| Pieza                               | Estado                           |
+| ----------------------------------- | -------------------------------- |
+| Reglas de arquitectura y de negocio | Completas                        |
+| Modelo de datos y migraciones       | Completo                         |
+| Semillas                            | Completas                        |
+| Andamiaje de Next.js                | Completo                         |
+| Módulo de configuración             | Completo                         |
+| Capa de traducción                  | Completa, en inglés y español    |
+| Autenticación y sesión              | Completa                         |
+| Autorización de plataforma          | Completa                         |
+| Empresas                            | Alta, edición, activación y baja |
+| Usuarios                            | Alta, edición, activación y baja |
+| Prototipo de diseño                 | En curso                         |
+| Roles por empresa                   | Pendiente                        |
+| Existencias, compras y ventas       | Pendiente                        |
+| Bitácora de auditoría               | Pendiente                        |
+| Segundo factor                      | Suspendido de forma declarada    |
+
+El segundo factor que exige RN-005 está apagado mientras no existan sus pantallas de alta
+y verificación. Se gobierna con una variable de entorno que por omisión lo exige. La
+justificación está en las [reglas de negocio](docs/architecture/reglas-de-negocio.md) y en
+la enmienda del [ADR 0005](docs/adr/0005-super-administrador-de-plataforma.md).
 
 ## Stack
 
@@ -76,6 +89,10 @@ Las razones de cada elección están en [docs/adr](docs/adr/).
    ```bash
    npm run dev
    ```
+
+El prototipo de diseño vive aparte, en `/prototype`. No pide sesión y todos sus datos son
+inventados. Sirve para acordar el diseño antes de llevarlo a las pantallas reales, según
+[prototipo y componentes](docs/standards/prototype-and-components.md).
 
 ## Guiones disponibles
 
