@@ -108,3 +108,47 @@ proteger.
 Se reconsidera si el número de cuentas con el privilegio supera un puñado, en cuyo caso
 convendrá dividirlo en roles de plataforma más finos, por ejemplo soporte de solo lectura
 frente a administración plena.
+
+## Enmienda 2026-09-11: el segundo factor se puede saltar por configuración
+
+**Estado:** vigente, temporal
+**Decide:** propietario del producto
+
+### Qué cambia
+
+La decisión original exigía el segundo factor siempre en producción, sin posibilidad de
+apagarlo. A partir de ahora manda la variable `PLATFORM_ADMIN_TWO_FACTOR` en todos los
+entornos, con `required` por omisión. Con el valor `skipped`, la puerta del super
+administrador comprueba el privilegio pero no el segundo factor.
+
+### Por qué
+
+Las pantallas de alta y de verificación del segundo factor no existen todavía, y ningún
+camino del sistema escribe la marca de segundo factor superado en la sesión. En producción
+eso dejaba la puerta cerrada sin llave posible: la cuenta entraba, y cualquier pantalla de
+plataforma respondía con un error. El despliegue quedaba inservible, no protegido.
+
+Entre las dos salidas, apagar el control de forma declarada y visible es preferible a que
+el despliegue entero no funcione, porque un sistema que no arranca se acaba desplegando con
+parches peores y sin registro de lo que se tocó.
+
+### Lo que no cambia
+
+- El privilegio sigue siendo una concesión viva en `platform_admins`, y sin ella no se
+  alcanza ninguna pantalla de plataforma.
+- La comprobación sigue estando en un punto único de autorización del servidor.
+- La auditoría del acceso elevado sigue siendo obligatoria.
+- El valor por omisión sigue siendo el seguro, en todos los entornos.
+
+### Riesgo aceptado
+
+Una sesión robada de super administrador basta para el acceso transversal, sin un segundo
+obstáculo. Lo compensan, mientras dure: la vida corta de la sesión, el bloqueo por intentos
+fallidos, la auditoría de cada entrada a una empresa y el aviso que el arranque escribe en
+el registro allí donde el control está apagado.
+
+### Cuándo se retira
+
+Con las pantallas de alta y de verificación del segundo factor. En ese momento la variable
+desaparece del código y de la configuración, y esta enmienda pasa a obsoleta. Hasta
+entonces, el despliegue que la use lo declara por escrito en su configuración.

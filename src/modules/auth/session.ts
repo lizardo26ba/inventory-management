@@ -140,10 +140,11 @@ export async function requestFingerprint(): Promise<{
  * segundo factor es lo que confirma que quien lo usa es quien dice ser, y no
  * alguien sentado frente a una sesión abierta. El ADR 0005 exige las dos.
  *
- * La segunda se puede saltar fuera de producción, mientras las pantallas de alta
- * del segundo factor no existan. No es un agujero escondido: la variable se
- * escribe a mano, lleva por omisión el valor seguro, y el arranque en producción
- * se niega si alguien la deja apagada.
+ * La segunda se puede saltar mientras las pantallas de alta y de verificación
+ * del segundo factor no existan, y eso incluye producción. No es un agujero
+ * escondido: la variable se escribe a mano, lleva por omisión el valor seguro, y
+ * el arranque avisa en el registro allí donde está apagada. Es temporal y se
+ * retira con las pantallas. Ver la enmienda del ADR 0005.
  */
 export async function requirePlatformAdmin(): Promise<SessionContext> {
   const session = await requireSession();

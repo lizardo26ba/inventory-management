@@ -32,7 +32,9 @@ cuatro controles:
   revocación deja rastro en lugar de borrar la fila.
 - No hay acceso ambiente: sin organización elegida de forma explícita, no se obtiene ningún
   dato de negocio.
-- El segundo factor está activo y superado antes de poder elegir organización.
+- El segundo factor está activo y superado antes de poder elegir organización. Suspendido de
+  forma temporal y declarada mientras sus pantallas no existan: lo gobierna
+  `PLATFORM_ADMIN_TWO_FACTOR`, que por omisión lo exige. Ver la enmienda del ADR 0005.
 - Cada acción, **incluidas las lecturas**, deja auditoría con la organización afectada y la
   marca de privilegio elevado.
 
