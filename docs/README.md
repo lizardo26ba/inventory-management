@@ -3,7 +3,7 @@
 **Audiencia:** todas
 **Estado:** vigente
 **Responsable:** equipo de arquitectura
-**Última revisión:** 2026-09-10
+**Última revisión:** 2026-09-12
 
 Punto de entrada a la documentación del sistema de inventario. Todo documento nuevo se
 registra aquí.
@@ -46,6 +46,12 @@ referencia para personas.
 | [0007](adr/0007-sesion-propia-sin-libreria-de-autenticacion.md)    | Sesión propia en base de datos, sustituye la parte de librería de 0004 |
 | [0008](adr/0008-rastreo-por-lote-y-numero-de-serie.md)             | Rastreo por lote y por número de serie, configurable por producto      |
 
+## Arquitectura
+
+| Documento                             | Para qué sirve                                              |
+| ------------------------------------- | ----------------------------------------------------------- |
+| [Seguridad](architecture/security.md) | Quién puede hacer qué: alcances, roles y matriz de permisos |
+
 ## Negocio
 
 | Documento                                              | Para qué sirve                                                             |
@@ -65,7 +71,6 @@ reglas de documentación.
 
 - `architecture/overview.md`
 - `architecture/data-model.md`
-- `architecture/security.md`
 - `guides/getting-started.md`
 - `guides/contributing.md`
 - `guides/deployment.md`

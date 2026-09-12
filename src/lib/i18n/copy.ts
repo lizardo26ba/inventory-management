@@ -374,6 +374,111 @@ export const copyEn = {
     viewer: 'Read only',
   },
 
+  /**
+   * El nombre de cada grupo de permisos.
+   *
+   * La clave es el recurso al que alcanzan, tal como lo declara el catálogo de
+   * permisos. El recurso en crudo no se enseña nunca: "purchase_order" no es una
+   * palabra que nadie diga.
+   */
+  permissionGroups: {
+    organization: 'Company',
+    user: 'Users',
+    role: 'Roles',
+    warehouse: 'Warehouses',
+    product: 'Products',
+    catalog: 'Catalog',
+    supplier: 'Suppliers',
+    customer: 'Customers',
+    inventory: 'Stock',
+    lot: 'Lots and serial numbers',
+    purchase_order: 'Purchase orders',
+    purchase_receipt: 'Purchase receipts',
+    sales_order: 'Sales orders',
+    sales_shipment: 'Shipments',
+    report: 'Reports',
+    audit: 'Audit log',
+  },
+
+  /**
+   * Qué deja hacer cada permiso, en una frase.
+   *
+   * La clave es el código exacto del catálogo, que es lo que guarda la base de
+   * datos y lo que aparece en la bitácora. El código sigue siendo la verdad; esto
+   * es solo cómo se le cuenta a quien concede el acceso, que necesita entender lo
+   * que está dando antes de guardarlo.
+   *
+   * Solo están los permisos de empresa, que son los únicos que se enseñan. Los de
+   * plataforma no se conceden de uno en uno: se tiene o no se tiene el privilegio
+   * de super administrador.
+   */
+  permissions: {
+    'organization:read': 'View company details',
+    'organization:update': 'Edit company details',
+
+    'user:read': 'View company users',
+    'user:invite': 'Invite users to the company',
+    'user:update': 'Edit users and their roles',
+    'user:suspend': 'Suspend access for a user',
+
+    'role:read': 'View roles and their permissions',
+    'role:create': 'Create roles',
+    'role:update': 'Edit roles and their permissions',
+    'role:delete': 'Delete roles',
+
+    'warehouse:read': 'View warehouses',
+    'warehouse:create': 'Create warehouses',
+    'warehouse:update': 'Edit warehouses',
+    'warehouse:archive': 'Archive warehouses',
+
+    'product:read': 'View the product catalog',
+    'product:create': 'Create products',
+    'product:update': 'Edit products',
+    'product:archive': 'Archive products',
+
+    'catalog:manage': 'Manage categories and units of measure',
+
+    'supplier:read': 'View suppliers',
+    'supplier:create': 'Create suppliers',
+    'supplier:update': 'Edit suppliers',
+    'supplier:archive': 'Archive suppliers',
+
+    'customer:read': 'View customers',
+    'customer:create': 'Create customers',
+    'customer:update': 'Edit customers',
+    'customer:archive': 'Archive customers',
+
+    'inventory:read': 'View stock and movements',
+    'inventory:receive': 'Register stock entries',
+    'inventory:issue': 'Register stock exits',
+    'inventory:transfer': 'Transfer between warehouses',
+    'inventory:adjust': 'Adjust stock by hand',
+    'inventory:count': 'Register physical counts',
+
+    'lot:manage': 'Manage lots and serial numbers',
+
+    'purchase_order:read': 'View purchase orders',
+    'purchase_order:create': 'Create purchase orders',
+    'purchase_order:update': 'Edit purchase orders',
+    'purchase_order:approve': 'Approve purchase orders',
+    'purchase_order:cancel': 'Cancel purchase orders',
+
+    'purchase_receipt:read': 'View purchase receipts',
+    'purchase_receipt:create': 'Register purchase receipts',
+
+    'sales_order:read': 'View sales orders',
+    'sales_order:create': 'Create sales orders',
+    'sales_order:update': 'Edit sales orders',
+    'sales_order:confirm': 'Confirm sales orders',
+    'sales_order:cancel': 'Cancel sales orders',
+
+    'sales_shipment:read': 'View shipments',
+    'sales_shipment:create': 'Register shipments',
+
+    'report:read': 'View reports',
+    'audit:read': 'View the company audit log',
+  },
+
   audit: {
     title: 'Audit log',
     subtitle: 'What happened, who did it, and what changed.',

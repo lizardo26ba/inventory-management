@@ -355,6 +355,92 @@ export const copyEs: Copy = {
     viewer: 'Solo consulta',
   },
 
+  permissionGroups: {
+    organization: 'Empresa',
+    user: 'Usuarios',
+    role: 'Roles',
+    warehouse: 'Almacenes',
+    product: 'Productos',
+    catalog: 'Catálogo',
+    supplier: 'Proveedores',
+    customer: 'Clientes',
+    inventory: 'Existencias',
+    lot: 'Lotes y números de serie',
+    purchase_order: 'Órdenes de compra',
+    purchase_receipt: 'Recepciones de compra',
+    sales_order: 'Pedidos de venta',
+    sales_shipment: 'Despachos',
+    report: 'Informes',
+    audit: 'Bitácora',
+  },
+
+  permissions: {
+    'organization:read': 'Ver los datos de la empresa',
+    'organization:update': 'Editar los datos de la empresa',
+
+    'user:read': 'Ver los usuarios de la empresa',
+    'user:invite': 'Invitar usuarios a la empresa',
+    'user:update': 'Editar usuarios y sus roles',
+    'user:suspend': 'Suspender el acceso de un usuario',
+
+    'role:read': 'Ver los roles y sus permisos',
+    'role:create': 'Crear roles',
+    'role:update': 'Editar roles y sus permisos',
+    'role:delete': 'Eliminar roles',
+
+    'warehouse:read': 'Ver los almacenes',
+    'warehouse:create': 'Crear almacenes',
+    'warehouse:update': 'Editar almacenes',
+    'warehouse:archive': 'Dar de baja almacenes',
+
+    'product:read': 'Ver el catálogo de productos',
+    'product:create': 'Crear productos',
+    'product:update': 'Editar productos',
+    'product:archive': 'Dar de baja productos',
+
+    'catalog:manage': 'Administrar categorías y unidades de medida',
+
+    'supplier:read': 'Ver proveedores',
+    'supplier:create': 'Crear proveedores',
+    'supplier:update': 'Editar proveedores',
+    'supplier:archive': 'Dar de baja proveedores',
+
+    'customer:read': 'Ver clientes',
+    'customer:create': 'Crear clientes',
+    'customer:update': 'Editar clientes',
+    'customer:archive': 'Dar de baja clientes',
+
+    'inventory:read': 'Consultar existencias y movimientos',
+    'inventory:receive': 'Registrar entradas de inventario',
+    'inventory:issue': 'Registrar salidas de inventario',
+    'inventory:transfer': 'Transferir entre almacenes',
+    'inventory:adjust': 'Ajustar existencias de forma manual',
+    'inventory:count': 'Registrar conteos físicos',
+
+    'lot:manage': 'Administrar lotes y números de serie',
+
+    'purchase_order:read': 'Ver órdenes de compra',
+    'purchase_order:create': 'Crear órdenes de compra',
+    'purchase_order:update': 'Editar órdenes de compra',
+    'purchase_order:approve': 'Aprobar órdenes de compra',
+    'purchase_order:cancel': 'Cancelar órdenes de compra',
+
+    'purchase_receipt:read': 'Ver recepciones de compra',
+    'purchase_receipt:create': 'Registrar recepciones de compra',
+
+    'sales_order:read': 'Ver pedidos de venta',
+    'sales_order:create': 'Crear pedidos de venta',
+    'sales_order:update': 'Editar pedidos de venta',
+    'sales_order:confirm': 'Confirmar pedidos de venta',
+    'sales_order:cancel': 'Cancelar pedidos de venta',
+
+    'sales_shipment:read': 'Ver despachos',
+    'sales_shipment:create': 'Registrar despachos',
+
+    'report:read': 'Consultar informes',
+    'audit:read': 'Consultar la bitácora de la empresa',
+  },
+
   audit: {
     title: 'Bitácora',
     subtitle: 'Qué pasó, quién lo hizo y qué cambió.',
