@@ -149,6 +149,82 @@ contra el saldo materializado y alerte ante cualquier divergencia.
   con valor por omisión.
 - Los datos de referencia se cargan con semillas idempotentes, no dentro de la migración.
 
+### 7.1 Claves foráneas que Prisma no conoce
+
+Los sellos `created_by_id` y `updated_by_id` son escalares sin relación en Prisma. Su clave
+foránea y su índice existen solo en SQL, creados por la migración
+`20260915033139_sellos_de_autoria`. Ver la cabecera de `prisma/schema.prisma`.
+
+Consecuencia: `prisma migrate dev` cree que sobran y **propone borrarlos** en la siguiente
+migración. Por eso toda migración se genera con `--create-only` y, antes de aplicarla, se
+eliminan del `migration.sql` las líneas `DROP CONSTRAINT` y `DROP INDEX` sobre esas
+columnas. Aplicar una migración que las borra rompe la integridad de autoría y es un defecto.
+
+La comparación entre la base y el esquema muestra esas claves e índices como diferencia.
+Es lo esperado. Cualquier otra diferencia es un desalineamiento que hay que explicar.
+
+### 7.2 Procedimiento para cambiar el esquema en Neon
+
+La base de desarrollo vive en Neon. `DATABASE_URL` usa el host con `-pooler` y
+`DIRECT_DATABASE_URL` el host directo, que es el que usan las migraciones. Las cadenas de
+conexión son secretos: nunca se imprimen, se copian al chat ni se escriben fuera de `.env`.
+
+Reparto de responsabilidades. La persona crea la rama en la consola de Neon, pone sus
+cadenas en `.env` y aprueba el paso a `main`. El agente hace todo lo demás.
+
+1. **Rama de prueba.** La persona crea en Neon una rama a partir de `main` y apunta las dos
+   variables de `.env` a ella. El agente confirma el destino con `prisma migrate status`,
+   que muestra el host sin credenciales, y no sigue si el host es el de `main`.
+2. **Cambio en el esquema.** Se edita `prisma/schema.prisma` según este documento.
+3. **Generar sin aplicar.**
+
+   ```powershell
+   npm run db:migrate -- --name nombre_descriptivo --create-only
+   ```
+
+4. **Revisar el SQL.** Se quitan los borrados descritos en 7.1. Se buscan `DROP` y cambios
+   de tipo que pierdan datos. Una columna obligatoria sobre una tabla con filas sigue
+   expandir, rellenar y contraer, como `sellos_de_autoria`.
+5. **Aplicar en la rama.**
+
+   ```powershell
+   npm run db:migrate
+   ```
+
+   Si `migrate dev` ofrece un reset, se responde que no y se investiga el desalineamiento.
+
+6. **Verificar en la rama.**
+
+   ```powershell
+   npm run db:generate
+   ```
+
+   ```powershell
+   npm run verify
+   ```
+
+   ```powershell
+   npm run test:integration
+   ```
+
+7. **Pasar a `main`.** Requiere aprobación explícita de la persona en ese momento. La
+   persona vuelve a apuntar `.env` a `main` y el agente, tras confirmar el host, ejecuta:
+
+   ```powershell
+   npm run db:deploy
+   ```
+
+   ```powershell
+   npx prisma migrate status
+   ```
+
+8. **Cerrar.** Se confirma el esquema junto con la carpeta de la migración, se actualiza el
+   diccionario de datos y la persona borra la rama de Neon.
+
+Prohibido contra `main`: `db:migrate`, `db:reset` y `prisma db push`. Allí solo se usa
+`db:deploy`. Para revertir se escribe una migración nueva; ante una emergencia, la persona
+restaura `main` a un momento anterior desde la consola de Neon.
+
 ## 8. Seguridad de datos
 
 - Acceso exclusivamente por Prisma con parámetros. `$queryRaw` requiere plantilla
