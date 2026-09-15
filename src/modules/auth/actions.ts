@@ -16,14 +16,14 @@ import { redirect } from 'next/navigation';
 
 import { toErrorPayload, type ErrorPayload } from '@/lib/errors';
 import { logger } from '@/lib/observability/logger';
+import { buildAuditContext } from '@/modules/audit';
 import {
-  createSession,
   deleteSession,
   deleteSessionsOfUser,
   findPasswordHash,
   findSignInCandidate,
+  openSession,
   registerFailedAttempt,
-  registerSuccessfulSignIn,
   updatePassword,
 } from '@/modules/auth/repository';
 import { changePasswordSchema, signInSchema, toFieldErrors } from '@/modules/auth/schema';
@@ -38,7 +38,6 @@ import {
 import { SIGN_IN_PATH, SIGNED_IN_PATH } from '@/modules/auth/routes';
 import {
   clearSessionCookie,
-  requestFingerprint,
   requireSession,
   SESSION_COOKIE_NAME,
   writeSessionCookie,
@@ -60,6 +59,9 @@ function failed(operation: string, error: unknown): ActionResult {
   logger.failure(`auth.${operation}`, error);
   return { ok: false, error: toErrorPayload(error) };
 }
+
+/** Quien todavía no es nadie: un intento de entrar no tiene autor. */
+const ANONYMOUS = { userId: null, organizationId: null, actingAsPlatformAdmin: false } as const;
 
 /**
  * Entrar.
@@ -97,23 +99,34 @@ export async function signIn(input: unknown): Promise<ActionResult> {
     if (candidate === null || !passwordMatches || candidate.status === 'SUSPENDED') {
       if (candidate !== null) {
         await registerFailedAttempt(
-          candidate.id,
+          candidate,
           nextLockoutState(candidate.failedLoginAttempts, now),
+          await buildAuditContext(ANONYMOUS, null),
         );
       }
       return { ok: false, error: { code: 'NOT_AUTHENTICATED' } };
     }
 
     const token = createSessionToken(now);
-    const fingerprint = await requestFingerprint();
+    const audit = await buildAuditContext(
+      { userId: candidate.id, organizationId: null, actingAsPlatformAdmin: false },
+      null,
+    );
 
-    await createSession({
-      userId: candidate.id,
-      tokenHash: token.tokenHash,
-      expiresAt: token.expiresAt,
-      ...fingerprint,
-    });
-    await registerSuccessfulSignIn(candidate.id, now);
+    await openSession(
+      {
+        userId: candidate.id,
+        email: candidate.email,
+        tokenHash: token.tokenHash,
+        expiresAt: token.expiresAt,
+        signedInAt: now,
+        // La huella de la petición ya se leyó para la bitácora. La sesión guarda
+        // la misma, no una segunda lectura.
+        ipAddress: audit.ipAddress,
+        userAgent: audit.userAgent,
+      },
+      audit,
+    );
     await writeSessionCookie(token.token);
   } catch (error) {
     return failed('signIn', error);
@@ -151,7 +164,11 @@ export async function changePassword(input: unknown): Promise<ActionResult> {
       };
     }
 
-    await updatePassword(session.userId, await hashPassword(parsed.data.newPassword));
+    await updatePassword(
+      { id: session.userId, email: session.email },
+      await hashPassword(parsed.data.newPassword),
+      await buildAuditContext(session, null),
+    );
 
     const store = await cookies();
     const token = store.get(SESSION_COOKIE_NAME)?.value;

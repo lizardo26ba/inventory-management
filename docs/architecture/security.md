@@ -3,7 +3,7 @@
 **Audiencia:** desarrollo
 **Estado:** vigente
 **Responsable:** equipo de arquitectura
-**Última revisión:** 2026-09-12
+**Última revisión:** 2026-09-14
 
 Quién puede hacer qué dentro del sistema. Al terminar sabes qué permisos existen, qué
 lleva cada rol del sistema, qué se comprueba hoy en el servidor y qué reglas de acceso no
@@ -193,3 +193,46 @@ Por eso no hace falta recordar actualizar este documento: si alguien añade un p
 cambia un rol o corrige una descripción y no toca esta tabla, la verificación falla y dice
 qué fila sobra o cuál falta. Son dos pruebas en `tests/unit`: una compara esta tabla con
 el catálogo, y otra vigila que ningún permiso llegue a la pantalla sin traducir.
+
+## 7. Bitácora de auditoría
+
+Cumple RN-070 a RN-073. El catálogo de acciones es código, `AUDIT_ACTIONS` en
+`src/modules/audit/types.ts`, y es la única fuente: aquí se describe el criterio, no la
+lista.
+
+**Qué se registra.** Toda escritura sobre empresas, cuentas, accesos a empresa y privilegio
+de plataforma, además de tres sucesos de sesión: entrar, cambiar la contraseña y quedar
+bloqueado por intentos fallidos. Cada entrada se escribe en la misma transacción que el
+cambio: si el cambio se revierte, la entrada también, y si la entrada no se puede escribir,
+el cambio no ocurre.
+
+**Qué guarda cada entrada.**
+
+| Dato                         | Para qué                                                            |
+| ---------------------------- | ------------------------------------------------------------------- |
+| Acción                       | El hecho de negocio, con la forma `dominio.hecho`                   |
+| Autor                        | Quien operó. Vacío solo en el bloqueo por intentos, que no tiene    |
+| Empresa afectada             | La del registro tocado, no la de la sesión. Vacía si no hay empresa |
+| Privilegio elevado           | Permiso de plataforma o super administrador en empresa ajena        |
+| Permiso ejercido             | El que autorizó esa entrada concreta                                |
+| Entidad y etiqueta           | Qué se tocó, y cómo se llamaba en ese momento                       |
+| Antes y después              | Solo los campos que cambiaron, nunca la fila entera                 |
+| Red, navegador y correlación | De dónde vino, y qué entradas salieron de la misma operación        |
+
+**Qué no entra.**
+
+- Contraseñas, huellas, testigos ni secretos. El servicio de auditoría rechaza la operación
+  entera si un campo se llama así, en lugar de enmascararlo: en una tabla de solo inserción
+  no hay forma de limpiarlo después.
+- Los intentos de entrar fallidos y los accesos denegados. No tienen a quién atribuirse y
+  van al registro de la aplicación, que ya enmascara lo sensible.
+- Las consultas del super administrador dentro de una empresa (RN-073). Se registrarán
+  cuando exista la acción de entrar a una empresa, que todavía no está construida.
+- La purga por antigüedad. El plazo de retención (RN-074) está pendiente de negocio y hasta
+  entonces no se borra nada.
+
+**Cómo se protege.** Un disparador de la base rechaza cualquier `UPDATE`, `DELETE` o
+`TRUNCATE` sobre `audit_logs` (RN-071). Hoy la aplicación y las migraciones comparten el
+rol de base de datos, así que el dueño de la tabla podría desactivar ese disparador. La
+protección completa llega con un rol propio para la aplicación que solo tenga `SELECT` e
+`INSERT` sobre la bitácora.

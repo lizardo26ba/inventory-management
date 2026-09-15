@@ -246,6 +246,7 @@ model Organization {
   baseCurrency Currency     @relation(fields: [baseCurrencyCode], references: [code], onDelete: Restrict)
   memberships  Membership[]
   roles        Role[]
+  auditLogs    AuditLog[]
 
   @@index([countryCode])
   /// Dos organizaciones del mismo pais no pueden compartir identificador fiscal:
@@ -1033,23 +1034,44 @@ model SalesShipmentLine {
 // Infraestructura: auditoria, idempotencia y bandeja de salida
 // =============================================================================
 
-/// Bitacora de auditoria. Tabla de SOLO INSERCION.
+/// Bitacora de auditoria. Tabla de SOLO INSERCION. RN-070 a RN-073.
 /// Nunca contiene contrasenas, secretos ni datos personales innecesarios.
+///
+/// Que no se edite ni se borre lo defiende la base, no solo el codigo: un
+/// disparador rechaza UPDATE, DELETE y TRUNCATE. Prisma no lo ve, vive en la
+/// migracion 20260915050000_bitacora_de_auditoria. RN-071.
+///
+/// El catalogo de acciones vive en src/modules/audit/types.ts.
 model AuditLog {
-  id             String   @id @default(uuid(7))
-  organizationId String?  @map("organization_id")
-  actorId        String?  @map("actor_id")
-  action         String
-  entityType     String   @map("entity_type")
-  entityId       String?  @map("entity_id")
-  before         Json?
-  after          Json?
-  ipAddress      String?  @map("ip_address")
-  userAgent      String?  @map("user_agent")
-  correlationId  String   @map("correlation_id")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                    String   @id @default(uuid(7))
+  /// La empresa afectada, no la de la sesion. Nula en lo que es de plataforma,
+  /// como una cuenta de usuario, que no pertenece a ninguna empresa.
+  organizationId        String?  @map("organization_id")
+  /// Nulo solo cuando nadie se autentico, como el bloqueo por intentos.
+  actorId               String?  @map("actor_id")
+  /// Ejecutada con privilegio de plataforma. Sin valor por omision a proposito:
+  /// quien escribe la entrada tiene que decidirlo. RN-072, ADR 0005.
+  actingAsPlatformAdmin Boolean  @map("acting_as_platform_admin")
+  /// El permiso que se ejercio. Nulo en lo que no pide permiso, como entrar.
+  permissionCode        String?  @map("permission_code")
+  action                String
+  entityType            String   @map("entity_type")
+  entityId              String?  @map("entity_id")
+  /// Como se llamaba la entidad en ese momento: codigo, numero o correo. Se
+  /// guarda porque el nombre de hoy puede no ser el de entonces.
+  entityLabel           String?  @map("entity_label")
+  /// Solo los campos que cambiaron, nunca la fila entera.
+  before                Json?
+  after                 Json?
+  ipAddress             String?  @map("ip_address")
+  userAgent             String?  @map("user_agent")
+  correlationId         String   @map("correlation_id")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  actor User? @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+  /// RESTRICT: autores y empresas se borran de forma logica, asi que esto no le
+  /// estorba a nadie, e impide que un borrado real deje entradas sin dueno.
+  actor        User?         @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: Restrict)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, createdAt])
   @@index([organizationId, entityType, entityId])

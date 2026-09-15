@@ -20,6 +20,7 @@ import { type Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/db/client';
 import { createSystemRoles } from '@/lib/db/system-roles';
+import { diffFields, recordAuditEntries, type AuditContext } from '@/modules/audit';
 
 import {
   type OrganizationDetail,
@@ -248,23 +249,27 @@ export async function listTakenSlugs(): Promise<string[]> {
   return rows.map((row) => row.slug);
 }
 
-export async function createOrganization(data: {
-  /** Quien la está creando. Solo el super administrador, por RN-003. */
-  readonly actorId: string;
-  readonly slug: string;
-  readonly name: string;
-  readonly legalName: string;
-  readonly countryCode: string;
-  readonly baseCurrencyCode: string;
-  readonly timeZone: string;
-  readonly taxId: string | null;
-  readonly email: string | null;
-  readonly phone: string | null;
-  readonly address: string | null;
-}): Promise<{ readonly id: string; readonly slug: string }> {
-  // La empresa y sus roles nacen juntos. Una empresa sin roles no puede recibir
-  // a nadie: conceder un acceso exige elegir con qué alcance, y sin roles no hay
-  // alcance que elegir. Si algo falla a mitad, no queda ni la empresa.
+export async function createOrganization(
+  data: {
+    /** Quien la está creando. Solo el super administrador, por RN-003. */
+    readonly actorId: string;
+    readonly slug: string;
+    readonly name: string;
+    readonly legalName: string;
+    readonly countryCode: string;
+    readonly baseCurrencyCode: string;
+    readonly timeZone: string;
+    readonly taxId: string | null;
+    readonly email: string | null;
+    readonly phone: string | null;
+    readonly address: string | null;
+  },
+  audit: AuditContext,
+): Promise<{ readonly id: string; readonly slug: string }> {
+  // La empresa, sus roles y su entrada en la bitácora nacen juntos. Una empresa
+  // sin roles no puede recibir a nadie: conceder un acceso exige elegir con qué
+  // alcance, y sin roles no hay alcance que elegir. Si algo falla a mitad, no
+  // queda ni la empresa.
   const { actorId, ...fields } = data;
 
   return prisma.$transaction(async (tx) => {
@@ -276,6 +281,17 @@ export async function createOrganization(data: {
 
     await createSystemRoles(tx, created.id);
 
+    await recordAuditEntries(tx, audit, [
+      {
+        action: 'organization.created',
+        entityType: 'Organization',
+        entityId: created.id,
+        entityLabel: fields.name,
+        organizationId: created.id,
+        after: fields,
+      },
+    ]);
+
     return created;
   });
 }
@@ -283,21 +299,48 @@ export async function createOrganization(data: {
 /**
  * Enciende o apaga una empresa.
  *
- * Devuelve si cambió algo. Cero filas afectadas significa que la empresa no
- * existe o que ya estaba borrada, y eso no es un cambio silencioso: quien llama
- * lo convierte en un error.
+ * Devuelve si la empresa existe. Cero filas afectadas significa que no existe o
+ * que ya estaba borrada, y eso no es un cambio silencioso: quien llama lo
+ * convierte en un error. Pedir el estado que ya tenía no es un error, pero
+ * tampoco un cambio, así que no deja entrada.
  */
 export async function setOrganizationActive(
   id: string,
   isActive: boolean,
   actorId: string,
+  audit: AuditContext,
 ): Promise<boolean> {
-  const result = await prisma.organization.updateMany({
-    where: { id, ...NOT_DELETED },
-    data: { isActive, updatedById: actorId },
-  });
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.organization.findFirst({
+      where: { id, ...NOT_DELETED },
+      select: { name: true, isActive: true },
+    });
 
-  return result.count > 0;
+    if (current === null) return false;
+
+    const result = await tx.organization.updateMany({
+      where: { id, ...NOT_DELETED },
+      data: { isActive, updatedById: actorId },
+    });
+
+    if (result.count === 0) return false;
+
+    if (current.isActive !== isActive) {
+      await recordAuditEntries(tx, audit, [
+        {
+          action: isActive ? 'organization.activated' : 'organization.deactivated',
+          entityType: 'Organization',
+          entityId: id,
+          entityLabel: current.name,
+          organizationId: id,
+          before: { isActive: current.isActive },
+          after: { isActive },
+        },
+      ]);
+    }
+
+    return true;
+  });
 }
 
 /**
@@ -312,13 +355,24 @@ export async function setOrganizationActive(
  * que el recuento de almacenes de la plataforma contara los de una empresa que
  * ya nadie ve.
  */
-export async function softDeleteOrganization(id: string, actorId: string): Promise<boolean> {
-  // Un solo instante para las dos escrituras. Dos llamadas al reloj darían dos
+export async function softDeleteOrganization(
+  id: string,
+  actorId: string,
+  audit: AuditContext,
+): Promise<boolean> {
+  // Un solo instante para todas las escrituras. Dos llamadas al reloj darían dos
   // valores, y el dato diría que los almacenes se borraron después que su
   // empresa. Ver docs/standards/dates-and-times.md
   const deletedAt = new Date();
 
   return prisma.$transaction(async (tx) => {
+    const current = await tx.organization.findFirst({
+      where: { id, ...NOT_DELETED },
+      select: { name: true, isActive: true },
+    });
+
+    if (current === null) return false;
+
     const result = await tx.organization.updateMany({
       where: { id, ...NOT_DELETED },
       data: { deletedAt, isActive: false, updatedById: actorId },
@@ -330,6 +384,20 @@ export async function softDeleteOrganization(id: string, actorId: string): Promi
       where: { organizationId: id, deletedAt: null },
       data: { deletedAt, updatedById: actorId },
     });
+
+    // Una sola entrada. Los almacenes caen como consecuencia del borrado, no por
+    // decisión propia, y comparten el identificador de correlación.
+    await recordAuditEntries(tx, audit, [
+      {
+        action: 'organization.deleted',
+        entityType: 'Organization',
+        entityId: id,
+        entityLabel: current.name,
+        organizationId: id,
+        before: { isActive: current.isActive, deletedAt: null },
+        after: { isActive: false, deletedAt: deletedAt.toISOString() },
+      },
+    ]);
 
     return true;
   });
@@ -407,9 +475,9 @@ export type UpdateResult =
  *
  * La condición de la versión va dentro del mismo `WHERE` que la escritura, no en
  * una consulta previa: entre leer y escribir cabe el guardado de otra persona, y
- * comprobarlo aparte volvería a abrir esa rendija. Cero filas afectadas significa
- * que la empresa ya no está o que su versión cambió, y por eso se distingue
- * después con una lectura, que ya no decide nada.
+ * comprobarlo aparte volvería a abrir esa rendija. La lectura de antes no decide
+ * si se escribe: distingue por qué no se pudo y dice qué cambió, que es lo que va
+ * a la bitácora.
  *
  * Ni el código ni la moneda base entran aquí. El código encabeza el número de
  * cada documento y la moneda es la unidad en la que está valorado todo el
@@ -428,18 +496,49 @@ export async function updateOrganization(
     readonly phone: string | null;
     readonly address: string | null;
   },
+  audit: AuditContext,
 ): Promise<UpdateResult> {
-  const result = await prisma.organization.updateMany({
-    where: { id, version, ...NOT_DELETED },
-    data: { ...data, updatedById: actorId, version: { increment: 1 } },
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.organization.findFirst({
+      where: { id, ...NOT_DELETED },
+      select: {
+        slug: true,
+        name: true,
+        legalName: true,
+        countryCode: true,
+        taxId: true,
+        email: true,
+        phone: true,
+        address: true,
+      },
+    });
+
+    if (current === null) return { outcome: 'NOT_FOUND' };
+
+    const result = await tx.organization.updateMany({
+      where: { id, version, ...NOT_DELETED },
+      data: { ...data, updatedById: actorId, version: { increment: 1 } },
+    });
+
+    if (result.count === 0) return { outcome: 'STALE_VERSION' };
+
+    const { slug, ...before } = current;
+    const changes = diffFields(before, data);
+
+    // Guardar sin tocar nada sube la versión, pero no es un cambio que contar.
+    if (changes !== null) {
+      await recordAuditEntries(tx, audit, [
+        {
+          action: 'organization.updated',
+          entityType: 'Organization',
+          entityId: id,
+          entityLabel: data.name,
+          organizationId: id,
+          ...changes,
+        },
+      ]);
+    }
+
+    return { outcome: 'UPDATED', slug };
   });
-
-  const row = await prisma.organization.findFirst({
-    where: { id, ...NOT_DELETED },
-    select: { slug: true },
-  });
-
-  if (result.count > 0) return { outcome: 'UPDATED', slug: row?.slug ?? '' };
-
-  return { outcome: row === null ? 'NOT_FOUND' : 'STALE_VERSION' };
 }

@@ -10,15 +10,21 @@
  *
  * El alta es la única que no redirige. Devuelve la contraseña temporal para que
  * la pantalla la muestre una vez, y por eso no puede irse a otro sitio antes de
- * que alguien la haya leído. No se escribe en el registro ni viaja en la
- * dirección: se dice una vez y se olvida.
+ * que alguien la haya leído. No se escribe en el registro, ni en la bitácora, ni
+ * viaja en la dirección: se dice una vez y se olvida.
+ *
+ * El contexto de auditoría se construye justo antes de escribir, con el permiso
+ * que autorizó la operación. Viaja al repositorio, que escribe las entradas en
+ * la misma transacción que el cambio.
  */
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
+import { type PermissionCode } from '@/lib/auth/permissions';
 import { ConflictError, NotFoundError, toErrorPayload, type ErrorPayload } from '@/lib/errors';
 import { logger } from '@/lib/observability/logger';
+import { buildAuditContext } from '@/modules/audit';
 import { hashPassword, requirePlatformPermission } from '@/modules/auth';
 
 import {
@@ -93,8 +99,10 @@ async function checkAccesses(
 }
 
 export async function createUser(input: unknown): Promise<CreateUserResult> {
+  const permission: PermissionCode = 'platform.user:create';
+
   try {
-    const session = await requirePlatformPermission('platform.user:create');
+    const session = await requirePlatformPermission(permission);
 
     const parsed = createUserSchema.safeParse(input);
     if (!parsed.success) {
@@ -123,18 +131,21 @@ export async function createUser(input: unknown): Promise<CreateUserResult> {
 
     const temporaryPassword = generateTemporaryPassword();
 
-    await insertUser({
-      actorId: session.userId,
-      email: parsed.data.email,
-      passwordHash: await hashPassword(temporaryPassword),
-      firstName: parsed.data.firstName,
-      lastName: parsed.data.lastName,
-      countryCode: parsed.data.countryCode,
-      accesses: parsed.data.accesses,
-      platformAdmin: parsed.data.isPlatformAdmin
-        ? { reason: parsed.data.platformAdminReason, grantedById: session.userId }
-        : undefined,
-    });
+    await insertUser(
+      {
+        actorId: session.userId,
+        email: parsed.data.email,
+        passwordHash: await hashPassword(temporaryPassword),
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        countryCode: parsed.data.countryCode,
+        accesses: parsed.data.accesses,
+        platformAdmin: parsed.data.isPlatformAdmin
+          ? { reason: parsed.data.platformAdminReason, grantedById: session.userId }
+          : undefined,
+      },
+      await buildAuditContext(session, permission),
+    );
 
     // La lista está en caché de ruta: sin esto, la cuenta recién creada no
     // aparecería hasta que algo más la invalidara.
@@ -177,8 +188,10 @@ function isUniqueViolation(error: unknown): boolean {
  * tiene por qué poder dar de alta cuentas.
  */
 export async function updateUser(input: unknown): Promise<UserActionResult> {
+  const permission: PermissionCode = 'platform.user:update';
+
   try {
-    const session = await requirePlatformPermission('platform.user:update');
+    const session = await requirePlatformPermission(permission);
 
     const parsed = updateUserSchema.safeParse(input);
     if (!parsed.success) {
@@ -223,18 +236,23 @@ export async function updateUser(input: unknown): Promise<UserActionResult> {
       return { ok: false, error: { code: 'CONFLICT', fieldErrors: { email: 'emailTaken' } } };
     }
 
-    const result = await saveUser(parsed.data.id, parsed.data.version, {
-      actorId: session.userId,
-      email: parsed.data.email,
-      firstName: parsed.data.firstName,
-      lastName: parsed.data.lastName,
-      countryCode: parsed.data.countryCode,
-      accesses: parsed.data.accesses,
-      platformAdmin: {
-        isGranted: parsed.data.isPlatformAdmin,
-        reason: parsed.data.platformAdminReason,
+    const result = await saveUser(
+      parsed.data.id,
+      parsed.data.version,
+      {
+        actorId: session.userId,
+        email: parsed.data.email,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        countryCode: parsed.data.countryCode,
+        accesses: parsed.data.accesses,
+        platformAdmin: {
+          isGranted: parsed.data.isPlatformAdmin,
+          reason: parsed.data.platformAdminReason,
+        },
       },
-    });
+      await buildAuditContext(session, permission),
+    );
 
     if (result.outcome === 'NOT_FOUND') {
       throw new NotFoundError('La cuenta no existe o ya fue eliminada.');
@@ -268,8 +286,10 @@ export async function updateUser(input: unknown): Promise<UserActionResult> {
  * el estado de la cuenta. RN-006.
  */
 export async function setUserActive(input: unknown): Promise<UserActionResult> {
+  const permission: PermissionCode = 'platform.user:suspend';
+
   try {
-    const session = await requirePlatformPermission('platform.user:suspend');
+    const session = await requirePlatformPermission(permission);
 
     const parsed = setUserActiveSchema.safeParse(input);
     if (!parsed.success) {
@@ -283,6 +303,7 @@ export async function setUserActive(input: unknown): Promise<UserActionResult> {
       parsed.data.id,
       parsed.data.isActive,
       session.userId,
+      await buildAuditContext(session, permission),
     );
     if (!changed) throw new NotFoundError('La cuenta no existe o ya fue eliminada.');
   } catch (error) {
@@ -301,8 +322,10 @@ export async function setUserActive(input: unknown): Promise<UserActionResult> {
  * bitácora: borrar la fila dejaría esa historia apuntando al vacío.
  */
 export async function deleteUser(input: unknown): Promise<UserActionResult> {
+  const permission: PermissionCode = 'platform.user:delete';
+
   try {
-    const session = await requirePlatformPermission('platform.user:delete');
+    const session = await requirePlatformPermission(permission);
 
     const parsed = userIdSchema.safeParse(input);
     if (!parsed.success) {
@@ -312,7 +335,11 @@ export async function deleteUser(input: unknown): Promise<UserActionResult> {
       };
     }
 
-    const removed = await removeUser(parsed.data.id, session.userId);
+    const removed = await removeUser(
+      parsed.data.id,
+      session.userId,
+      await buildAuditContext(session, permission),
+    );
     if (!removed) throw new NotFoundError('La cuenta no existe o ya fue eliminada.');
   } catch (error) {
     logger.failure('users.delete', error);
