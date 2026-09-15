@@ -20,6 +20,13 @@ import 'server-only';
 import { type Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/db/client';
+import {
+  diffFields,
+  recordAuditEntries,
+  type AuditAction,
+  type AuditContext,
+  type AuditEntry,
+} from '@/modules/audit';
 
 import {
   type OrganizationChoice,
@@ -307,24 +314,67 @@ async function grantPlatformAdmin(
   userId: string,
   reason: string,
   grantedById: string,
-): Promise<void> {
-  await tx.platformAdmin.upsert({
+): Promise<{ readonly id: string }> {
+  return tx.platformAdmin.upsert({
     where: { userId },
     update: { reason, grantedById, grantedAt: new Date(), revokedAt: null, revokedById: null },
     create: { userId, reason, grantedById },
+    select: { id: true },
   });
 }
 
-/** Retira el acceso de plataforma dejando constancia de quién lo retiró. */
+/**
+ * Retira el acceso de plataforma dejando constancia de quién lo retiró.
+ *
+ * Devuelve la concesión que se revocó, o nada si no había ninguna viva.
+ */
 async function revokePlatformAdmin(
   tx: Prisma.TransactionClient,
   userId: string,
   revokedById: string,
-): Promise<void> {
-  await tx.platformAdmin.updateMany({
+): Promise<{ readonly id: string } | null> {
+  const active = await tx.platformAdmin.findFirst({
     where: { userId, revokedAt: null },
+    select: { id: true },
+  });
+
+  if (active === null) return null;
+
+  await tx.platformAdmin.update({
+    where: { id: active.id },
     data: { revokedAt: new Date(), revokedById },
   });
+
+  return active;
+}
+
+/**
+ * El nombre de cada rol, para la bitácora.
+ *
+ * Un identificador de rol no le dice nada a quien lee la bitácora, y el nombre
+ * de hoy puede no ser el de mañana. Se guarda el de ese momento.
+ */
+async function findRoleNames(
+  tx: Prisma.TransactionClient,
+  roleIds: readonly string[],
+): Promise<ReadonlyMap<string, string>> {
+  if (roleIds.length === 0) return new Map();
+
+  const roles = await tx.role.findMany({
+    where: { id: { in: [...new Set(roleIds)] } },
+    select: { id: true, name: true },
+  });
+
+  return new Map(roles.map((role) => [role.id, role.name]));
+}
+
+/** El nombre del rol, o su identificador si ya no existe: nunca un hueco. */
+function roleLabel(
+  names: ReadonlyMap<string, string>,
+  roleId: string | undefined,
+): string | null {
+  if (roleId === undefined) return null;
+  return names.get(roleId) ?? roleId;
 }
 
 /**
@@ -336,7 +386,10 @@ async function revokePlatformAdmin(
  * Nace obligada a cambiar la contraseña. La inicial la conoce quien creó la
  * cuenta, así que mientras siga puesta no es de su dueño.
  */
-export async function createUser(data: CreateUserData): Promise<{ readonly id: string }> {
+export async function createUser(
+  data: CreateUserData,
+  audit: AuditContext,
+): Promise<{ readonly id: string }> {
   return prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
       data: {
@@ -354,6 +407,31 @@ export async function createUser(data: CreateUserData): Promise<{ readonly id: s
       select: { id: true },
     });
 
+    const roleNames = await findRoleNames(
+      tx,
+      data.accesses.map((access) => access.roleId),
+    );
+
+    // La huella de la contraseña no entra: la bitácora dice que la cuenta nació,
+    // no con qué credencial.
+    const entries: AuditEntry[] = [
+      {
+        action: 'user.created',
+        entityType: 'User',
+        entityId: created.id,
+        entityLabel: data.email,
+        organizationId: null,
+        after: {
+          email: data.email,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          countryCode: data.countryCode,
+          status: 'ACTIVE',
+          mustChangePassword: true,
+        },
+      },
+    ];
+
     for (const access of data.accesses) {
       const membership = await tx.membership.create({
         data: {
@@ -368,16 +446,39 @@ export async function createUser(data: CreateUserData): Promise<{ readonly id: s
       await tx.membershipRole.create({
         data: { membershipId: membership.id, roleId: access.roleId },
       });
+
+      // En la empresa donde se concede, para que aparezca en su bitácora.
+      entries.push({
+        action: 'membership.granted',
+        entityType: 'Membership',
+        entityId: membership.id,
+        entityLabel: data.email,
+        organizationId: access.organizationId,
+        before: { role: null },
+        after: { role: roleLabel(roleNames, access.roleId) },
+      });
     }
 
     if (data.platformAdmin !== undefined) {
-      await grantPlatformAdmin(
+      const grant = await grantPlatformAdmin(
         tx,
         created.id,
         data.platformAdmin.reason,
         data.platformAdmin.grantedById,
       );
+
+      entries.push({
+        action: 'platform_admin.granted',
+        entityType: 'PlatformAdmin',
+        entityId: grant.id,
+        entityLabel: data.email,
+        organizationId: null,
+        permissionCode: 'platform.admin:grant',
+        after: { reason: data.platformAdmin.reason },
+      });
     }
+
+    await recordAuditEntries(tx, audit, entries);
 
     return created;
   });
@@ -417,15 +518,49 @@ export type UpdateUserData = {
  * Los accesos se ajustan por diferencia. Conceder crea la membresía o revive una
  * revocada, cambiar de rol sustituye la asignación, y quitar revoca sin borrar.
  */
+/**
+ * Una entrada de acceso a empresa.
+ *
+ * Va con la empresa donde ocurre, no con la sesión, para que aparezca en la
+ * bitácora de esa empresa. La etiqueta es el correo de la persona: lo que se
+ * busca es a quién se le dio o quitó el acceso.
+ */
+function membershipEntry(
+  action: AuditAction,
+  membership: { readonly id: string; readonly organizationId: string },
+  email: string,
+  roleBefore: string | null,
+  roleAfter: string | null,
+): AuditEntry {
+  return {
+    action,
+    entityType: 'Membership',
+    entityId: membership.id,
+    entityLabel: email,
+    organizationId: membership.organizationId,
+    before: { role: roleBefore },
+    after: { role: roleAfter },
+  };
+}
+
 export async function updateUser(
   id: string,
   version: number,
   data: UpdateUserData,
+  audit: AuditContext,
 ): Promise<UpdateResult> {
   return prisma.$transaction(async (tx) => {
     const current = await tx.user.findFirst({
       where: { id, deletedAt: null },
-      select: { id: true, version: true },
+      select: {
+        id: true,
+        version: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        countryCode: true,
+        platformAdmin: { select: { revokedAt: true } },
+      },
     });
 
     if (current === null) return { outcome: 'NOT_FOUND' };
@@ -444,18 +579,80 @@ export async function updateUser(
 
     if (written.count === 0) return { outcome: 'STALE_VERSION' };
 
+    const entries: AuditEntry[] = [];
+
+    const profileChanges = diffFields(
+      {
+        email: current.email,
+        firstName: current.firstName,
+        lastName: current.lastName,
+        countryCode: current.countryCode,
+      },
+      {
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        countryCode: data.countryCode,
+      },
+    );
+
+    if (profileChanges !== null) {
+      entries.push({
+        action: 'user.updated',
+        entityType: 'User',
+        entityId: id,
+        entityLabel: data.email,
+        organizationId: null,
+        ...profileChanges,
+      });
+    }
+
+    const wasPlatformAdmin =
+      current.platformAdmin !== null && current.platformAdmin.revokedAt === null;
+
     // El acceso de plataforma va dentro de la misma transacción que el resto.
     // Conceder y que luego falle el ajuste de accesos dejaría a alguien con
     // alcance a todas las empresas por un error a medio camino.
     if (data.platformAdmin.isGranted) {
-      await grantPlatformAdmin(tx, id, data.platformAdmin.reason, data.actorId);
+      const grant = await grantPlatformAdmin(tx, id, data.platformAdmin.reason, data.actorId);
+
+      // Guardar a quien ya lo tenía no es concederlo otra vez.
+      if (!wasPlatformAdmin) {
+        entries.push({
+          action: 'platform_admin.granted',
+          entityType: 'PlatformAdmin',
+          entityId: grant.id,
+          entityLabel: data.email,
+          organizationId: null,
+          permissionCode: 'platform.admin:grant',
+          after: { reason: data.platformAdmin.reason },
+        });
+      }
     } else {
-      await revokePlatformAdmin(tx, id, data.actorId);
+      const revokedGrant = await revokePlatformAdmin(tx, id, data.actorId);
+
+      if (revokedGrant !== null) {
+        entries.push({
+          action: 'platform_admin.revoked',
+          entityType: 'PlatformAdmin',
+          entityId: revokedGrant.id,
+          entityLabel: data.email,
+          organizationId: null,
+          permissionCode: 'platform.admin:revoke',
+          before: { granted: true },
+          after: { granted: false },
+        });
+      }
     }
 
     const memberships = await tx.membership.findMany({
       where: { userId: id },
-      select: { id: true, organizationId: true, roles: { select: { roleId: true } } },
+      select: {
+        id: true,
+        organizationId: true,
+        revokedAt: true,
+        roles: { select: { roleId: true } },
+      },
     });
     const byOrganization = new Map(
       memberships.map((membership) => [membership.organizationId, membership]),
@@ -473,8 +670,14 @@ export async function updateUser(
       data.accesses,
     );
 
+    const roleNames = await findRoleNames(tx, [
+      ...memberships.flatMap((membership) => membership.roles.map((role) => role.roleId)),
+      ...data.accesses.map((access) => access.roleId),
+    ]);
+
     for (const access of changes.granted) {
       const existing = byOrganization.get(access.organizationId);
+      const grantedRole = roleLabel(roleNames, access.roleId);
 
       if (existing === undefined) {
         const created = await tx.membership.create({
@@ -484,11 +687,14 @@ export async function updateUser(
             createdById: data.actorId,
             updatedById: data.actorId,
           },
-          select: { id: true },
+          select: { id: true, organizationId: true },
         });
         await tx.membershipRole.create({
           data: { membershipId: created.id, roleId: access.roleId },
         });
+        entries.push(
+          membershipEntry('membership.granted', created, data.email, null, grantedRole),
+        );
         continue;
       }
 
@@ -501,6 +707,9 @@ export async function updateUser(
       await tx.membershipRole.create({
         data: { membershipId: existing.id, roleId: access.roleId },
       });
+      entries.push(
+        membershipEntry('membership.granted', existing, data.email, null, grantedRole),
+      );
     }
 
     for (const access of changes.roleChanged) {
@@ -520,6 +729,25 @@ export async function updateUser(
         where: { id: existing.id },
         data: { revokedAt: null, isActive: true, updatedById: data.actorId },
       });
+
+      // Sobre un acceso revocado, esto no cambia un rol: vuelve a dar el acceso.
+      entries.push(
+        existing.revokedAt === null
+          ? membershipEntry(
+              'membership.role_changed',
+              existing,
+              data.email,
+              roleLabel(roleNames, existing.roles[0]?.roleId),
+              roleLabel(roleNames, access.roleId),
+            )
+          : membershipEntry(
+              'membership.granted',
+              existing,
+              data.email,
+              null,
+              roleLabel(roleNames, access.roleId),
+            ),
+      );
     }
 
     const revokedOrganizations = new Set(changes.revokedOrganizationIds);
@@ -536,7 +764,25 @@ export async function updateUser(
         where: { id: { in: revoked.map((membership) => membership.id) } },
         data: { revokedAt, isActive: false, updatedById: data.actorId },
       });
+
+      // Solo cuenta lo que estaba vivo. Una membresía ya revocada que conserva su
+      // rol volvería a aparecer como revocada en cada guardado.
+      for (const membership of revoked) {
+        if (membership.revokedAt !== null) continue;
+
+        entries.push(
+          membershipEntry(
+            'membership.revoked',
+            membership,
+            data.email,
+            roleLabel(roleNames, membership.roles[0]?.roleId),
+            null,
+          ),
+        );
+      }
     }
+
+    await recordAuditEntries(tx, audit, entries);
 
     return { outcome: 'UPDATED' };
   });
@@ -549,18 +795,48 @@ export async function updateUser(
  * cuenta suspendida en cada petición, así que el efecto es inmediato sin tocar
  * nada más. Reactivar devuelve la cuenta a activa, no a invitada: ya entró
  * alguna vez.
+ *
+ * Pedir el estado que ya tenía no es un cambio, así que no deja entrada.
  */
 export async function setUserActive(
   id: string,
   isActive: boolean,
   actorId: string,
+  audit: AuditContext,
 ): Promise<boolean> {
-  const result = await prisma.user.updateMany({
-    where: { id, deletedAt: null },
-    data: { status: isActive ? 'ACTIVE' : 'SUSPENDED', updatedById: actorId },
-  });
+  const status = isActive ? 'ACTIVE' : 'SUSPENDED';
 
-  return result.count > 0;
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.user.findFirst({
+      where: { id, deletedAt: null },
+      select: { email: true, status: true },
+    });
+
+    if (current === null) return false;
+
+    const result = await tx.user.updateMany({
+      where: { id, deletedAt: null },
+      data: { status, updatedById: actorId },
+    });
+
+    if (result.count === 0) return false;
+
+    if (current.status !== status) {
+      await recordAuditEntries(tx, audit, [
+        {
+          action: isActive ? 'user.activated' : 'user.deactivated',
+          entityType: 'User',
+          entityId: id,
+          entityLabel: current.email,
+          organizationId: null,
+          before: { status: current.status },
+          after: { status },
+        },
+      ]);
+    }
+
+    return true;
+  });
 }
 
 /**
@@ -570,11 +846,32 @@ export async function setUserActive(
  * arrancarla dejaría esa historia apuntando al vacío. Sus accesos se revocan en
  * la misma transacción: una membresía viva de una cuenta borrada seguiría
  * contando en las cifras de la plataforma.
+ *
+ * Cada acceso revocado deja su propia entrada en la empresa donde estaba, para
+ * que quien mire la bitácora de esa empresa vea que la persona salió.
  */
-export async function softDeleteUser(id: string, actorId: string): Promise<boolean> {
+export async function softDeleteUser(
+  id: string,
+  actorId: string,
+  audit: AuditContext,
+): Promise<boolean> {
   const deletedAt = new Date();
 
   return prisma.$transaction(async (tx) => {
+    const current = await tx.user.findFirst({
+      where: { id, deletedAt: null },
+      select: {
+        email: true,
+        status: true,
+        memberships: {
+          where: { revokedAt: null },
+          select: { id: true, organizationId: true, roles: { select: { roleId: true } } },
+        },
+      },
+    });
+
+    if (current === null) return false;
+
     const result = await tx.user.updateMany({
       where: { id, deletedAt: null },
       data: { deletedAt, status: 'SUSPENDED', updatedById: actorId },
@@ -590,6 +887,32 @@ export async function softDeleteUser(id: string, actorId: string): Promise<boole
     // Las sesiones sí se borran. Una sesión de una cuenta que ya no existe no
     // tiene a quién representar.
     await tx.session.deleteMany({ where: { userId: id } });
+
+    const roleNames = await findRoleNames(
+      tx,
+      current.memberships.flatMap((membership) => membership.roles.map((role) => role.roleId)),
+    );
+
+    await recordAuditEntries(tx, audit, [
+      {
+        action: 'user.deleted',
+        entityType: 'User',
+        entityId: id,
+        entityLabel: current.email,
+        organizationId: null,
+        before: { status: current.status, deletedAt: null },
+        after: { status: 'SUSPENDED', deletedAt: deletedAt.toISOString() },
+      },
+      ...current.memberships.map((membership) =>
+        membershipEntry(
+          'membership.revoked',
+          membership,
+          current.email,
+          roleLabel(roleNames, membership.roles[0]?.roleId),
+          null,
+        ),
+      ),
+    ]);
 
     return true;
   });

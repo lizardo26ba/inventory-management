@@ -235,6 +235,12 @@ restaura `main` a un momento anterior desde la consola de Neon.
 - Cifrado en tránsito con TLS obligatorio y en reposo mediante el proveedor administrado.
 - Tabla `audit_logs` de solo inserción con actor, acción, entidad, valores anterior y
   posterior, dirección de red y momento. Sin contraseñas ni datos personales innecesarios.
+  Un disparador rechaza `UPDATE`, `DELETE` y `TRUNCATE` (migración
+  `20260915050000_bitacora_de_auditoria`). Consecuencia para las pruebas: la limpieza de
+  una base de pruebas no puede vaciar esa tabla con `TRUNCATE`; se recrea la base o el
+  esquema. Mientras la aplicación y las migraciones compartan rol en Neon, el dueño de la
+  tabla puede desactivar el disparador; la protección completa es un rol de aplicación con
+  solo `SELECT` e `INSERT` sobre ella.
 - Retención y purga documentadas por tabla.
 - Copias de respaldo con recuperación a un punto en el tiempo y **prueba de restauración
   ejecutada y registrada** al menos cada trimestre. Un respaldo no verificado no existe.

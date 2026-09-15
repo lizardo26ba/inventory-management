@@ -10,12 +10,16 @@
  * Se mira el actor en las cuatro operaciones que tocan una cuenta, incluidas
  * suspender y borrar: esas también son tocar la fila, y el último autor tiene
  * que cambiar cuando alguien las ejecuta.
+ *
+ * Lo mismo vale para la bitácora: el contexto de auditoría tiene que salir de la
+ * sesión y del permiso que autorizó la operación, no de otro.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const requirePlatformPermission = vi.fn();
 const hashPassword = vi.fn();
+const buildAuditContext = vi.fn();
 const checkEmail = vi.fn();
 const insertUser = vi.fn();
 const saveUser = vi.fn();
@@ -27,6 +31,10 @@ const findUser = vi.fn();
 vi.mock('@/modules/auth', () => ({
   requirePlatformPermission: (code: string) => requirePlatformPermission(code),
   hashPassword: (plain: string) => hashPassword(plain),
+}));
+
+vi.mock('@/modules/audit', () => ({
+  buildAuditContext: (...args: readonly unknown[]) => buildAuditContext(...args),
 }));
 
 vi.mock('@/modules/users/repository', () => ({
@@ -53,6 +61,9 @@ const ACTOR_ID = '00000000-0000-4000-8000-0000000000ff';
 /** La cuenta sobre la que se opera. Nunca debe confundirse con la anterior. */
 const TARGET_ID = '00000000-0000-4000-8000-000000000000';
 
+/** Lo que devuelve la construcción del contexto. Tiene que llegar tal cual. */
+const AUDIT_CONTEXT = { correlationId: 'correlacion-de-prueba' };
+
 const NEW_USER = {
   firstName: 'Ana',
   lastName: 'Morales',
@@ -66,6 +77,7 @@ const EDITED_USER = { ...NEW_USER, id: TARGET_ID, version: 2 };
 beforeEach(() => {
   vi.clearAllMocks();
   requirePlatformPermission.mockResolvedValue({ userId: ACTOR_ID });
+  buildAuditContext.mockResolvedValue(AUDIT_CONTEXT);
   checkEmail.mockResolvedValue('FREE');
   listOrganizationChoices.mockResolvedValue([]);
   hashPassword.mockResolvedValue('huella');
@@ -79,7 +91,10 @@ describe('el autor que se escribe es el de la sesión', () => {
   it('al crear una cuenta', async () => {
     await createUser(NEW_USER);
 
-    expect(insertUser).toHaveBeenCalledWith(expect.objectContaining({ actorId: ACTOR_ID }));
+    expect(insertUser).toHaveBeenCalledWith(
+      expect.objectContaining({ actorId: ACTOR_ID }),
+      AUDIT_CONTEXT,
+    );
   });
 
   it('al guardar los cambios de una cuenta', async () => {
@@ -89,19 +104,20 @@ describe('el autor que se escribe es el de la sesión', () => {
       TARGET_ID,
       2,
       expect.objectContaining({ actorId: ACTOR_ID }),
+      AUDIT_CONTEXT,
     );
   });
 
   it('al suspender, que también es tocar la fila', async () => {
     await setUserActive({ id: TARGET_ID, isActive: false });
 
-    expect(updateUserActive).toHaveBeenCalledWith(TARGET_ID, false, ACTOR_ID);
+    expect(updateUserActive).toHaveBeenCalledWith(TARGET_ID, false, ACTOR_ID, AUDIT_CONTEXT);
   });
 
   it('al borrar, que deja constancia de quién borró', async () => {
     await deleteUser({ id: TARGET_ID });
 
-    expect(removeUser).toHaveBeenCalledWith(TARGET_ID, ACTOR_ID);
+    expect(removeUser).toHaveBeenCalledWith(TARGET_ID, ACTOR_ID, AUDIT_CONTEXT);
   });
 });
 
@@ -128,5 +144,41 @@ describe('no se confunde a quien opera con la cuenta operada', () => {
 
     expect(id).toBe(TARGET_ID);
     expect(actorId).toBe(ACTOR_ID);
+  });
+});
+
+describe('la bitácora recibe la sesión y el permiso que autorizó la operación', () => {
+  const SESSION = expect.objectContaining({ userId: ACTOR_ID });
+
+  it('crear deja el permiso de crear', async () => {
+    await createUser(NEW_USER);
+
+    expect(buildAuditContext).toHaveBeenCalledWith(SESSION, 'platform.user:create');
+  });
+
+  it('guardar deja el permiso de editar', async () => {
+    await updateUser(EDITED_USER);
+
+    expect(buildAuditContext).toHaveBeenCalledWith(SESSION, 'platform.user:update');
+  });
+
+  it('suspender deja el permiso de suspender', async () => {
+    await setUserActive({ id: TARGET_ID, isActive: false });
+
+    expect(buildAuditContext).toHaveBeenCalledWith(SESSION, 'platform.user:suspend');
+  });
+
+  it('borrar deja el permiso de borrar', async () => {
+    await deleteUser({ id: TARGET_ID });
+
+    expect(buildAuditContext).toHaveBeenCalledWith(SESSION, 'platform.user:delete');
+  });
+
+  it('la contraseña temporal no viaja al contexto de auditoría', async () => {
+    const result = await createUser(NEW_USER);
+
+    expect(result.ok).toBe(true);
+    const temporaryPassword = result.ok ? result.temporaryPassword : '';
+    expect(JSON.stringify(buildAuditContext.mock.calls)).not.toContain(temporaryPassword);
   });
 });

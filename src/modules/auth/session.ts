@@ -15,7 +15,7 @@ import 'server-only';
  * token. Es la razón entera del ADR 0007.
  */
 
-import { cookies, headers } from 'next/headers';
+import { cookies } from 'next/headers';
 
 import { PERMISSIONS, type PermissionCode } from '@/lib/auth/permissions';
 import { isProduction, requiresPlatformAdminTwoFactor } from '@/lib/config/env.server';
@@ -116,21 +116,6 @@ export async function requireSession(): Promise<SessionContext> {
   const session = await getSession();
   if (session === null) throw new AuthenticationError('No hay sesión activa.');
   return session;
-}
-
-/** Para dejar en la sesión de dónde vino, sin fiarse de nada de eso. */
-export async function requestFingerprint(): Promise<{
-  readonly ipAddress: string | null;
-  readonly userAgent: string | null;
-}> {
-  const list = await headers();
-
-  return {
-    // Lo pone el proxy y se puede falsificar, así que sirve para investigar un
-    // incidente, nunca para decidir un permiso.
-    ipAddress: list.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
-    userAgent: list.get('user-agent'),
-  };
 }
 
 type PlatformAdminVerdict = 'GRANTED' | 'NOT_PLATFORM_ADMIN' | 'TWO_FACTOR_MISSING';

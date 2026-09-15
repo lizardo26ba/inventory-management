@@ -141,6 +141,10 @@ export const adjustStock = withPermission(
   cola, conflictos de serialización y saturación del agrupador de conexiones.
 - Toda operación sensible, como cambio de permisos, ajuste manual de inventario o
   borrado, escribe en la bitácora de auditoría dentro de la misma transacción del cambio.
+  La acción construye el contexto con `buildAuditContext(session, permiso)` después de
+  autorizar, y el repositorio escribe con `recordAuditEntries(tx, contexto, entradas)`,
+  que exige la transacción en su firma. Ambos se importan de `@/modules/audit`. Una
+  acción nueva se añade primero a `AUDIT_ACTIONS` en `src/modules/audit/types.ts`.
 
 ## 9. Patrones de diseño aplicables
 

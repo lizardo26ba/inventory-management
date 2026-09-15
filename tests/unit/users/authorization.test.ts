@@ -16,6 +16,7 @@ import { AuthorizationError } from '@/lib/errors';
 
 const requirePlatformPermission = vi.fn();
 const hashPassword = vi.fn();
+const buildAuditContext = vi.fn();
 const checkEmail = vi.fn();
 const insertUser = vi.fn();
 const saveUser = vi.fn();
@@ -27,6 +28,10 @@ const findUser = vi.fn();
 vi.mock('@/modules/auth', () => ({
   requirePlatformPermission: (code: string) => requirePlatformPermission(code),
   hashPassword: (plain: string) => hashPassword(plain),
+}));
+
+vi.mock('@/modules/audit', () => ({
+  buildAuditContext: (...args: readonly unknown[]) => buildAuditContext(...args),
 }));
 
 vi.mock('@/modules/users/repository', () => ({
@@ -103,6 +108,15 @@ describe('sin permiso de plataforma', () => {
     expect(result).toEqual({ ok: false, error: { code: 'NOT_AUTHORIZED' } });
     expect(removeUser).not.toHaveBeenCalled();
   });
+
+  it('no llega a preparar la bitácora: un rechazo no es una operación', async () => {
+    await createUser(NEW_USER);
+    await updateUser(EDITED_USER);
+    await setUserActive({ id: SOME_USER_ID, isActive: false });
+    await deleteUser({ id: SOME_USER_ID });
+
+    expect(buildAuditContext).not.toHaveBeenCalled();
+  });
 });
 
 describe('cada acción pide su propio permiso', () => {
@@ -173,6 +187,7 @@ describe('acceso de plataforma', () => {
 
     expect(result).toEqual({ ok: false, error: { code: 'NOT_AUTHORIZED' } });
     expect(insertUser).not.toHaveBeenCalled();
+    expect(buildAuditContext).not.toHaveBeenCalled();
   });
 
   it('conceder sin motivo no pasa la frontera', async () => {
@@ -199,6 +214,7 @@ describe('acceso de plataforma', () => {
     expect(requirePlatformPermission).toHaveBeenCalledWith('platform.admin:revoke');
     expect(result).toEqual({ ok: false, error: { code: 'NOT_AUTHORIZED' } });
     expect(saveUser).not.toHaveBeenCalled();
+    expect(buildAuditContext).not.toHaveBeenCalled();
   });
 
   it('guardar sin tocar el privilegio no pide ni conceder ni revocar', async () => {

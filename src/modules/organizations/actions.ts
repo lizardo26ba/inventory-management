@@ -7,15 +7,21 @@
  * casual. Primero el permiso, porque quien no puede crear una empresa tampoco
  * debe enterarse de si su identificador fiscal ya existe; después el esquema,
  * porque la lógica no debe ver un dato sin validar.
+ *
+ * El contexto de auditoría se construye después de autorizar y validar, con el
+ * mismo permiso que se pidió. Viaja al repositorio, que escribe la entrada en la
+ * misma transacción que el cambio.
  */
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { type ZodError } from 'zod';
 
+import { type PermissionCode } from '@/lib/auth/permissions';
 import { ConflictError, NotFoundError, toErrorPayload, type ErrorPayload } from '@/lib/errors';
 import { logger } from '@/lib/observability/logger';
 import { isPhoneComplete } from '@/lib/phone';
+import { buildAuditContext } from '@/modules/audit';
 import { requirePlatformPermission } from '@/modules/auth/session';
 
 import {
@@ -129,8 +135,10 @@ function orNull(value: string): string | null {
 }
 
 export async function createOrganization(input: unknown): Promise<OrganizationActionResult> {
+  const permission: PermissionCode = 'platform.organization:create';
+
   try {
-    const session = await requirePlatformPermission('platform.organization:create');
+    const session = await requirePlatformPermission(permission);
 
     const parsed = createOrganizationSchema.safeParse(input);
     if (!parsed.success) {
@@ -145,21 +153,24 @@ export async function createOrganization(input: unknown): Promise<OrganizationAc
 
     const slug = buildOrganizationSlug(parsed.data.name, await listTakenSlugs());
 
-    await insertOrganization({
-      actorId: session.userId,
-      slug,
-      name: parsed.data.name,
-      legalName: parsed.data.legalName,
-      countryCode: checked.country.code,
-      baseCurrencyCode: parsed.data.baseCurrencyCode,
-      // La zona horaria sale del país. Es lo que decide el corte de los informes
-      // diarios, y preguntarla sería pedir dos veces el mismo dato.
-      timeZone: checked.country.defaultTimeZone,
-      taxId: checked.taxId,
-      email: orNull(parsed.data.email),
-      phone: orNull(parsed.data.phone),
-      address: orNull(parsed.data.address),
-    });
+    await insertOrganization(
+      {
+        actorId: session.userId,
+        slug,
+        name: parsed.data.name,
+        legalName: parsed.data.legalName,
+        countryCode: checked.country.code,
+        baseCurrencyCode: parsed.data.baseCurrencyCode,
+        // La zona horaria sale del país. Es lo que decide el corte de los
+        // informes diarios, y preguntarla sería pedir dos veces el mismo dato.
+        timeZone: checked.country.defaultTimeZone,
+        taxId: checked.taxId,
+        email: orNull(parsed.data.email),
+        phone: orNull(parsed.data.phone),
+        address: orNull(parsed.data.address),
+      },
+      await buildAuditContext(session, permission),
+    );
   } catch (error) {
     if (isUniqueViolation(error)) {
       logger.failure(
@@ -193,10 +204,11 @@ export async function createOrganization(input: unknown): Promise<OrganizationAc
  * desaparecer el trabajo del otro sin que nadie se entere.
  */
 export async function updateOrganization(input: unknown): Promise<OrganizationActionResult> {
+  const permission: PermissionCode = 'platform.organization:update';
   let slug: string;
 
   try {
-    const session = await requirePlatformPermission('platform.organization:update');
+    const session = await requirePlatformPermission(permission);
 
     const parsed = updateOrganizationSchema.safeParse(input);
     if (!parsed.success) {
@@ -209,15 +221,21 @@ export async function updateOrganization(input: unknown): Promise<OrganizationAc
     const checked = await checkAgainstCountry(parsed.data);
     if (!checked.ok) return { ok: false, error: checked.error };
 
-    const result = await saveOrganization(parsed.data.id, parsed.data.version, session.userId, {
-      name: parsed.data.name,
-      legalName: parsed.data.legalName,
-      countryCode: checked.country.code,
-      taxId: checked.taxId,
-      email: orNull(parsed.data.email),
-      phone: orNull(parsed.data.phone),
-      address: orNull(parsed.data.address),
-    });
+    const result = await saveOrganization(
+      parsed.data.id,
+      parsed.data.version,
+      session.userId,
+      {
+        name: parsed.data.name,
+        legalName: parsed.data.legalName,
+        countryCode: checked.country.code,
+        taxId: checked.taxId,
+        email: orNull(parsed.data.email),
+        phone: orNull(parsed.data.phone),
+        address: orNull(parsed.data.address),
+      },
+      await buildAuditContext(session, permission),
+    );
 
     if (result.outcome === 'NOT_FOUND') {
       throw new NotFoundError('La empresa no existe o ya fue eliminada.');
@@ -261,8 +279,10 @@ export async function updateOrganization(input: unknown): Promise<OrganizationAc
  * el de editar.
  */
 export async function setOrganizationActive(input: unknown): Promise<OrganizationActionResult> {
+  const permission: PermissionCode = 'platform.organization:suspend';
+
   try {
-    const session = await requirePlatformPermission('platform.organization:suspend');
+    const session = await requirePlatformPermission(permission);
 
     const parsed = setOrganizationActiveSchema.safeParse(input);
     if (!parsed.success) {
@@ -273,6 +293,7 @@ export async function setOrganizationActive(input: unknown): Promise<Organizatio
       parsed.data.id,
       parsed.data.isActive,
       session.userId,
+      await buildAuditContext(session, permission),
     );
     if (!changed) {
       throw new NotFoundError('La empresa no existe o ya fue eliminada.');
@@ -296,15 +317,21 @@ export async function setOrganizationActive(input: unknown): Promise<Organizatio
  * arranca, se marca como borrada; ver el repositorio.
  */
 export async function deleteOrganization(input: unknown): Promise<OrganizationActionResult> {
+  const permission: PermissionCode = 'platform.organization:delete';
+
   try {
-    const session = await requirePlatformPermission('platform.organization:delete');
+    const session = await requirePlatformPermission(permission);
 
     const parsed = organizationIdSchema.safeParse(input);
     if (!parsed.success) {
       return { ok: false, error: { code: 'VALIDATION_FAILED' } };
     }
 
-    const deleted = await removeOrganization(parsed.data.id, session.userId);
+    const deleted = await removeOrganization(
+      parsed.data.id,
+      session.userId,
+      await buildAuditContext(session, permission),
+    );
     if (!deleted) {
       throw new NotFoundError('La empresa no existe o ya fue eliminada.');
     }

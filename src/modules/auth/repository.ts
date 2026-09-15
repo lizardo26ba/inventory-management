@@ -10,9 +10,12 @@ import 'server-only';
  * La huella de la contraseña y el secreto del segundo factor solo salen de aquí
  * cuando hacen falta, y no se cuelan en un objeto que después viaja a la
  * pantalla.
+ *
+ * Lo que queda en la bitácora se escribe en la misma transacción que el cambio.
  */
 
 import { prisma } from '@/lib/db/client';
+import { recordAuditEntries, type AuditContext } from '@/modules/audit';
 
 export type SignInCandidate = {
   readonly id: string;
@@ -62,31 +65,89 @@ export async function findSignInCandidate(email: string): Promise<SignInCandidat
   };
 }
 
+/**
+ * Anota un intento fallido.
+ *
+ * Solo el intento que bloquea la cuenta va a la bitácora. Los demás se quedan en
+ * el contador de la fila y en el registro: a nadie se le puede atribuir un
+ * intento fallido, y escribirlos todos llenaría la tabla con el ruido de
+ * cualquiera que pruebe contraseñas.
+ */
 export async function registerFailedAttempt(
-  userId: string,
+  user: { readonly id: string; readonly email: string },
   state: { readonly failedLoginAttempts: number; readonly lockedUntil: Date | null },
+  audit: AuditContext,
 ): Promise<void> {
-  await prisma.user.update({
-    where: { id: userId },
-    data: state,
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: state,
+    });
+
+    if (state.lockedUntil === null) return;
+
+    await recordAuditEntries(tx, audit, [
+      {
+        action: 'auth.locked_out',
+        entityType: 'User',
+        entityId: user.id,
+        entityLabel: user.email,
+        organizationId: null,
+        after: {
+          failedLoginAttempts: state.failedLoginAttempts,
+          lockedUntil: state.lockedUntil.toISOString(),
+        },
+      },
+    ]);
   });
 }
 
-export async function registerSuccessfulSignIn(userId: string, at: Date): Promise<void> {
-  await prisma.user.update({
-    where: { id: userId },
-    data: { failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: at },
-  });
-}
+/**
+ * Abre la sesión de quien acaba de entrar.
+ *
+ * La sesión, la puesta a cero de los intentos y la entrada de la bitácora van
+ * juntas: una sesión abierta sin constancia de que alguien entró es justo lo que
+ * la auditoría existe para impedir.
+ */
+export async function openSession(
+  input: {
+    readonly userId: string;
+    readonly email: string;
+    readonly tokenHash: string;
+    readonly expiresAt: Date;
+    readonly signedInAt: Date;
+    readonly ipAddress: string | null;
+    readonly userAgent: string | null;
+  },
+  audit: AuditContext,
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await tx.session.create({
+      data: {
+        userId: input.userId,
+        tokenHash: input.tokenHash,
+        expiresAt: input.expiresAt,
+        ipAddress: input.ipAddress,
+        userAgent: input.userAgent,
+        organizationId: null,
+      },
+    });
 
-export async function createSession(input: {
-  readonly userId: string;
-  readonly tokenHash: string;
-  readonly expiresAt: Date;
-  readonly ipAddress: string | null;
-  readonly userAgent: string | null;
-}): Promise<void> {
-  await prisma.session.create({ data: { ...input, organizationId: null } });
+    await tx.user.update({
+      where: { id: input.userId },
+      data: { failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: input.signedInAt },
+    });
+
+    await recordAuditEntries(tx, audit, [
+      {
+        action: 'auth.signed_in',
+        entityType: 'User',
+        entityId: input.userId,
+        entityLabel: input.email,
+        organizationId: null,
+      },
+    ]);
+  });
 }
 
 export type ActiveSession = {
@@ -185,15 +246,38 @@ export async function findPasswordHash(userId: string): Promise<string | null> {
   return user?.passwordHash ?? null;
 }
 
-export async function updatePassword(userId: string, passwordHash: string): Promise<void> {
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      passwordHash,
-      mustChangePassword: false,
-      // Entrar con una contraseña temporal deja la cuenta en INVITED. Cambiarla
-      // es lo que la convierte en activa.
-      status: 'ACTIVE',
-    },
+/**
+ * Guarda la contraseña nueva.
+ *
+ * La entrada de la bitácora dice que la contraseña cambió y nada más. Ni la
+ * huella vieja ni la nueva: el servicio de auditoría rechaza cualquier campo que
+ * se llame así.
+ */
+export async function updatePassword(
+  user: { readonly id: string; readonly email: string },
+  passwordHash: string,
+  audit: AuditContext,
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        mustChangePassword: false,
+        // Entrar con una contraseña temporal deja la cuenta en INVITED. Cambiarla
+        // es lo que la convierte en activa.
+        status: 'ACTIVE',
+      },
+    });
+
+    await recordAuditEntries(tx, audit, [
+      {
+        action: 'auth.password_changed',
+        entityType: 'User',
+        entityId: user.id,
+        entityLabel: user.email,
+        organizationId: null,
+      },
+    ]);
   });
 }

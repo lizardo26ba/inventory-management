@@ -15,12 +15,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthorizationError } from '@/lib/errors';
 
 const requirePlatformPermission = vi.fn();
+const buildAuditContext = vi.fn();
 const setOrganizationActiveInDatabase = vi.fn();
 const softDeleteOrganization = vi.fn();
 const saveOrganization = vi.fn();
 
 vi.mock('@/modules/auth/session', () => ({
   requirePlatformPermission: (code: string) => requirePlatformPermission(code),
+}));
+
+vi.mock('@/modules/audit', () => ({
+  buildAuditContext: (...args: readonly unknown[]) => buildAuditContext(...args),
 }));
 
 vi.mock('@/modules/organizations/repository', () => ({
@@ -95,6 +100,14 @@ describe('sin permiso de plataforma', () => {
     });
 
     expect(result).toEqual({ ok: false, error: { code: 'NOT_AUTHORIZED' } });
+  });
+
+  it('no llega a preparar la bitácora: un rechazo no es una operación', async () => {
+    await setOrganizationActive({ id: SOME_ORGANIZATION_ID, isActive: false });
+    await deleteOrganization({ id: SOME_ORGANIZATION_ID });
+    await updateOrganization(EDIT_INPUT);
+
+    expect(buildAuditContext).not.toHaveBeenCalled();
   });
 });
 
