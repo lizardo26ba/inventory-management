@@ -10,17 +10,37 @@
  * Es modal, así que repone lo mismo que el diálogo de confirmación: el foco
  * entra, el tabulador da vueltas dentro, Escape cierra y el foco vuelve a donde
  * estaba. El fondo no se desplaza mientras está abierto.
+ *
+ * La base guarda el antes y el después como dos objetos con solo los campos que
+ * cambiaron. La tabla los junta campo a campo; los valores llegan sin formato y
+ * se presentan aquí, en el idioma de quien mira.
  */
 
 import { useEffect, useId, useRef } from 'react';
 
-import { type AuditEntry, findAuditAction } from '../../audit-data';
+import { toChangeRows, type AuditEntry, type AuditValue } from '../../audit-data';
 import { Avatar } from '../../ui/avatar';
-import { useCopy } from '@/lib/i18n';
+import { useCopy, type Copy } from '@/lib/i18n';
 import { formatDateTime } from '@/lib/format';
 import { IconClose, IconShield } from '../../ui/icons';
 
 const FOCUSABLE_SELECTOR = 'button:not([disabled]), [href], input, select, textarea';
+
+/** Un instante tal como lo escribe la bitácora: ISO 8601 en tiempo universal. */
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+
+/**
+ * Un valor de la bitácora, listo para leer.
+ *
+ * Un instante se muestra con fecha y hora locales, un sí o no en palabras, y un
+ * vacío con la palabra que lo dice, para no confundirlo con un texto vacío.
+ */
+function formatValue(value: AuditValue, copy: Copy): string {
+  if (value === null) return copy.audit.emptyValue;
+  if (typeof value === 'boolean') return value ? copy.audit.valueTrue : copy.audit.valueFalse;
+  if (typeof value === 'string' && ISO_INSTANT.test(value)) return formatDateTime(value);
+  return String(value);
+}
 
 function Row({
   label,
@@ -90,7 +110,7 @@ export function AuditDetail({
     }
   }
 
-  const action = findAuditAction(entry.action);
+  const changes = toChangeRows(entry.before, entry.after);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -108,7 +128,7 @@ export function AuditDetail({
           <div className="min-w-0">
             <p className="text-text-muted text-xs">{copy.audit.detailTitle}</p>
             <h2 id={titleId} className="mt-0.5 text-base font-semibold">
-              {action?.label ?? entry.action}
+              {copy.auditActions[entry.action]}
             </h2>
             <p className="text-text-muted mt-0.5 font-mono text-xs">{entry.action}</p>
           </div>
@@ -128,14 +148,18 @@ export function AuditDetail({
             <Row label={copy.audit.detailWhen}>{formatDateTime(entry.createdAt)}</Row>
 
             <Row label={copy.audit.detailActor}>
-              <span className="flex items-center gap-2">
-                <Avatar name={entry.actorName} className="h-6 w-6" />
-                <span className="min-w-0">
-                  <span className="block">{entry.actorName}</span>
-                  <span className="text-text-muted block text-xs">{entry.actorEmail}</span>
+              {entry.actor === null ? (
+                <span className="text-text-muted italic">{copy.audit.noActor}</span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Avatar name={entry.actor.name} className="h-6 w-6" />
+                  <span className="min-w-0">
+                    <span className="block">{entry.actor.name}</span>
+                    <span className="text-text-muted block text-xs">{entry.actor.email}</span>
+                  </span>
                 </span>
-              </span>
-              {entry.elevated ? (
+              )}
+              {entry.actingAsPlatformAdmin ? (
                 <span className="bg-warning-soft text-warning rounded-control mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium">
                   <IconShield className="h-3.5 w-3.5" />
                   {copy.audit.elevated}
@@ -143,19 +167,33 @@ export function AuditDetail({
               ) : null}
             </Row>
 
+            <Row label={copy.audit.detailPermission}>
+              {entry.permissionCode === null ? (
+                <span className="text-text-muted">{copy.audit.noPermission}</span>
+              ) : (
+                <span className="font-mono text-xs">{entry.permissionCode}</span>
+              )}
+            </Row>
+
             <Row label={copy.audit.detailCompany}>
-              {entry.companyName ?? copy.audit.platformScope}
+              {entry.organizationName ?? copy.audit.platformScope}
             </Row>
 
             <Row label={copy.audit.detailEntity}>
-              <span className="block">{entry.entityLabel}</span>
+              <span className="block">{entry.entityLabel ?? copy.audit.emptyValue}</span>
               <span className="text-text-muted block font-mono text-xs">
                 {entry.entityType}
               </span>
             </Row>
 
             <Row label={copy.audit.detailAddress}>
-              <span className="font-mono text-xs">{entry.ipAddress}</span>
+              <span className="font-mono text-xs">
+                {entry.ipAddress ?? copy.audit.emptyValue}
+              </span>
+            </Row>
+
+            <Row label={copy.audit.detailUserAgent}>
+              <span className="text-xs">{entry.userAgent ?? copy.audit.emptyValue}</span>
             </Row>
 
             <Row label={copy.audit.detailCorrelation}>
@@ -165,7 +203,7 @@ export function AuditDetail({
 
           <h3 className="mt-4 text-sm font-semibold">{copy.audit.detailChanges}</h3>
 
-          {entry.changes.length === 0 ? (
+          {changes.length === 0 ? (
             <p className="text-text-muted mt-2 text-sm">{copy.audit.detailNoChanges}</p>
           ) : (
             <table className="mt-2 w-full text-sm">
@@ -183,13 +221,13 @@ export function AuditDetail({
                 </tr>
               </thead>
               <tbody>
-                {entry.changes.map((change) => (
+                {changes.map((change) => (
                   <tr key={change.field} className="border-border border-b last:border-0">
                     <td className="py-2 pr-2 font-mono text-xs">{change.field}</td>
                     <td className="text-text-muted py-2 pr-2 text-xs line-through">
-                      {change.before ?? copy.audit.emptyValue}
+                      {formatValue(change.before, copy)}
                     </td>
-                    <td className="py-2 text-xs">{change.after ?? copy.audit.emptyValue}</td>
+                    <td className="py-2 text-xs">{formatValue(change.after, copy)}</td>
                   </tr>
                 ))}
               </tbody>

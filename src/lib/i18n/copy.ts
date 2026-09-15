@@ -529,14 +529,46 @@ export const copyEn = {
     detailField: 'Field',
     detailBefore: 'Before',
     detailAfter: 'After',
-    detailNoChanges: 'This entry records a read. Nothing changed.',
+    detailNoChanges: 'This entry records an event with no field changes.',
+    detailPermission: 'Permission',
+    detailUserAgent: 'Browser',
+    noActor: 'No signed-in user',
+    noPermission: 'None required',
     emptyValue: 'None',
+    valueTrue: 'Yes',
+    valueFalse: 'No',
     appendOnly:
       'Entries are written in the same transaction as the change and are never edited or deleted.',
     totalEntries: 'Entries',
     totalElevated: 'Elevated actions',
     totalActors: 'Actors',
     totalCompanies: 'Companies touched',
+  },
+
+  /**
+   * Nombre de cada acción de la bitácora. Las claves son los códigos de
+   * AUDIT_ACTIONS en src/modules/audit/types.ts, y una prueba comprueba que
+   * coinciden: una acción nueva sin nombre se vería escrita como código.
+   */
+  auditActions: {
+    'organization.created': 'Company created',
+    'organization.updated': 'Company updated',
+    'organization.activated': 'Company activated',
+    'organization.deactivated': 'Company deactivated',
+    'organization.deleted': 'Company deleted',
+    'user.created': 'User created',
+    'user.updated': 'User updated',
+    'user.activated': 'User reactivated',
+    'user.deactivated': 'User suspended',
+    'user.deleted': 'User deleted',
+    'membership.granted': 'Company access granted',
+    'membership.role_changed': 'Role changed',
+    'membership.revoked': 'Company access revoked',
+    'platform_admin.granted': 'Platform access granted',
+    'platform_admin.revoked': 'Platform access revoked',
+    'auth.signed_in': 'Signed in',
+    'auth.password_changed': 'Password changed',
+    'auth.locked_out': 'Locked out after failed attempts',
   },
 
   admin: {
