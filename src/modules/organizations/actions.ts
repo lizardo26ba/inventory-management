@@ -130,7 +130,7 @@ function orNull(value: string): string | null {
 
 export async function createOrganization(input: unknown): Promise<OrganizationActionResult> {
   try {
-    await requirePlatformPermission('platform.organization:create');
+    const session = await requirePlatformPermission('platform.organization:create');
 
     const parsed = createOrganizationSchema.safeParse(input);
     if (!parsed.success) {
@@ -146,6 +146,7 @@ export async function createOrganization(input: unknown): Promise<OrganizationAc
     const slug = buildOrganizationSlug(parsed.data.name, await listTakenSlugs());
 
     await insertOrganization({
+      actorId: session.userId,
       slug,
       name: parsed.data.name,
       legalName: parsed.data.legalName,
@@ -195,7 +196,7 @@ export async function updateOrganization(input: unknown): Promise<OrganizationAc
   let slug: string;
 
   try {
-    await requirePlatformPermission('platform.organization:update');
+    const session = await requirePlatformPermission('platform.organization:update');
 
     const parsed = updateOrganizationSchema.safeParse(input);
     if (!parsed.success) {
@@ -208,7 +209,7 @@ export async function updateOrganization(input: unknown): Promise<OrganizationAc
     const checked = await checkAgainstCountry(parsed.data);
     if (!checked.ok) return { ok: false, error: checked.error };
 
-    const result = await saveOrganization(parsed.data.id, parsed.data.version, {
+    const result = await saveOrganization(parsed.data.id, parsed.data.version, session.userId, {
       name: parsed.data.name,
       legalName: parsed.data.legalName,
       countryCode: checked.country.code,
@@ -261,14 +262,18 @@ export async function updateOrganization(input: unknown): Promise<OrganizationAc
  */
 export async function setOrganizationActive(input: unknown): Promise<OrganizationActionResult> {
   try {
-    await requirePlatformPermission('platform.organization:suspend');
+    const session = await requirePlatformPermission('platform.organization:suspend');
 
     const parsed = setOrganizationActiveSchema.safeParse(input);
     if (!parsed.success) {
       return { ok: false, error: { code: 'VALIDATION_FAILED' } };
     }
 
-    const changed = await updateOrganizationActive(parsed.data.id, parsed.data.isActive);
+    const changed = await updateOrganizationActive(
+      parsed.data.id,
+      parsed.data.isActive,
+      session.userId,
+    );
     if (!changed) {
       throw new NotFoundError('La empresa no existe o ya fue eliminada.');
     }
@@ -292,14 +297,14 @@ export async function setOrganizationActive(input: unknown): Promise<Organizatio
  */
 export async function deleteOrganization(input: unknown): Promise<OrganizationActionResult> {
   try {
-    await requirePlatformPermission('platform.organization:delete');
+    const session = await requirePlatformPermission('platform.organization:delete');
 
     const parsed = organizationIdSchema.safeParse(input);
     if (!parsed.success) {
       return { ok: false, error: { code: 'VALIDATION_FAILED' } };
     }
 
-    const deleted = await removeOrganization(parsed.data.id);
+    const deleted = await removeOrganization(parsed.data.id, session.userId);
     if (!deleted) {
       throw new NotFoundError('La empresa no existe o ya fue eliminada.');
     }

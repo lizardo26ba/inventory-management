@@ -249,6 +249,8 @@ export async function listTakenSlugs(): Promise<string[]> {
 }
 
 export async function createOrganization(data: {
+  /** Quien la está creando. Solo el super administrador, por RN-003. */
+  readonly actorId: string;
   readonly slug: string;
   readonly name: string;
   readonly legalName: string;
@@ -263,9 +265,12 @@ export async function createOrganization(data: {
   // La empresa y sus roles nacen juntos. Una empresa sin roles no puede recibir
   // a nadie: conceder un acceso exige elegir con qué alcance, y sin roles no hay
   // alcance que elegir. Si algo falla a mitad, no queda ni la empresa.
+  const { actorId, ...fields } = data;
+
   return prisma.$transaction(async (tx) => {
     const created = await tx.organization.create({
-      data,
+      // Al nacer, quien la creó es también quien la tocó por última vez.
+      data: { ...fields, createdById: actorId, updatedById: actorId },
       select: { id: true, slug: true },
     });
 
@@ -282,10 +287,14 @@ export async function createOrganization(data: {
  * existe o que ya estaba borrada, y eso no es un cambio silencioso: quien llama
  * lo convierte en un error.
  */
-export async function setOrganizationActive(id: string, isActive: boolean): Promise<boolean> {
+export async function setOrganizationActive(
+  id: string,
+  isActive: boolean,
+  actorId: string,
+): Promise<boolean> {
   const result = await prisma.organization.updateMany({
     where: { id, ...NOT_DELETED },
-    data: { isActive },
+    data: { isActive, updatedById: actorId },
   });
 
   return result.count > 0;
@@ -303,7 +312,7 @@ export async function setOrganizationActive(id: string, isActive: boolean): Prom
  * que el recuento de almacenes de la plataforma contara los de una empresa que
  * ya nadie ve.
  */
-export async function softDeleteOrganization(id: string): Promise<boolean> {
+export async function softDeleteOrganization(id: string, actorId: string): Promise<boolean> {
   // Un solo instante para las dos escrituras. Dos llamadas al reloj darían dos
   // valores, y el dato diría que los almacenes se borraron después que su
   // empresa. Ver docs/standards/dates-and-times.md
@@ -312,14 +321,14 @@ export async function softDeleteOrganization(id: string): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
     const result = await tx.organization.updateMany({
       where: { id, ...NOT_DELETED },
-      data: { deletedAt, isActive: false },
+      data: { deletedAt, isActive: false, updatedById: actorId },
     });
 
     if (result.count === 0) return false;
 
     await tx.warehouse.updateMany({
       where: { organizationId: id, deletedAt: null },
-      data: { deletedAt },
+      data: { deletedAt, updatedById: actorId },
     });
 
     return true;
@@ -409,6 +418,7 @@ export type UpdateResult =
 export async function updateOrganization(
   id: string,
   version: number,
+  actorId: string,
   data: {
     readonly name: string;
     readonly legalName: string;
@@ -421,7 +431,7 @@ export async function updateOrganization(
 ): Promise<UpdateResult> {
   const result = await prisma.organization.updateMany({
     where: { id, version, ...NOT_DELETED },
-    data: { ...data, version: { increment: 1 } },
+    data: { ...data, updatedById: actorId, version: { increment: 1 } },
   });
 
   const row = await prisma.organization.findFirst({

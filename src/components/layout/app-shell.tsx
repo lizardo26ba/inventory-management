@@ -36,6 +36,8 @@ import {
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { useCopy, type Copy } from '@/lib/i18n';
 
+import { ADMINISTRATION_SECTIONS, type NavSectionKey } from './navigation';
+
 export type ShellUser = {
   readonly firstName: string;
   readonly lastName: string;
@@ -55,23 +57,39 @@ export type ShellContext =
       readonly currencyCode: string;
     };
 
+/**
+ * Cómo se dibuja cada sección.
+ *
+ * El rótulo se pide con el catálogo del momento en lugar de guardarse ya
+ * resuelto: esto se declara una vez al cargar el módulo y el idioma puede
+ * cambiar muchas veces después.
+ *
+ * Qué secciones hay y qué permiso abre cada una no está aquí, sino en
+ * `navigation.ts`, porque eso lo lee también el servidor. Aquí solo el dibujo.
+ */
+const SECTION_PRESENTATION: Record<
+  NavSectionKey,
+  {
+    readonly label: (copy: Copy) => string;
+    readonly Icon: (props: { readonly className?: string }) => React.ReactElement;
+  }
+> = {
+  organizations: { label: (copy) => copy.nav.organizations, Icon: IconOrganizations },
+  users: { label: (copy) => copy.nav.users, Icon: IconUsers },
+};
+
 type NavItem = {
   readonly href: string;
-  /** El rótulo se pide con el catálogo del momento, no se guarda ya resuelto. */
   readonly label: (copy: Copy) => string;
   readonly Icon: (props: { readonly className?: string }) => React.ReactElement;
 };
 
-/**
- * Lo que hay construido de administración.
- *
- * La bitácora entrará aquí cuando exista su pantalla. Está dibujada en el
- * prototipo y todavía no tiene ruta real.
- */
-const ADMINISTRATION_ITEMS = [
-  { href: '/organizations', label: (copy) => copy.nav.organizations, Icon: IconOrganizations },
-  { href: '/users', label: (copy) => copy.nav.users, Icon: IconUsers },
-] as const satisfies readonly NavItem[];
+/** Junta lo que la sección es con cómo se ve, y deja fuera lo que no se alcanza. */
+function navItemsFor(sections: readonly NavSectionKey[]): readonly NavItem[] {
+  return ADMINISTRATION_SECTIONS.filter((section) => sections.includes(section.key)).map(
+    (section) => ({ href: section.href, ...SECTION_PRESENTATION[section.key] }),
+  );
+}
 
 function NavGroup({
   title,
@@ -243,15 +261,18 @@ function Sidebar({
   context,
   signOut,
   pathname,
+  sections,
   onNavigate,
 }: {
   readonly user: ShellUser;
   readonly context: ShellContext;
   readonly signOut: () => Promise<void>;
   readonly pathname: string;
+  readonly sections: readonly NavSectionKey[];
   readonly onNavigate: () => void;
 }): React.ReactElement {
   const copy = useCopy();
+  const items = navItemsFor(sections);
 
   return (
     <div className="bg-surface flex h-full flex-col">
@@ -263,14 +284,27 @@ function Sidebar({
         <ContextBanner context={context} />
       </div>
 
-      <nav aria-label={copy.nav.sectionAdministration} className="flex-1 overflow-y-auto py-2">
-        <NavGroup
-          title={copy.nav.sectionAdministration}
-          items={ADMINISTRATION_ITEMS}
-          pathname={pathname}
-          onNavigate={onNavigate}
-        />
-      </nav>
+      {/*
+        Sin ninguna sección alcanzable no se dibuja el rótulo del grupo ni la
+        región de navegación: un encabezado que no encabeza nada solo lo anuncia
+        un lector de pantalla, y anuncia un vacío. El hueco se conserva para que
+        la cuenta siga al fondo.
+      */}
+      {items.length > 0 ? (
+        <nav
+          aria-label={copy.nav.sectionAdministration}
+          className="flex-1 overflow-y-auto py-2"
+        >
+          <NavGroup
+            title={copy.nav.sectionAdministration}
+            items={items}
+            pathname={pathname}
+            onNavigate={onNavigate}
+          />
+        </nav>
+      ) : (
+        <div className="flex-1" />
+      )}
 
       <div className="border-border border-t p-3">
         <AccountMenu user={user} signOut={signOut} />
@@ -283,11 +317,14 @@ export function AppShell({
   user,
   context,
   signOut,
+  sections,
   children,
 }: {
   readonly user: ShellUser;
   readonly context: ShellContext;
   readonly signOut: () => Promise<void>;
+  /** Las secciones que esta persona alcanza. Las decide el servidor. */
+  readonly sections: readonly NavSectionKey[];
   readonly children: React.ReactNode;
 }): React.ReactElement {
   const copy = useCopy();
@@ -318,6 +355,7 @@ export function AppShell({
           context={context}
           signOut={signOut}
           pathname={pathname}
+          sections={sections}
           onNavigate={() => undefined}
         />
       </aside>
@@ -336,6 +374,7 @@ export function AppShell({
               context={context}
               signOut={signOut}
               pathname={pathname}
+              sections={sections}
               onNavigate={() => setIsDrawerOpen(false)}
             />
           </div>

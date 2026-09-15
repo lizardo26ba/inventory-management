@@ -20,7 +20,13 @@
 //   - organizationId presente en toda tabla de negocio, y primero en cada indice.
 //   - Los sellos de auditoria createdById / updatedById son escalares sin relacion de
 //     Prisma, para no generar decenas de relaciones inversas en User. La clave foranea
-//     real se crea en una migracion SQL. Es una decision consciente, no un olvido.
+//     real, con su indice, vive en la migracion 20260915033139_sellos_de_autoria. Es una
+//     decision consciente, no un olvido: sin relacion en Prisma pero con restriccion en
+//     la base, que es donde tiene que estar.
+//   - Toda entidad que una persona pueda modificar lleva los dos sellos y son obligatorios.
+//     updatedById es quien la toco por ultima vez, incluida la creacion, asi que al
+//     insertar vale lo mismo que createdById. Lo inmutable, que son movimientos, lotes,
+//     recepciones y despachos, lleva solo createdById: no se edita nunca. ADR 0002, RN-033.
 
 generator client {
   provider = "prisma-client-js"
@@ -228,11 +234,13 @@ model Organization {
   phone   String?
   address String?
 
-  isActive  Boolean   @default(true) @map("is_active")
-  version   Int       @default(0)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  isActive    Boolean   @default(true) @map("is_active")
+  version     Int       @default(0)
+  createdById String    @map("created_by_id")
+  updatedById String    @map("updated_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   country      Country      @relation(fields: [countryCode], references: [code], onDelete: Restrict)
   baseCurrency Currency     @relation(fields: [baseCurrencyCode], references: [code], onDelete: Restrict)
@@ -281,6 +289,8 @@ model User {
   lockedUntil         DateTime?  @map("locked_until") @db.Timestamptz(6)
   lastLoginAt         DateTime?  @map("last_login_at") @db.Timestamptz(6)
   version             Int        @default(0)
+  createdById         String     @map("created_by_id")
+  updatedById         String     @map("updated_by_id")
   createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt           DateTime?  @map("deleted_at") @db.Timestamptz(6)
@@ -373,6 +383,8 @@ model Membership {
   organizationId String    @map("organization_id")
   isActive       Boolean   @default(true) @map("is_active")
   version        Int       @default(0)
+  createdById    String    @map("created_by_id")
+  updatedById    String    @map("updated_by_id")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(6)
@@ -493,8 +505,8 @@ model Warehouse {
   timeZone       String    @map("time_zone")
   isActive       Boolean   @default(true) @map("is_active")
   version        Int       @default(0)
-  createdById    String?   @map("created_by_id")
-  updatedById    String?   @map("updated_by_id")
+  createdById    String    @map("created_by_id")
+  updatedById    String    @map("updated_by_id")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -521,6 +533,8 @@ model UnitOfMeasure {
   /// Si es falso, las cantidades de sus productos deben ser enteras.
   allowsFraction Boolean   @default(false) @map("allows_fraction")
   version        Int       @default(0)
+  createdById    String    @map("created_by_id")
+  updatedById    String    @map("updated_by_id")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -537,6 +551,8 @@ model Category {
   parentId       String?   @map("parent_id")
   name           String
   version        Int       @default(0)
+  createdById    String    @map("created_by_id")
+  updatedById    String    @map("updated_by_id")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -577,8 +593,8 @@ model Product {
   expiryAlertDays Int?         @map("expiry_alert_days")
 
   version     Int       @default(0)
-  createdById String?   @map("created_by_id")
-  updatedById String?   @map("updated_by_id")
+  createdById String    @map("created_by_id")
+  updatedById String    @map("updated_by_id")
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -613,8 +629,8 @@ model Supplier {
   address        String?
   isActive       Boolean   @default(true) @map("is_active")
   version        Int       @default(0)
-  createdById    String?   @map("created_by_id")
-  updatedById    String?   @map("updated_by_id")
+  createdById    String    @map("created_by_id")
+  updatedById    String    @map("updated_by_id")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -641,8 +657,8 @@ model Customer {
   address        String?
   isActive       Boolean   @default(true) @map("is_active")
   version        Int       @default(0)
-  createdById    String?   @map("created_by_id")
-  updatedById    String?   @map("updated_by_id")
+  createdById    String    @map("created_by_id")
+  updatedById    String    @map("updated_by_id")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
@@ -849,7 +865,7 @@ model PurchaseOrder {
 
   version     Int      @default(0)
   createdById String   @map("created_by_id")
-  updatedById String?  @map("updated_by_id")
+  updatedById String   @map("updated_by_id")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -943,7 +959,7 @@ model SalesOrder {
 
   version     Int      @default(0)
   createdById String   @map("created_by_id")
-  updatedById String?  @map("updated_by_id")
+  updatedById String   @map("updated_by_id")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

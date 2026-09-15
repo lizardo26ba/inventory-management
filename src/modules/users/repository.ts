@@ -280,6 +280,8 @@ export async function checkEmail(
 }
 
 export type CreateUserData = {
+  /** Quien está creando la cuenta. Queda como autor de ella y de sus accesos. */
+  readonly actorId: string;
   readonly email: string;
   readonly passwordHash: string;
   readonly firstName: string;
@@ -345,13 +347,21 @@ export async function createUser(data: CreateUserData): Promise<{ readonly id: s
         countryCode: data.countryCode,
         status: 'ACTIVE',
         mustChangePassword: true,
+        createdById: data.actorId,
+        // Al nacer, quien la creó es también quien la tocó por última vez.
+        updatedById: data.actorId,
       },
       select: { id: true },
     });
 
     for (const access of data.accesses) {
       const membership = await tx.membership.create({
-        data: { userId: created.id, organizationId: access.organizationId },
+        data: {
+          userId: created.id,
+          organizationId: access.organizationId,
+          createdById: data.actorId,
+          updatedById: data.actorId,
+        },
         select: { id: true },
       });
 
@@ -379,19 +389,20 @@ export type UpdateResult =
   | { readonly outcome: 'STALE_VERSION' };
 
 export type UpdateUserData = {
+  /** Quien está guardando. Queda como último autor de la cuenta y de sus accesos. */
+  readonly actorId: string;
   readonly email: string;
   readonly firstName: string;
   readonly lastName: string;
   readonly countryCode: string;
   readonly accesses: readonly { readonly organizationId: string; readonly roleId: string }[];
   /**
-   * Cómo debe quedar el acceso de plataforma, y quién lo está decidiendo. La
+   * Cómo debe quedar el acceso de plataforma. Quién lo decide es `actorId`: la
    * acción ya comprobó que esa persona puede conceder o revocar.
    */
   readonly platformAdmin: {
     readonly isGranted: boolean;
     readonly reason: string;
-    readonly actorId: string;
   };
 };
 
@@ -426,6 +437,7 @@ export async function updateUser(
         firstName: data.firstName,
         lastName: data.lastName,
         countryCode: data.countryCode,
+        updatedById: data.actorId,
         version: { increment: 1 },
       },
     });
@@ -436,9 +448,9 @@ export async function updateUser(
     // Conceder y que luego falle el ajuste de accesos dejaría a alguien con
     // alcance a todas las empresas por un error a medio camino.
     if (data.platformAdmin.isGranted) {
-      await grantPlatformAdmin(tx, id, data.platformAdmin.reason, data.platformAdmin.actorId);
+      await grantPlatformAdmin(tx, id, data.platformAdmin.reason, data.actorId);
     } else {
-      await revokePlatformAdmin(tx, id, data.platformAdmin.actorId);
+      await revokePlatformAdmin(tx, id, data.actorId);
     }
 
     const memberships = await tx.membership.findMany({
@@ -466,7 +478,12 @@ export async function updateUser(
 
       if (existing === undefined) {
         const created = await tx.membership.create({
-          data: { userId: id, organizationId: access.organizationId },
+          data: {
+            userId: id,
+            organizationId: access.organizationId,
+            createdById: data.actorId,
+            updatedById: data.actorId,
+          },
           select: { id: true },
         });
         await tx.membershipRole.create({
@@ -476,9 +493,10 @@ export async function updateUser(
       }
 
       // Revivir una membresía revocada conserva desde cuándo existió el acceso.
+      // El autor original no se toca: quien la revive es el último, no el primero.
       await tx.membership.update({
         where: { id: existing.id },
-        data: { revokedAt: null, isActive: true },
+        data: { revokedAt: null, isActive: true, updatedById: data.actorId },
       });
       await tx.membershipRole.create({
         data: { membershipId: existing.id, roleId: access.roleId },
@@ -500,7 +518,7 @@ export async function updateUser(
       });
       await tx.membership.update({
         where: { id: existing.id },
-        data: { revokedAt: null, isActive: true },
+        data: { revokedAt: null, isActive: true, updatedById: data.actorId },
       });
     }
 
@@ -516,7 +534,7 @@ export async function updateUser(
 
       await tx.membership.updateMany({
         where: { id: { in: revoked.map((membership) => membership.id) } },
-        data: { revokedAt, isActive: false },
+        data: { revokedAt, isActive: false, updatedById: data.actorId },
       });
     }
 
@@ -532,10 +550,14 @@ export async function updateUser(
  * nada más. Reactivar devuelve la cuenta a activa, no a invitada: ya entró
  * alguna vez.
  */
-export async function setUserActive(id: string, isActive: boolean): Promise<boolean> {
+export async function setUserActive(
+  id: string,
+  isActive: boolean,
+  actorId: string,
+): Promise<boolean> {
   const result = await prisma.user.updateMany({
     where: { id, deletedAt: null },
-    data: { status: isActive ? 'ACTIVE' : 'SUSPENDED' },
+    data: { status: isActive ? 'ACTIVE' : 'SUSPENDED', updatedById: actorId },
   });
 
   return result.count > 0;
@@ -549,20 +571,20 @@ export async function setUserActive(id: string, isActive: boolean): Promise<bool
  * la misma transacción: una membresía viva de una cuenta borrada seguiría
  * contando en las cifras de la plataforma.
  */
-export async function softDeleteUser(id: string): Promise<boolean> {
+export async function softDeleteUser(id: string, actorId: string): Promise<boolean> {
   const deletedAt = new Date();
 
   return prisma.$transaction(async (tx) => {
     const result = await tx.user.updateMany({
       where: { id, deletedAt: null },
-      data: { deletedAt, status: 'SUSPENDED' },
+      data: { deletedAt, status: 'SUSPENDED', updatedById: actorId },
     });
 
     if (result.count === 0) return false;
 
     await tx.membership.updateMany({
       where: { userId: id, revokedAt: null },
-      data: { revokedAt: deletedAt, isActive: false },
+      data: { revokedAt: deletedAt, isActive: false, updatedById: actorId },
     });
 
     // Las sesiones sí se borran. Una sesión de una cuenta que ya no existe no

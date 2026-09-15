@@ -60,6 +60,26 @@ export abstract class AppError extends Error {
 
   readonly context: ErrorContext;
 
+  /**
+   * El código, otra vez, bajo el nombre que Next.js sabe transportar.
+   *
+   * Un error lanzado en un componente de servidor no llega entero al límite de
+   * error del cliente: en producción el mensaje se sustituye por uno genérico,
+   * para no filtrar nada de dentro, y con él se pierde qué pasó. Lo único que
+   * cruza intacto es `digest`, y Next.js respeta el que ya traiga el error en
+   * lugar de calcular el suyo.
+   *
+   * Así que este es el canal, no una casualidad: el servidor dice el código y la
+   * interfaz lo traduce, que es la misma regla del resto del archivo aplicada al
+   * único hueco por el que cabe. Ver `src/app/(dashboard)/error.tsx`.
+   *
+   * Es de solo lectura a propósito. Next.js escribe el suyo únicamente cuando no
+   * hay ninguno, y aquí siempre lo hay.
+   */
+  get digest(): string {
+    return this.code;
+  }
+
   constructor(
     message: string,
     options?: { readonly cause?: unknown; readonly context?: ErrorContext },

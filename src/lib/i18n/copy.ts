@@ -65,9 +65,26 @@ export const copyEn = {
     tooManyAttempts: 'Too many failed attempts. Wait a few minutes and try again.',
     sessionExpired: 'Your session expired. Sign in again.',
     notAuthorized: 'You do not have permission to do that.',
+    twoFactorRequired: 'Confirm your identity with your second factor before opening this.',
     notFound: 'That no longer exists. Refresh the page.',
     staleVersion:
       'Someone else changed this company while you were editing. Reload to see their changes.',
+  },
+
+  /**
+   * La pantalla entera cuando una sección no llega a abrirse.
+   *
+   * El título dice qué pasó y el cuerpo sale de `errors`, que es donde ya vive
+   * ese texto. Duplicarlo aquí haría que el mismo rechazo se explicara con dos
+   * frases distintas según dónde apareciera.
+   */
+  errorPage: {
+    genericTitle: 'Something went wrong',
+    notAuthorizedTitle: 'You cannot open this section',
+    sessionExpiredTitle: 'Your session ended',
+    twoFactorTitle: 'One more step',
+    retry: 'Try again',
+    signIn: 'Sign in',
   },
 
   changePassword: {
