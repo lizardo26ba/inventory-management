@@ -13,13 +13,16 @@
  * Las acciones de privilegio elevado se marcan en la propia fila. Son las que
  * más importan en una revisión y no deberían obligar a abrir el detalle para
  * distinguirlas. RN-072.
+ *
+ * Una entrada puede no tener autor: el bloqueo por intentos fallidos ocurre sin
+ * que nadie haya iniciado sesión. La fila lo dice en lugar de dejar un hueco.
  */
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
-import { auditActions, auditEntries, findAuditAction, type AuditEntry } from '../../audit-data';
+import { auditEntries, type AuditActionCode, type AuditEntry } from '../../audit-data';
 import { Avatar } from '../../ui/avatar';
 import { useCopy } from '@/lib/i18n';
 import { formatDateTime, formatQuantity } from '@/lib/format';
@@ -35,15 +38,12 @@ import { AuditDetail } from './audit-detail';
 const PAGE_SIZE_OPTIONS = [20, 40, 100] as const;
 const DEFAULT_PAGE_SIZE = PAGE_SIZE_OPTIONS[0];
 
-const SORT_ACCESSORS: Record<string, (entry: AuditEntry) => string | number | boolean> = {
-  when: (entry) => entry.createdAt,
-  actor: (entry) => entry.actorName,
-  action: (entry) => findAuditAction(entry.action)?.label ?? entry.action,
-  entity: (entry) => entry.entityLabel,
-  company: (entry) => entry.companyName ?? '',
-};
-
-const ACTORS = [...new Set(auditEntries.map((entry) => entry.actorEmail))];
+/** Los autores que aparecen en la bitácora, sin repetir y sin los vacíos. */
+const ACTORS = [
+  ...new Set(
+    auditEntries.flatMap((entry) => (entry.actor === null ? [] : [entry.actor.email])),
+  ),
+];
 
 export function AuditView(): React.ReactElement {
   const copy = useCopy();
@@ -66,13 +66,26 @@ export function AuditView(): React.ReactElement {
     ? requestedSize
     : DEFAULT_PAGE_SIZE;
 
+  // Las claves del diccionario son los códigos del catálogo real. Una prueba
+  // comprueba que coinciden, así que recorrerlas es recorrer el catálogo.
+  const actionCodes = Object.keys(copy.auditActions) as AuditActionCode[];
+
+  // Ordenar por acción ordena por su nombre en el idioma de quien mira.
+  const sortAccessors: Record<string, (entry: AuditEntry) => string | number | boolean> = {
+    when: (entry) => entry.createdAt,
+    actor: (entry) => entry.actor?.name ?? '',
+    action: (entry) => copy.auditActions[entry.action],
+    entity: (entry) => entry.entityLabel ?? '',
+    company: (entry) => entry.organizationName ?? '',
+  };
+
   // La bitácora se lee de lo más reciente hacia atrás. Es el único listado del
   // sistema cuyo orden por defecto es descendente.
   const sort = useTableSort('when', 'desc');
 
   function matches(entry: AuditEntry): boolean {
     if (actionFilter !== '' && entry.action !== actionFilter) return false;
-    if (actorFilter !== '' && entry.actorEmail !== actorFilter) return false;
+    if (actorFilter !== '' && entry.actor?.email !== actorFilter) return false;
     // Las fechas del filtro son días completos en tiempo universal, así que
     // basta comparar los diez primeros caracteres del instante.
     const day = entry.createdAt.slice(0, 10);
@@ -80,15 +93,26 @@ export function AuditView(): React.ReactElement {
     if (toFilter !== '' && day > toFilter) return false;
     if (query === '') return true;
 
-    const action = findAuditAction(entry.action);
-    const haystack =
-      `${entry.entityLabel} ${entry.entityType} ${entry.actorName} ${entry.actorEmail} ${action?.label ?? ''} ${entry.companyName ?? ''} ${entry.correlationId}`.toLowerCase();
+    const haystack = [
+      entry.entityLabel,
+      entry.entityType,
+      entry.actor?.name,
+      entry.actor?.email,
+      copy.auditActions[entry.action],
+      entry.action,
+      entry.organizationName,
+      entry.permissionCode,
+      entry.correlationId,
+    ]
+      .filter((part) => part !== null && part !== undefined)
+      .join(' ')
+      .toLowerCase();
     return haystack.includes(query);
   }
 
   const filtered = sortRows(
     auditEntries.filter(matches),
-    SORT_ACCESSORS[sort.sortKey],
+    sortAccessors[sort.sortKey],
     sort.direction,
   );
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -106,9 +130,9 @@ export function AuditView(): React.ReactElement {
   // dirección, que es exactamente lo que viajará a la consulta real.
   useSimulatedQuery(searchParams.toString());
 
-  const elevatedCount = auditEntries.filter((entry) => entry.elevated).length;
+  const elevatedCount = auditEntries.filter((entry) => entry.actingAsPlatformAdmin).length;
   const companiesTouched = new Set(
-    auditEntries.map((entry) => entry.companyId).filter((id) => id !== null),
+    auditEntries.map((entry) => entry.organizationId).filter((id) => id !== null),
   ).size;
 
   const hasFilters =
@@ -172,12 +196,12 @@ export function AuditView(): React.ReactElement {
                 id="audit-action"
                 value={actionFilter}
                 onChange={(event) => setParam('action', event.target.value)}
-                className="border-border bg-surface rounded-control mt-1 h-9 w-48 border px-2 text-sm"
+                className="border-border bg-surface rounded-control mt-1 h-9 w-56 border px-2 text-sm"
               >
                 <option value="">{copy.audit.filterAll}</option>
-                {auditActions.map((action) => (
-                  <option key={action.code} value={action.code}>
-                    {action.label}
+                {actionCodes.map((code) => (
+                  <option key={code} value={code}>
+                    {copy.auditActions[code]}
                   </option>
                 ))}
               </select>
@@ -295,23 +319,26 @@ export function AuditView(): React.ReactElement {
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map((entry) => {
-                    const action = findAuditAction(entry.action);
-                    return (
-                      <tr
-                        key={entry.id}
-                        className="border-border hover:bg-surface-muted border-b last:border-0"
-                      >
-                        <td className="text-text-muted px-4 py-2.5 whitespace-nowrap tabular-nums">
-                          {formatDateTime(entry.createdAt)}
-                        </td>
+                  {visible.map((entry) => (
+                    <tr
+                      key={entry.id}
+                      className="border-border hover:bg-surface-muted border-b last:border-0"
+                    >
+                      <td className="text-text-muted px-4 py-2.5 whitespace-nowrap tabular-nums">
+                        {formatDateTime(entry.createdAt)}
+                      </td>
 
-                        <td className="w-[24%] max-w-0 px-4 py-2.5">
+                      <td className="w-[24%] max-w-0 px-4 py-2.5">
+                        {entry.actor === null ? (
+                          <span className="text-text-muted block truncate italic">
+                            {copy.audit.noActor}
+                          </span>
+                        ) : (
                           <div className="flex items-center gap-2.5">
-                            <Avatar name={entry.actorName} className="h-7 w-7" />
+                            <Avatar name={entry.actor.name} className="h-7 w-7" />
                             <div className="min-w-0">
-                              <span className="block truncate">{entry.actorName}</span>
-                              {entry.elevated ? (
+                              <span className="block truncate">{entry.actor.name}</span>
+                              {entry.actingAsPlatformAdmin ? (
                                 <span className="text-warning flex items-center gap-1 text-xs">
                                   <IconShield className="h-3 w-3" />
                                   {copy.audit.elevatedShort}
@@ -319,38 +346,40 @@ export function AuditView(): React.ReactElement {
                               ) : null}
                             </div>
                           </div>
-                        </td>
+                        )}
+                      </td>
 
-                        <td className="px-4 py-2.5">
-                          <span className="block">{action?.label ?? entry.action}</span>
-                          <span className="text-text-muted block font-mono text-xs">
-                            {entry.action}
-                          </span>
-                        </td>
+                      <td className="px-4 py-2.5">
+                        <span className="block">{copy.auditActions[entry.action]}</span>
+                        <span className="text-text-muted block font-mono text-xs">
+                          {entry.action}
+                        </span>
+                      </td>
 
-                        <td className="hidden w-[20%] max-w-0 px-4 py-2.5 lg:table-cell">
-                          <span className="block truncate">{entry.entityLabel}</span>
-                          <span className="text-text-muted block truncate font-mono text-xs">
-                            {entry.entityType}
-                          </span>
-                        </td>
+                      <td className="hidden w-[20%] max-w-0 px-4 py-2.5 lg:table-cell">
+                        <span className="block truncate">
+                          {entry.entityLabel ?? copy.audit.emptyValue}
+                        </span>
+                        <span className="text-text-muted block truncate font-mono text-xs">
+                          {entry.entityType}
+                        </span>
+                      </td>
 
-                        <td className="text-text-muted hidden w-[18%] max-w-0 truncate px-4 py-2.5 xl:table-cell">
-                          {entry.companyName ?? copy.audit.platformScope}
-                        </td>
+                      <td className="text-text-muted hidden w-[18%] max-w-0 truncate px-4 py-2.5 xl:table-cell">
+                        {entry.organizationName ?? copy.audit.platformScope}
+                      </td>
 
-                        <td className="px-4 py-2.5 text-right">
-                          <button
-                            type="button"
-                            onClick={() => setOpenEntryId(entry.id)}
-                            className="border-border hover:bg-surface-muted rounded-control h-8 border px-3 text-xs transition-colors"
-                          >
-                            {copy.audit.openDetail}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                      <td className="px-4 py-2.5 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setOpenEntryId(entry.id)}
+                          className="border-border hover:bg-surface-muted rounded-control h-8 border px-3 text-xs transition-colors"
+                        >
+                          {copy.audit.openDetail}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

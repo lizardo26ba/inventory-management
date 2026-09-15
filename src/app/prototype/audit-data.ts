@@ -1,272 +1,443 @@
 /**
  * Bitácora de auditoría del prototipo.
  *
- * La forma de cada entrada es la que se propuso y la que tendrá la tabla real:
- * qué ocurrió, quién lo hizo, sobre qué, en qué empresa, con qué privilegio,
- * desde dónde, y con qué identificador de correlación.
+ * La forma de cada entrada es la de la tabla real, `audit_logs`, tal como la
+ * escribe `src/modules/audit`. Lo único que se añade son el nombre del autor y
+ * de la empresa, que la consulta real resolverá uniendo con sus tablas.
  *
- * Dos decisiones que conviene ver reflejadas aquí:
+ * Tres decisiones que conviene ver reflejadas aquí:
  *
- * - La acción es un hecho de negocio con nombre propio, no una operación de
- *   base de datos. Se busca por lo que pasó, no por qué tabla se tocó.
- * - El antes y después guarda solo los campos que cambiaron. La fila entera
- *   esconde el cambio real entre treinta valores iguales.
+ * - La acción es un código del catálogo real. Su nombre vive en `src/lib/i18n`,
+ *   que es lo único que el prototipo comparte con la aplicación, y una prueba
+ *   compara esas claves con el catálogo. El prototipo no puede inventar una
+ *   acción que el sistema no registra.
+ * - El antes y el después son dos objetos con solo los campos que cambiaron,
+ *   igual que en la base. La tabla del detalle los junta campo a campo.
+ * - Una operación puede dejar varias entradas con la misma correlación: crear
+ *   una cuenta deja la cuenta y cada acceso que se le concedió.
  *
- * Las entradas se generan combinando plantillas para que haya volumen sin
- * escribir cuarenta literales. Las fechas son fijas, no relativas a hoy, para
- * que dos personas mirando el prototipo vean lo mismo. RN-070 a RN-074.
+ * Los valores son los que escriben los repositorios reales. Las fechas son
+ * fijas, no relativas a hoy, para que dos personas mirando el prototipo vean lo
+ * mismo. RN-070 a RN-073.
  */
 
-export type AuditCategory = 'inventory' | 'access' | 'masterData' | 'platform';
+import { type PermissionCode } from '@/lib/auth/permissions';
+import { type Copy } from '@/lib/i18n';
 
-export type AuditAction = {
-  readonly code: string;
-  readonly label: string;
-  readonly category: AuditCategory;
-};
+export type AuditActionCode = keyof Copy['auditActions'];
 
-export const auditActions: readonly AuditAction[] = [
-  { code: 'stock.entry_registered', label: 'Stock entry registered', category: 'inventory' },
-  { code: 'stock.exit_registered', label: 'Stock exit registered', category: 'inventory' },
-  { code: 'stock.adjusted', label: 'Stock adjusted', category: 'inventory' },
-  { code: 'purchase.received', label: 'Purchase received', category: 'inventory' },
-  { code: 'sale.confirmed', label: 'Sale confirmed', category: 'inventory' },
-  { code: 'user.role_granted', label: 'Role granted', category: 'access' },
-  { code: 'user.role_revoked', label: 'Role revoked', category: 'access' },
-  { code: 'user.deactivated', label: 'User deactivated', category: 'access' },
-  { code: 'product.updated', label: 'Product updated', category: 'masterData' },
-  { code: 'company.created', label: 'Company created', category: 'masterData' },
-  { code: 'company.deactivated', label: 'Company deactivated', category: 'masterData' },
-  { code: 'platform.company_viewed', label: 'Company data viewed', category: 'platform' },
-];
+export type AuditEntityType = 'Organization' | 'User' | 'Membership' | 'PlatformAdmin';
 
-export function findAuditAction(code: string): AuditAction | undefined {
-  return auditActions.find((action) => action.code === code);
-}
+/** Un valor de la bitácora. Los instantes llegan como texto ISO. */
+export type AuditValue = string | number | boolean | null;
 
-/** Un campo que cambió, con sus dos valores. Nunca la fila entera. */
-export type AuditChange = {
-  readonly field: string;
-  readonly before: string | null;
-  readonly after: string | null;
+export type AuditFields = Readonly<Record<string, AuditValue>>;
+
+export type AuditActor = {
+  readonly name: string;
+  readonly email: string;
 };
 
 export type AuditEntry = {
   readonly id: string;
   readonly createdAt: string;
-  readonly action: string;
-  readonly entityType: string;
-  readonly entityLabel: string;
-  readonly companyId: string | null;
-  readonly companyName: string | null;
-  readonly actorName: string;
-  readonly actorEmail: string;
-  /** Ejecutada con privilegio de plataforma, por encima de la empresa. RN-072. */
-  readonly elevated: boolean;
-  readonly ipAddress: string;
+  readonly action: AuditActionCode;
+  readonly entityType: AuditEntityType;
+  readonly entityId: string;
+  /** Cómo se llamaba la entidad en ese momento. */
+  readonly entityLabel: string | null;
+  /** La empresa afectada. Nula en lo que es de plataforma. */
+  readonly organizationId: string | null;
+  readonly organizationName: string | null;
+  /** Nulo cuando nadie había iniciado sesión: el bloqueo por intentos. */
+  readonly actor: AuditActor | null;
+  /** Permiso de plataforma o super administrador en empresa ajena. RN-072. */
+  readonly actingAsPlatformAdmin: boolean;
+  readonly permissionCode: PermissionCode | null;
+  readonly before: AuditFields | null;
+  readonly after: AuditFields | null;
+  readonly ipAddress: string | null;
+  readonly userAgent: string | null;
+  /** Enlaza las entradas que salieron de la misma operación. */
   readonly correlationId: string;
-  readonly changes: readonly AuditChange[];
 };
 
-type EntryTemplate = Omit<AuditEntry, 'id' | 'createdAt' | 'correlationId'>;
+/** Un campo que cambió, con sus dos valores. */
+export type AuditChangeRow = {
+  readonly field: string;
+  readonly before: AuditValue;
+  readonly after: AuditValue;
+};
 
-const ACTORS = [
-  { name: 'Ana Morales', email: 'ana.morales@example.com', ip: '190.56.10.24' },
-  { name: 'Luis Herrera', email: 'luis.herrera@example.com', ip: '190.56.10.31' },
-  { name: 'Sofia Cabrera', email: 'sofia.cabrera@example.com', ip: '181.174.22.9' },
-  { name: 'Diego Ramirez', email: 'diego.ramirez@example.com', ip: '187.190.4.77' },
-  { name: 'Platform admin', email: 'admin@gt.com', ip: '190.56.10.2' },
-] as const;
+/**
+ * Junta el antes y el después campo a campo.
+ *
+ * Un campo que falta en un lado vale nulo, que es lo que era: al crear no hay
+ * antes, y al retirar un acceso el después no tiene rol.
+ */
+export function toChangeRows(
+  before: AuditFields | null,
+  after: AuditFields | null,
+): AuditChangeRow[] {
+  const fields = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])];
 
-const TEMPLATES: readonly EntryTemplate[] = [
-  {
-    action: 'stock.entry_registered',
-    entityType: 'StockMovement',
-    entityLabel: 'MOV-GT-004181',
-    companyId: 'c-01',
-    companyName: 'Distribuidora Central',
-    actorName: ACTORS[0].name,
-    actorEmail: ACTORS[0].email,
-    elevated: false,
-    ipAddress: ACTORS[0].ip,
-    changes: [
-      { field: 'quantity', before: null, after: '400 box' },
-      { field: 'product', before: null, after: 'Nitrile gloves, size M, box of 100' },
-      { field: 'warehouse', before: null, after: 'Main warehouse' },
-    ],
-  },
-  {
-    action: 'sale.confirmed',
-    entityType: 'SalesOrder',
-    entityLabel: 'SO-GT-000971',
-    companyId: 'c-01',
-    companyName: 'Distribuidora Central',
-    actorName: ACTORS[1].name,
-    actorEmail: ACTORS[1].email,
-    elevated: false,
-    ipAddress: ACTORS[1].ip,
-    changes: [
-      { field: 'status', before: 'DRAFT', after: 'CONFIRMED' },
-      { field: 'total', before: null, after: 'GTQ 2,310.00' },
-    ],
-  },
-  {
-    action: 'stock.adjusted',
-    entityType: 'StockMovement',
-    entityLabel: 'ADJ-GT-000019',
-    companyId: 'c-02',
-    companyName: 'Almacenes del Sur',
-    actorName: ACTORS[2].name,
-    actorEmail: ACTORS[2].email,
-    elevated: false,
-    ipAddress: ACTORS[2].ip,
-    changes: [
-      { field: 'quantity', before: '100 box', after: '95 box' },
-      { field: 'reason', before: null, after: 'Damaged in transit' },
-    ],
-  },
-  {
-    action: 'user.role_granted',
-    entityType: 'Membership',
-    entityLabel: 'luis.herrera@example.com',
-    companyId: 'c-01',
-    companyName: 'Distribuidora Central',
-    actorName: ACTORS[0].name,
-    actorEmail: ACTORS[0].email,
-    elevated: false,
-    ipAddress: ACTORS[0].ip,
-    changes: [{ field: 'role', before: null, after: 'Sales' }],
-  },
-  {
-    action: 'user.role_revoked',
-    entityType: 'Membership',
-    entityLabel: 'jorge.lopez@example.com',
-    companyId: 'c-18',
-    companyName: 'Insumos Medicos Puebla',
-    actorName: ACTORS[3].name,
-    actorEmail: ACTORS[3].email,
-    elevated: false,
-    ipAddress: ACTORS[3].ip,
-    changes: [{ field: 'role', before: 'Warehouse', after: null }],
-  },
-  {
-    action: 'product.updated',
-    entityType: 'Product',
-    entityLabel: 'MED-0207',
-    companyId: 'c-01',
-    companyName: 'Distribuidora Central',
-    actorName: ACTORS[0].name,
-    actorEmail: ACTORS[0].email,
-    elevated: false,
-    ipAddress: ACTORS[0].ip,
-    changes: [
-      { field: 'minimumLevel', before: '120', after: '150' },
-      { field: 'trackingMode', before: 'NONE', after: 'LOT' },
-    ],
-  },
-  {
-    action: 'purchase.received',
-    entityType: 'PurchaseOrder',
-    entityLabel: 'PO-GT-000184',
-    companyId: 'c-04',
-    companyName: 'Ferreteria El Progreso',
-    actorName: ACTORS[2].name,
-    actorEmail: ACTORS[2].email,
-    elevated: false,
-    ipAddress: ACTORS[2].ip,
-    changes: [
-      { field: 'status', before: 'CONFIRMED', after: 'RECEIVED' },
-      { field: 'quantityReceived', before: '0', after: '400' },
-    ],
-  },
-  {
-    action: 'company.created',
-    entityType: 'Company',
-    entityLabel: 'Abarrotes del Bajio',
-    companyId: 'c-15',
-    companyName: 'Abarrotes del Bajio',
-    actorName: ACTORS[4].name,
-    actorEmail: ACTORS[4].email,
-    elevated: true,
-    ipAddress: ACTORS[4].ip,
-    changes: [
-      { field: 'countryCode', before: null, after: 'MX' },
-      { field: 'baseCurrency', before: null, after: 'MXN' },
-    ],
-  },
-  {
-    action: 'company.deactivated',
-    entityType: 'Company',
-    entityLabel: 'Farmacia Los Altos',
-    companyId: 'c-03',
-    companyName: 'Farmacia Los Altos',
-    actorName: ACTORS[4].name,
-    actorEmail: ACTORS[4].email,
-    elevated: true,
-    ipAddress: ACTORS[4].ip,
-    changes: [{ field: 'active', before: 'true', after: 'false' }],
-  },
-  {
-    action: 'platform.company_viewed',
-    entityType: 'Company',
-    entityLabel: 'Farmacias Monterrey',
-    companyId: 'c-16',
-    companyName: 'Farmacias Monterrey',
-    actorName: ACTORS[4].name,
-    actorEmail: ACTORS[4].email,
-    elevated: true,
-    ipAddress: ACTORS[4].ip,
-    // Una consulta no cambia nada. Se registra igual porque la hizo el
-    // administrador de plataforma dentro de una empresa ajena. RN-073.
-    changes: [],
-  },
-  {
-    action: 'stock.exit_registered',
-    entityType: 'StockMovement',
-    entityLabel: 'MOV-MX-001042',
-    companyId: 'c-16',
-    companyName: 'Farmacias Monterrey',
-    actorName: ACTORS[3].name,
-    actorEmail: ACTORS[3].email,
-    elevated: false,
-    ipAddress: ACTORS[3].ip,
-    changes: [
-      { field: 'quantity', before: null, after: '60 box' },
-      { field: 'product', before: null, after: 'Amoxicillin 500 mg, box of 21' },
-    ],
-  },
-  {
-    action: 'user.deactivated',
-    entityType: 'User',
-    entityLabel: 'jorge.lopez@example.com',
-    companyId: null,
-    companyName: null,
-    actorName: ACTORS[4].name,
-    actorEmail: ACTORS[4].email,
-    elevated: true,
-    ipAddress: ACTORS[4].ip,
-    changes: [{ field: 'active', before: 'true', after: 'false' }],
-  },
+  return fields.map((field) => ({
+    field,
+    before: before?.[field] ?? null,
+    after: after?.[field] ?? null,
+  }));
+}
+
+// -----------------------------------------------------------------------------
+// Datos inventados. Correos de example.com y direcciones de los rangos
+// reservados para documentación: nada de esto es de nadie.
+// -----------------------------------------------------------------------------
+
+type Session = {
+  readonly actor: AuditActor;
+  readonly ipAddress: string;
+  readonly userAgent: string;
+};
+
+const SOFIA: Session = {
+  actor: { name: 'Sofía Cabrera', email: 'sofia.cabrera@example.com' },
+  ipAddress: '203.0.113.24',
+  userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/140.0',
+};
+
+const DIEGO: Session = {
+  actor: { name: 'Diego Ramírez', email: 'diego.ramirez@example.com' },
+  ipAddress: '198.51.100.77',
+  userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) Safari/18.0',
+};
+
+const LUIS: Session = {
+  actor: { name: 'Luis Herrera', email: 'luis.herrera@example.com' },
+  ipAddress: '203.0.113.31',
+  userAgent: 'Mozilla/5.0 (Linux; Android 15) Chrome/140.0 Mobile',
+};
+
+const COMPANIES = {
+  central: { id: 'c-01', name: 'Distribuidora Central' },
+  sur: { id: 'c-02', name: 'Almacenes del Sur' },
+  altos: { id: 'c-03', name: 'Farmacia Los Altos' },
+  progreso: { id: 'c-04', name: 'Ferretería El Progreso' },
+  bajio: { id: 'c-15', name: 'Abarrotes del Bajío' },
+  puebla: { id: 'c-18', name: 'Insumos Médicos Puebla' },
+} as const;
+
+type Company = (typeof COMPANIES)[keyof typeof COMPANIES];
+
+/** Mismo tope y misma duración que el servicio de autenticación. */
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+const MILLISECONDS_PER_MINUTE = 60_000;
+
+/** Un valor que depende del instante de la operación, como una fecha de borrado. */
+type FieldsAt = AuditFields | null | ((at: Date) => AuditFields);
+
+type EntryTemplate = {
+  readonly session: Session | null;
+  readonly action: AuditActionCode;
+  readonly entityType: AuditEntityType;
+  readonly entityId: string;
+  readonly entityLabel: string | null;
+  readonly company: Company | null;
+  readonly permissionCode: PermissionCode | null;
+  readonly before?: FieldsAt;
+  readonly after?: FieldsAt;
+};
+
+/** Varias entradas que salen de la misma operación y comparten correlación. */
+type OperationTemplate = readonly EntryTemplate[];
+
+/**
+ * Todo lo que hoy puede hacer una persona pasa por un permiso de plataforma, así
+ * que todas las escrituras salen elevadas. Solo los sucesos de sesión, que no
+ * piden permiso, no lo están. Así es también en el sistema real.
+ */
+function entry(
+  session: Session | null,
+  permissionCode: PermissionCode | null,
+  rest: Omit<EntryTemplate, 'session' | 'permissionCode'>,
+): EntryTemplate {
+  return { session, permissionCode, ...rest };
+}
+
+const OPERATIONS: readonly OperationTemplate[] = [
+  [
+    entry(SOFIA, null, {
+      action: 'auth.signed_in',
+      entityType: 'User',
+      entityId: 'u-sofia',
+      entityLabel: SOFIA.actor.email,
+      company: null,
+    }),
+  ],
+  [
+    entry(SOFIA, 'platform.organization:create', {
+      action: 'organization.created',
+      entityType: 'Organization',
+      entityId: COMPANIES.bajio.id,
+      entityLabel: COMPANIES.bajio.name,
+      company: COMPANIES.bajio,
+      after: {
+        slug: 'abarrotes-del-bajio',
+        name: COMPANIES.bajio.name,
+        legalName: 'Abarrotes del Bajío, S.A. de C.V.',
+        countryCode: 'MX',
+        baseCurrencyCode: 'MXN',
+        timeZone: 'America/Mexico_City',
+        taxId: null,
+        email: null,
+        phone: '+52 442 555 0134',
+        address: null,
+      },
+    }),
+  ],
+  [
+    entry(DIEGO, 'platform.organization:update', {
+      action: 'organization.updated',
+      entityType: 'Organization',
+      entityId: COMPANIES.central.id,
+      entityLabel: COMPANIES.central.name,
+      company: COMPANIES.central,
+      before: { phone: '+502 2200 1100', email: null },
+      after: { phone: '+502 2200 1188', email: 'compras@distribuidora-central.example.com' },
+    }),
+  ],
+  [
+    entry(SOFIA, 'platform.user:create', {
+      action: 'user.created',
+      entityType: 'User',
+      entityId: 'u-luis',
+      entityLabel: LUIS.actor.email,
+      company: null,
+      after: {
+        email: LUIS.actor.email,
+        firstName: 'Luis',
+        lastName: 'Herrera',
+        countryCode: 'GT',
+        status: 'ACTIVE',
+        mustChangePassword: true,
+      },
+    }),
+    entry(SOFIA, 'platform.user:create', {
+      action: 'membership.granted',
+      entityType: 'Membership',
+      entityId: 'm-luis-central',
+      entityLabel: LUIS.actor.email,
+      company: COMPANIES.central,
+      before: { role: null },
+      after: { role: 'Ventas' },
+    }),
+  ],
+  [
+    entry(LUIS, null, {
+      action: 'auth.signed_in',
+      entityType: 'User',
+      entityId: 'u-luis',
+      entityLabel: LUIS.actor.email,
+      company: null,
+    }),
+  ],
+  [
+    entry(LUIS, null, {
+      action: 'auth.password_changed',
+      entityType: 'User',
+      entityId: 'u-luis',
+      entityLabel: LUIS.actor.email,
+      company: null,
+    }),
+  ],
+  [
+    entry(DIEGO, 'platform.user:update', {
+      action: 'user.updated',
+      entityType: 'User',
+      entityId: 'u-ana',
+      entityLabel: 'ana.morales@example.com',
+      company: null,
+      before: { lastName: 'Morales' },
+      after: { lastName: 'Morales Pérez' },
+    }),
+    entry(DIEGO, 'platform.user:update', {
+      action: 'membership.role_changed',
+      entityType: 'Membership',
+      entityId: 'm-ana-sur',
+      entityLabel: 'ana.morales@example.com',
+      company: COMPANIES.sur,
+      before: { role: 'Bodega' },
+      after: { role: 'Compras' },
+    }),
+    entry(DIEGO, 'platform.user:update', {
+      action: 'membership.revoked',
+      entityType: 'Membership',
+      entityId: 'm-ana-puebla',
+      entityLabel: 'ana.morales@example.com',
+      company: COMPANIES.puebla,
+      before: { role: 'Consulta' },
+      after: { role: null },
+    }),
+  ],
+  [
+    entry(SOFIA, 'platform.organization:suspend', {
+      action: 'organization.deactivated',
+      entityType: 'Organization',
+      entityId: COMPANIES.altos.id,
+      entityLabel: COMPANIES.altos.name,
+      company: COMPANIES.altos,
+      before: { isActive: true },
+      after: { isActive: false },
+    }),
+  ],
+  [
+    // Nadie había iniciado sesión: el intento que bloquea no tiene autor.
+    entry(null, null, {
+      action: 'auth.locked_out',
+      entityType: 'User',
+      entityId: 'u-jorge',
+      entityLabel: 'jorge.lopez@example.com',
+      company: null,
+      after: (at) => ({
+        failedLoginAttempts: MAX_FAILED_ATTEMPTS,
+        lockedUntil: new Date(
+          at.getTime() + LOCKOUT_MINUTES * MILLISECONDS_PER_MINUTE,
+        ).toISOString(),
+      }),
+    }),
+  ],
+  [
+    entry(SOFIA, 'platform.admin:grant', {
+      action: 'platform_admin.granted',
+      entityType: 'PlatformAdmin',
+      entityId: 'pa-diego',
+      entityLabel: DIEGO.actor.email,
+      company: null,
+      after: { reason: 'Soporte de primer nivel para las empresas de México.' },
+    }),
+  ],
+  [
+    entry(DIEGO, 'platform.user:suspend', {
+      action: 'user.deactivated',
+      entityType: 'User',
+      entityId: 'u-jorge',
+      entityLabel: 'jorge.lopez@example.com',
+      company: null,
+      before: { status: 'ACTIVE' },
+      after: { status: 'SUSPENDED' },
+    }),
+  ],
+  [
+    entry(SOFIA, 'platform.organization:suspend', {
+      action: 'organization.activated',
+      entityType: 'Organization',
+      entityId: COMPANIES.altos.id,
+      entityLabel: COMPANIES.altos.name,
+      company: COMPANIES.altos,
+      before: { isActive: false },
+      after: { isActive: true },
+    }),
+  ],
+  [
+    entry(SOFIA, 'platform.user:delete', {
+      action: 'user.deleted',
+      entityType: 'User',
+      entityId: 'u-jorge',
+      entityLabel: 'jorge.lopez@example.com',
+      company: null,
+      before: { status: 'SUSPENDED', deletedAt: null },
+      after: (at) => ({ status: 'SUSPENDED', deletedAt: at.toISOString() }),
+    }),
+    entry(SOFIA, 'platform.user:delete', {
+      action: 'membership.revoked',
+      entityType: 'Membership',
+      entityId: 'm-jorge-puebla',
+      entityLabel: 'jorge.lopez@example.com',
+      company: COMPANIES.puebla,
+      before: { role: 'Bodega' },
+      after: { role: null },
+    }),
+  ],
+  [
+    entry(SOFIA, 'platform.admin:revoke', {
+      action: 'platform_admin.revoked',
+      entityType: 'PlatformAdmin',
+      entityId: 'pa-marta',
+      entityLabel: 'marta.soto@example.com',
+      company: null,
+      before: { granted: true },
+      after: { granted: false },
+    }),
+  ],
+  [
+    entry(DIEGO, 'platform.user:suspend', {
+      action: 'user.activated',
+      entityType: 'User',
+      entityId: 'u-luis',
+      entityLabel: LUIS.actor.email,
+      company: null,
+      before: { status: 'SUSPENDED' },
+      after: { status: 'ACTIVE' },
+    }),
+  ],
+  [
+    entry(SOFIA, 'platform.organization:delete', {
+      action: 'organization.deleted',
+      entityType: 'Organization',
+      entityId: COMPANIES.progreso.id,
+      entityLabel: COMPANIES.progreso.name,
+      company: COMPANIES.progreso,
+      before: { isActive: true, deletedAt: null },
+      after: (at) => ({ isActive: false, deletedAt: at.toISOString() }),
+    }),
+  ],
 ];
 
-const FIRST_ENTRY = Date.UTC(2026, 8, 1, 8, 12);
-const MINUTES_BETWEEN_ENTRIES = 97;
-const MILLISECONDS_PER_MINUTE = 60_000;
-const ENTRY_COUNT = 48;
+/**
+ * Lo que dice la tabla real de un permiso: elevado si es de plataforma. Aquí
+ * basta el prefijo, porque todos los permisos de plataforma lo llevan.
+ */
+function isPlatformPermission(code: PermissionCode | null): boolean {
+  return code !== null && code.startsWith('platform.');
+}
+
+function resolve(fields: FieldsAt | undefined, at: Date): AuditFields | null {
+  if (fields === undefined || fields === null) return null;
+  return typeof fields === 'function' ? fields(at) : fields;
+}
+
+const FIRST_OPERATION = Date.UTC(2026, 8, 1, 8, 12);
+const MINUTES_BETWEEN_OPERATIONS = 97;
+const OPERATION_COUNT = 32;
 
 export const auditEntries: readonly AuditEntry[] = Array.from(
-  { length: ENTRY_COUNT },
-  (_unused, index) => {
-    const template = TEMPLATES[index % TEMPLATES.length] as EntryTemplate;
-    const at = FIRST_ENTRY + index * MINUTES_BETWEEN_ENTRIES * MILLISECONDS_PER_MINUTE;
-    const sequence = String(index + 1).padStart(4, '0');
-    return {
-      ...template,
-      id: `a-${sequence}`,
-      createdAt: new Date(at).toISOString(),
-      // Enlaza todas las entradas de una misma petición. Es lo que convierte
-      // una lista suelta en una historia reconstruible.
-      correlationId: `req_${sequence}${String(index % TEMPLATES.length)}f4b`,
-    };
+  { length: OPERATION_COUNT },
+  (_unused, operationIndex) => {
+    const templates = OPERATIONS[operationIndex % OPERATIONS.length] ?? [];
+    const at = new Date(
+      FIRST_OPERATION + operationIndex * MINUTES_BETWEEN_OPERATIONS * MILLISECONDS_PER_MINUTE,
+    );
+    // Una por operación, no por entrada: es lo que convierte una lista suelta en
+    // una historia reconstruible.
+    const correlationId = `op-${String(operationIndex + 1).padStart(4, '0')}-9f4b`;
+
+    return templates.map((template, entryIndex): AuditEntry => ({
+      id: `a-${String(operationIndex + 1).padStart(4, '0')}-${entryIndex + 1}`,
+      createdAt: at.toISOString(),
+      action: template.action,
+      entityType: template.entityType,
+      entityId: template.entityId,
+      entityLabel: template.entityLabel,
+      organizationId: template.company?.id ?? null,
+      organizationName: template.company?.name ?? null,
+      actor: template.session?.actor ?? null,
+      actingAsPlatformAdmin: isPlatformPermission(template.permissionCode),
+      permissionCode: template.permissionCode,
+      before: resolve(template.before, at),
+      after: resolve(template.after, at),
+      ipAddress: template.session?.ipAddress ?? '198.51.100.203',
+      userAgent: template.session?.userAgent ?? 'curl/8.9',
+      correlationId,
+    }));
   },
-);
+).flat();

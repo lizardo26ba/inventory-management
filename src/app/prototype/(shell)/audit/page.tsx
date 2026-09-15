@@ -14,7 +14,7 @@ import { AuditView } from './audit-view';
  */
 export default function AuditPage(): React.ReactElement {
   return (
-    <Suspense fallback={<ListPageSkeleton columns={5} summaryCards={3} />}>
+    <Suspense fallback={<ListPageSkeleton columns={5} summaryCards={4} />}>
       <TableLoadingProvider>
         <AuditView />
       </TableLoadingProvider>
