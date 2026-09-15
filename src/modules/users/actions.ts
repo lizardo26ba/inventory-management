@@ -124,6 +124,7 @@ export async function createUser(input: unknown): Promise<CreateUserResult> {
     const temporaryPassword = generateTemporaryPassword();
 
     await insertUser({
+      actorId: session.userId,
       email: parsed.data.email,
       passwordHash: await hashPassword(temporaryPassword),
       firstName: parsed.data.firstName,
@@ -223,6 +224,7 @@ export async function updateUser(input: unknown): Promise<UserActionResult> {
     }
 
     const result = await saveUser(parsed.data.id, parsed.data.version, {
+      actorId: session.userId,
       email: parsed.data.email,
       firstName: parsed.data.firstName,
       lastName: parsed.data.lastName,
@@ -231,7 +233,6 @@ export async function updateUser(input: unknown): Promise<UserActionResult> {
       platformAdmin: {
         isGranted: parsed.data.isPlatformAdmin,
         reason: parsed.data.platformAdminReason,
-        actorId: session.userId,
       },
     });
 
@@ -268,7 +269,7 @@ export async function updateUser(input: unknown): Promise<UserActionResult> {
  */
 export async function setUserActive(input: unknown): Promise<UserActionResult> {
   try {
-    await requirePlatformPermission('platform.user:suspend');
+    const session = await requirePlatformPermission('platform.user:suspend');
 
     const parsed = setUserActiveSchema.safeParse(input);
     if (!parsed.success) {
@@ -278,7 +279,11 @@ export async function setUserActive(input: unknown): Promise<UserActionResult> {
       };
     }
 
-    const changed = await updateUserActive(parsed.data.id, parsed.data.isActive);
+    const changed = await updateUserActive(
+      parsed.data.id,
+      parsed.data.isActive,
+      session.userId,
+    );
     if (!changed) throw new NotFoundError('La cuenta no existe o ya fue eliminada.');
   } catch (error) {
     logger.failure('users.setActive', error);
@@ -297,7 +302,7 @@ export async function setUserActive(input: unknown): Promise<UserActionResult> {
  */
 export async function deleteUser(input: unknown): Promise<UserActionResult> {
   try {
-    await requirePlatformPermission('platform.user:delete');
+    const session = await requirePlatformPermission('platform.user:delete');
 
     const parsed = userIdSchema.safeParse(input);
     if (!parsed.success) {
@@ -307,7 +312,7 @@ export async function deleteUser(input: unknown): Promise<UserActionResult> {
       };
     }
 
-    const removed = await removeUser(parsed.data.id);
+    const removed = await removeUser(parsed.data.id, session.userId);
     if (!removed) throw new NotFoundError('La cuenta no existe o ya fue eliminada.');
   } catch (error) {
     logger.failure('users.delete', error);

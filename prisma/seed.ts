@@ -134,6 +134,46 @@ async function seedPermissions(): Promise<void> {
   console.log(`  Permisos: ${PERMISSIONS.length}${count > 0 ? `, ${count} retirados` : ''}`);
 }
 
+/**
+ * La cuenta fundadora, que se apunta a sí misma como autora.
+ *
+ * Toda fila del sistema lleva quién la creó, y esta es la primera que existe:
+ * no hay nadie anterior a quien atribuirla. Se apunta a sí misma, igual que ya
+ * hacía al concederse el acceso de plataforma, y por la misma razón.
+ *
+ * Va en SQL directo y no por el cliente porque el sello es obligatorio y su
+ * valor es el identificador de la propia fila, que no se conoce hasta
+ * insertarla. Todo ocurre en una sola sentencia, así que la clave foránea se
+ * comprueba con la fila ya puesta. `uuidv7()` es nativo de PostgreSQL 18 y da
+ * el mismo formato ordenable en el tiempo que el resto de claves del esquema.
+ */
+async function createFoundingAccount(
+  email: string,
+  password: string,
+): Promise<{ readonly id: string }> {
+  const passwordHash = await hash(password, ARGON2_OPTIONS);
+
+  const [created] = await prisma.$queryRaw<{ readonly id: string }[]>`
+    INSERT INTO users (
+      id, email, password_hash, first_name, last_name, status, locale,
+      must_change_password, email_verified_at, updated_at, created_by_id, updated_by_id
+    )
+    SELECT nueva.id, ${email}, ${passwordHash}, 'Super', 'administrador',
+           'ACTIVE'::user_status, 'en',
+           -- Nace obligada a cambiarla: la contraseña inicial estuvo en un
+           -- archivo de entorno y la conoce quien instaló el sistema.
+           true, now(), now(), nueva.id, nueva.id
+    FROM (SELECT uuidv7()::text AS id) AS nueva
+    RETURNING id
+  `;
+
+  if (created === undefined) {
+    throw new Error('No se pudo crear la cuenta fundadora.');
+  }
+
+  return created;
+}
+
 async function seedPlatformAdmin(): Promise<void> {
   const email = process.env.SEED_ADMIN_EMAIL;
   const password = process.env.SEED_ADMIN_PASSWORD;
@@ -158,23 +198,7 @@ async function seedPlatformAdmin(): Promise<void> {
 
   // Si la cuenta ya existe no se le toca la contraseña. Volver a sembrar no
   // debe revertir un cambio que la persona ya hizo.
-  const user = existing
-    ? existing
-    : await prisma.user.create({
-        data: {
-          email: normalizedEmail,
-          passwordHash: await hash(password, ARGON2_OPTIONS),
-          firstName: 'Super',
-          lastName: 'administrador',
-          status: 'ACTIVE',
-          locale: 'en',
-          // Nace obligada a cambiarla: la contraseña inicial estuvo en un
-          // archivo de entorno y la conoce quien instaló el sistema.
-          mustChangePassword: true,
-          emailVerifiedAt: new Date(),
-        },
-        select: { id: true },
-      });
+  const user = existing ?? (await createFoundingAccount(normalizedEmail, password));
 
   await prisma.platformAdmin.upsert({
     where: { userId: user.id },

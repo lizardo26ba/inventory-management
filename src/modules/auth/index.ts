@@ -14,6 +14,7 @@ export { MINIMUM_PASSWORD_LENGTH, type ChangePasswordInput, type SignInInput } f
 export { hashPassword } from './service';
 export {
   getSession,
+  holdsPlatformPermission,
   requirePlatformAdmin,
   requirePlatformPermission,
   requireSession,

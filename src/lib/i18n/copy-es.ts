@@ -51,9 +51,19 @@ export const copyEs: Copy = {
     tooManyAttempts: 'Demasiados intentos fallidos. Espera unos minutos y vuelve a intentarlo.',
     sessionExpired: 'Tu sesión caducó. Vuelve a entrar.',
     notAuthorized: 'No tienes permiso para hacer eso.',
+    twoFactorRequired: 'Confirma tu identidad con el segundo factor antes de abrir esto.',
     notFound: 'Eso ya no existe. Actualiza la página.',
     staleVersion:
       'Alguien más cambió esta empresa mientras la editabas. Recarga para ver sus cambios.',
+  },
+
+  errorPage: {
+    genericTitle: 'Algo falló',
+    notAuthorizedTitle: 'No puedes abrir esta sección',
+    sessionExpiredTitle: 'Tu sesión terminó',
+    twoFactorTitle: 'Falta un paso',
+    retry: 'Volver a intentarlo',
+    signIn: 'Entrar',
   },
 
   changePassword: {

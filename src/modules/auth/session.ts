@@ -133,8 +133,10 @@ export async function requestFingerprint(): Promise<{
   };
 }
 
+type PlatformAdminVerdict = 'GRANTED' | 'NOT_PLATFORM_ADMIN' | 'TWO_FACTOR_MISSING';
+
 /**
- * La puerta del super administrador.
+ * La puerta del super administrador, contestada una sola vez.
  *
  * Dos condiciones, no una. Ser super administrador da el acceso transversal; el
  * segundo factor es lo que confirma que quien lo usa es quien dice ser, y no
@@ -145,15 +147,34 @@ export async function requestFingerprint(): Promise<{
  * escondido: la variable se escribe a mano, lleva por omisión el valor seguro, y
  * el arranque avisa en el registro allí donde está apagada. Es temporal y se
  * retira con las pantallas. Ver la enmienda del ADR 0005.
+ *
+ * Contesta en lugar de lanzar porque hay dos preguntas distintas sobre lo mismo:
+ * cerrarle el paso a quien no puede, y saber de antemano qué ofrecerle a quien
+ * sí. Si cada una escribiera su propia comprobación acabarían discrepando, y ese
+ * desacuerdo se vería como un menú que ofrece lo que luego se rechaza, o peor,
+ * que esconde lo que en realidad estaba permitido. Por eso la regla del auditor
+ * de seguridad: ninguna comprobación de super administrador fuera de este punto.
+ * Aquí está, y las puertas de abajo se limitan a traducir el veredicto.
  */
+function judgePlatformAdmin(session: SessionContext): PlatformAdminVerdict {
+  if (!session.isPlatformAdmin) return 'NOT_PLATFORM_ADMIN';
+
+  if (requiresPlatformAdminTwoFactor && session.twoFactorVerifiedAt === null) {
+    return 'TWO_FACTOR_MISSING';
+  }
+
+  return 'GRANTED';
+}
+
 export async function requirePlatformAdmin(): Promise<SessionContext> {
   const session = await requireSession();
+  const verdict = judgePlatformAdmin(session);
 
-  if (!session.isPlatformAdmin) {
+  if (verdict === 'NOT_PLATFORM_ADMIN') {
     throw new AuthorizationError('La sesión no es de un super administrador.');
   }
 
-  if (requiresPlatformAdminTwoFactor && session.twoFactorVerifiedAt === null) {
+  if (verdict === 'TWO_FACTOR_MISSING') {
     throw new TwoFactorRequiredError('Falta superar el segundo factor en esta sesión.');
   }
 
@@ -161,18 +182,13 @@ export async function requirePlatformAdmin(): Promise<SessionContext> {
 }
 
 /**
- * Exige un permiso de plataforma.
+ * Que el código pedido sea de alcance de plataforma.
  *
- * Los permisos de plataforma no se conceden por rol: los tiene quien es super
- * administrador, y solo mientras la concesión siga viva. Por eso la comprobación
- * es la misma puerta de arriba más la certeza de que el código pedido es de
- * alcance de plataforma, que se resuelve contra el catálogo y no contra una
- * cadena escrita a mano.
- *
- * Pedir un permiso inexistente no compila, porque el tipo del parámetro sale del
+ * Se resuelve contra el catálogo y no contra una cadena escrita a mano. Pedir un
+ * permiso inexistente ni siquiera compila, porque el tipo del parámetro sale del
  * propio catálogo.
  */
-export async function requirePlatformPermission(code: PermissionCode): Promise<SessionContext> {
+function assertPlatformScope(code: PermissionCode): void {
   const permission = PERMISSIONS.find((candidate) => candidate.code === code);
 
   if (permission === undefined || permission.scope !== 'PLATFORM') {
@@ -182,6 +198,39 @@ export async function requirePlatformPermission(code: PermissionCode): Promise<S
       context: { code },
     });
   }
+}
+
+/**
+ * Exige un permiso de plataforma.
+ *
+ * Los permisos de plataforma no se conceden por rol: los tiene quien es super
+ * administrador, y solo mientras la concesión siga viva. Por eso la comprobación
+ * es la misma puerta de arriba, más la certeza de que el permiso pedido es de
+ * los que esa puerta abre.
+ */
+export async function requirePlatformPermission(code: PermissionCode): Promise<SessionContext> {
+  assertPlatformScope(code);
 
   return requirePlatformAdmin();
+}
+
+/**
+ * La misma puerta, respondiendo en lugar de cerrar.
+ *
+ * Sirve para decidir qué se dibuja, nunca para decidir si algo se ejecuta. Lo
+ * segundo es siempre `requirePlatformPermission`, en el servidor, dentro de la
+ * pantalla o de la acción. Esconder una opción es una cortesía; lo que autoriza
+ * es la comprobación que lanza.
+ *
+ * Recibe la sesión en lugar de leerla porque quien pregunta ya la tiene: el
+ * diseño del panel la lee una vez y pregunta por cada sección, en lugar de
+ * volver a la base tantas veces como entradas tenga el menú.
+ */
+export function holdsPlatformPermission(
+  session: SessionContext,
+  code: PermissionCode,
+): boolean {
+  assertPlatformScope(code);
+
+  return judgePlatformAdmin(session) === 'GRANTED';
 }
