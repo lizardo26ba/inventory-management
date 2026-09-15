@@ -6,9 +6,23 @@
  * La lista responde a quién hizo qué y cuándo. El antes y después vive en el
  * panel de detalle, no en la fila.
  *
- * Los filtros que se usan de verdad al auditar son tres: rango de fechas, autor
- * y tipo de acción. Están arriba y viven en la dirección, así que una búsqueda
- * concreta se puede pasar por enlace a quien tenga que revisarla.
+ * Todo lo que decide qué se ve vive en la dirección: los filtros, la posición en
+ * la lista y el registro abierto. Una revisión concreta se pasa por enlace a
+ * quien tenga que verla, y la pantalla real hará esa misma consulta en el
+ * servidor.
+ *
+ * Tres decisiones que no se ven y que impone el tamaño de la tabla, que es la
+ * que más crece del sistema:
+ *
+ * - Pagina por cursor, sin total ni número de página. Contar o saltar páginas
+ *   recorre la tabla entera.
+ * - Los filtros son exactos: acción, empresa, autor, correlación y fechas. Una
+ *   búsqueda por fragmento no tiene índice que la sostenga.
+ * - Siempre de lo más reciente hacia atrás. Ordenar por autor o por acción
+ *   pediría un índice por cada columna.
+ *
+ * Por eso tampoco hay cifras arriba: cualquiera de ellas contaría la tabla entera
+ * en cada visita.
  *
  * Las acciones de privilegio elevado se marcan en la propia fila. Son las que
  * más importan en una revisión y no deberían obligar a abrir el detalle para
@@ -19,47 +33,79 @@
  */
 
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 
-import { auditEntries, type AuditActionCode, type AuditEntry } from '../../audit-data';
+import {
+  auditCompanies,
+  auditEntries,
+  pageAuditEntries,
+  type AuditActionCode,
+  type AuditEntry,
+} from '../../audit-data';
 import { Avatar } from '../../ui/avatar';
 import { useCopy } from '@/lib/i18n';
-import { formatDateTime, formatQuantity } from '@/lib/format';
+import { formatDateTime } from '@/lib/format';
+import { CURSOR_PARAMS, CURSOR_PARAM_KEYS, CursorPagination } from '../../ui/cursor-pagination';
 import { IconShield } from '../../ui/icons';
-import { TablePagination } from '../../ui/pagination';
-import { SearchInput } from '../../ui/search-input';
-import { SummaryCard, SummaryCardGrid } from '../../ui/summary-card';
-import { TableBody, TableProgress } from '../../ui/table-loading';
 import { useSimulatedQuery } from '../../simulated-query';
-import { SortableHeader, sortRows, useTableSort } from '../../ui/table-sort';
+import {
+  TABLE_CELL_CLASS,
+  Table,
+  TableCard,
+  TableEmpty,
+  TableHeadRow,
+  TableHeaderCell,
+  TableRow,
+  TableToolbar,
+} from '../../ui/table';
+import { TableBody, TableProgress } from '../../ui/table-loading';
+import {
+  ClearFiltersLink,
+  DateFilter,
+  FilterBar,
+  SelectFilter,
+  TextFilter,
+} from '../../ui/url-filters';
 import { AuditDetail } from './audit-detail';
 
 const PAGE_SIZE_OPTIONS = [20, 40, 100] as const;
 const DEFAULT_PAGE_SIZE = PAGE_SIZE_OPTIONS[0];
+const PAGE_SIZE_PARAM = 'size';
 
-/** Los autores que aparecen en la bitácora, sin repetir y sin los vacíos. */
-const ACTORS = [
-  ...new Set(
-    auditEntries.flatMap((entry) => (entry.actor === null ? [] : [entry.actor.email])),
-  ),
-];
+/** El registro abierto en el panel. */
+const ENTRY_PARAM = 'entry';
+
+const FILTER_PARAMS = {
+  action: 'action',
+  company: 'company',
+  actor: 'actor',
+  correlation: 'correlation',
+  from: 'from',
+  to: 'to',
+} as const;
+
+const FILTER_PARAM_KEYS = Object.values(FILTER_PARAMS);
+
+/** Lo que un filtro nuevo deja sin sentido: la posición y el registro abierto. */
+const RESET_ON_FILTER = [...CURSOR_PARAM_KEYS, ENTRY_PARAM] as const;
+
+/** El valor del filtro de empresa para lo que no afecta a ninguna. */
+const PLATFORM_COMPANY = 'platform';
 
 export function AuditView(): React.ReactElement {
   const copy = useCopy();
 
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [openEntryId, setOpenEntryId] = useState<string | null>(null);
 
-  const query = (searchParams.get('q') ?? '').trim().toLowerCase();
-  const actionFilter = searchParams.get('action') ?? '';
-  const actorFilter = searchParams.get('actor') ?? '';
-  const fromFilter = searchParams.get('from') ?? '';
-  const toFilter = searchParams.get('to') ?? '';
+  const actionFilter = searchParams.get(FILTER_PARAMS.action) ?? '';
+  const companyFilter = searchParams.get(FILTER_PARAMS.company) ?? '';
+  const actorFilter = (searchParams.get(FILTER_PARAMS.actor) ?? '').toLowerCase();
+  const correlationFilter = searchParams.get(FILTER_PARAMS.correlation) ?? '';
+  const fromFilter = searchParams.get(FILTER_PARAMS.from) ?? '';
+  const toFilter = searchParams.get(FILTER_PARAMS.to) ?? '';
 
-  const requestedSize = Number(searchParams.get('size'));
+  const requestedSize = Number(searchParams.get(PAGE_SIZE_PARAM));
   const pageSize = PAGE_SIZE_OPTIONS.includes(
     requestedSize as (typeof PAGE_SIZE_OPTIONS)[number],
   )
@@ -70,79 +116,41 @@ export function AuditView(): React.ReactElement {
   // comprueba que coinciden, así que recorrerlas es recorrer el catálogo.
   const actionCodes = Object.keys(copy.auditActions) as AuditActionCode[];
 
-  // Ordenar por acción ordena por su nombre en el idioma de quien mira.
-  const sortAccessors: Record<string, (entry: AuditEntry) => string | number | boolean> = {
-    when: (entry) => entry.createdAt,
-    actor: (entry) => entry.actor?.name ?? '',
-    action: (entry) => copy.auditActions[entry.action],
-    entity: (entry) => entry.entityLabel ?? '',
-    company: (entry) => entry.organizationName ?? '',
-  };
-
-  // La bitácora se lee de lo más reciente hacia atrás. Es el único listado del
-  // sistema cuyo orden por defecto es descendente.
-  const sort = useTableSort('when', 'desc');
-
   function matches(entry: AuditEntry): boolean {
     if (actionFilter !== '' && entry.action !== actionFilter) return false;
-    if (actorFilter !== '' && entry.actor?.email !== actorFilter) return false;
-    // Las fechas del filtro son días completos en tiempo universal, así que
-    // basta comparar los diez primeros caracteres del instante.
+    if (companyFilter === PLATFORM_COMPANY && entry.organizationId !== null) return false;
+    if (
+      companyFilter !== '' &&
+      companyFilter !== PLATFORM_COMPANY &&
+      entry.organizationId !== companyFilter
+    ) {
+      return false;
+    }
+    if (actorFilter !== '' && entry.actor?.email.toLowerCase() !== actorFilter) return false;
+    if (correlationFilter !== '' && entry.correlationId !== correlationFilter) return false;
+    // Los días del filtro son días completos en tiempo universal. La plataforma no
+    // tiene zona propia, y esa es la zona en la que hoy se pintan las fechas.
     const day = entry.createdAt.slice(0, 10);
     if (fromFilter !== '' && day < fromFilter) return false;
     if (toFilter !== '' && day > toFilter) return false;
-    if (query === '') return true;
-
-    const haystack = [
-      entry.entityLabel,
-      entry.entityType,
-      entry.actor?.name,
-      entry.actor?.email,
-      copy.auditActions[entry.action],
-      entry.action,
-      entry.organizationName,
-      entry.permissionCode,
-      entry.correlationId,
-    ]
-      .filter((part) => part !== null && part !== undefined)
-      .join(' ')
-      .toLowerCase();
-    return haystack.includes(query);
+    return true;
   }
 
-  const filtered = sortRows(
+  const page = pageAuditEntries(
     auditEntries.filter(matches),
-    sortAccessors[sort.sortKey],
-    sort.direction,
+    {
+      older: searchParams.get(CURSOR_PARAMS.older),
+      newer: searchParams.get(CURSOR_PARAMS.newer),
+    },
+    pageSize,
   );
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
 
-  const requestedPage = Number(searchParams.get('page') ?? '1');
-  const page = Number.isFinite(requestedPage)
-    ? Math.min(Math.max(Math.trunc(requestedPage), 1), pageCount)
-    : 1;
-
-  const firstIndex = (page - 1) * pageSize;
-  const visible = filtered.slice(firstIndex, firstIndex + pageSize);
-
-  // Toda consulta nueva (buscar, ordenar, filtrar o cambiar de página) enciende
-  // la barra de la cabecera. La firma es el conjunto de parámetros de la
-  // dirección, que es exactamente lo que viajará a la consulta real.
+  // Toda consulta nueva (filtrar, moverse o cambiar el tamaño) enciende la barra
+  // de la cabecera. La firma es el conjunto de parámetros de la dirección, que es
+  // exactamente lo que viajará a la consulta real.
   useSimulatedQuery(searchParams.toString());
 
-  const elevatedCount = auditEntries.filter((entry) => entry.actingAsPlatformAdmin).length;
-  const companiesTouched = new Set(
-    auditEntries.map((entry) => entry.organizationId).filter((id) => id !== null),
-  ).size;
-
-  const hasFilters =
-    query !== '' ||
-    actionFilter !== '' ||
-    actorFilter !== '' ||
-    fromFilter !== '' ||
-    toFilter !== '';
-
-  function hrefWith(changes: Record<string, string | null>): string {
+  function hrefWith(changes: Readonly<Record<string, string | null>>): string {
     const params = new URLSearchParams(searchParams.toString());
     for (const [key, next] of Object.entries(changes)) {
       if (next === null || next === '') params.delete(key);
@@ -152,13 +160,21 @@ export function AuditView(): React.ReactElement {
     return suffix === '' ? pathname : `${pathname}?${suffix}`;
   }
 
-  // Cambiar un filtro devuelve a la primera página: la número tres de un
-  // resultado que ahora tiene una sola deja la tabla vacía sin motivo.
-  function setParam(key: string, value: string): void {
-    router.replace(hrefWith({ [key]: value, page: null }) as never, { scroll: false });
+  // La operación entera sustituye a los filtros que hubiera: lo que se quiere ver
+  // es todo lo que salió de ese guardado, no la parte que casaba con otra cosa.
+  function operationHref(entry: AuditEntry): string {
+    const params = new URLSearchParams();
+    const size = searchParams.get(PAGE_SIZE_PARAM);
+    if (size !== null) params.set(PAGE_SIZE_PARAM, size);
+    params.set(FILTER_PARAMS.correlation, entry.correlationId);
+    return `${pathname}?${params.toString()}`;
   }
 
-  const openEntry = auditEntries.find((entry) => entry.id === openEntryId);
+  const hasFilters = FILTER_PARAM_KEYS.some((key) => searchParams.has(key));
+
+  const openEntryId = searchParams.get(ENTRY_PARAM);
+  const openEntry =
+    openEntryId === null ? undefined : auditEntries.find((entry) => entry.id === openEntryId);
 
   return (
     <div className="space-y-5">
@@ -167,240 +183,174 @@ export function AuditView(): React.ReactElement {
         <p className="text-text-muted mt-1 text-sm">{copy.audit.subtitle}</p>
       </header>
 
-      <SummaryCardGrid>
-        <SummaryCard
-          label={copy.audit.totalEntries}
-          value={formatQuantity(auditEntries.length)}
-        />
-        <SummaryCard label={copy.audit.totalElevated} value={formatQuantity(elevatedCount)} />
-        <SummaryCard label={copy.audit.totalActors} value={formatQuantity(ACTORS.length)} />
-        <SummaryCard
-          label={copy.audit.totalCompanies}
-          value={formatQuantity(companiesTouched)}
-        />
-      </SummaryCardGrid>
-
-      <div className="border-border bg-surface rounded-card border">
-        <div className="border-border relative space-y-3 border-b p-3">
-          <SearchInput placeholder={copy.audit.searchPlaceholder} />
-
-          <div className="flex flex-wrap items-end gap-3">
-            <div>
-              <label
-                htmlFor="audit-action"
-                className="text-text-muted block text-xs font-medium"
-              >
-                {copy.audit.filterAction}
-              </label>
-              <select
-                id="audit-action"
-                value={actionFilter}
-                onChange={(event) => setParam('action', event.target.value)}
-                className="border-border bg-surface rounded-control mt-1 h-9 w-56 border px-2 text-sm"
-              >
-                <option value="">{copy.audit.filterAll}</option>
-                {actionCodes.map((code) => (
-                  <option key={code} value={code}>
-                    {copy.auditActions[code]}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label
-                htmlFor="audit-actor"
-                className="text-text-muted block text-xs font-medium"
-              >
-                {copy.audit.filterActor}
-              </label>
-              <select
-                id="audit-actor"
-                value={actorFilter}
-                onChange={(event) => setParam('actor', event.target.value)}
-                className="border-border bg-surface rounded-control mt-1 h-9 w-56 border px-2 text-sm"
-              >
-                <option value="">{copy.audit.filterAll}</option>
-                {ACTORS.map((email) => (
-                  <option key={email} value={email}>
-                    {email}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="audit-from" className="text-text-muted block text-xs font-medium">
-                {copy.audit.filterFrom}
-              </label>
-              <input
-                id="audit-from"
-                type="date"
-                value={fromFilter}
-                onChange={(event) => setParam('from', event.target.value)}
-                className="border-border bg-surface rounded-control mt-1 h-9 border px-2 text-sm"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="audit-to" className="text-text-muted block text-xs font-medium">
-                {copy.audit.filterTo}
-              </label>
-              <input
-                id="audit-to"
-                type="date"
-                value={toFilter}
-                onChange={(event) => setParam('to', event.target.value)}
-                className="border-border bg-surface rounded-control mt-1 h-9 border px-2 text-sm"
-              />
-            </div>
-
-            {hasFilters ? (
-              <Link
-                href={pathname as never}
-                scroll={false}
-                className="text-primary h-9 self-end text-sm leading-9 hover:underline"
-              >
-                {copy.audit.clearFilters}
-              </Link>
-            ) : null}
-
-            <p className="text-text-muted ml-auto self-end text-sm">
-              {formatQuantity(filtered.length)} {copy.audit.resultCount}
-            </p>
-          </div>
+      <TableCard>
+        <TableToolbar>
+          <FilterBar>
+            <SelectFilter
+              id="audit-action"
+              param={FILTER_PARAMS.action}
+              label={copy.audit.filterAction}
+              allLabel={copy.audit.filterAll}
+              options={actionCodes.map((code) => ({
+                value: code,
+                label: copy.auditActions[code],
+              }))}
+              resetParams={RESET_ON_FILTER}
+            />
+            <SelectFilter
+              id="audit-company"
+              param={FILTER_PARAMS.company}
+              label={copy.audit.filterCompany}
+              allLabel={copy.audit.filterAll}
+              options={[
+                { value: PLATFORM_COMPANY, label: copy.audit.platformScope },
+                ...auditCompanies.map((company) => ({
+                  value: company.id,
+                  label: company.name,
+                })),
+              ]}
+              resetParams={RESET_ON_FILTER}
+            />
+            <TextFilter
+              id="audit-actor"
+              param={FILTER_PARAMS.actor}
+              label={copy.audit.filterActor}
+              placeholder={copy.audit.actorPlaceholder}
+              resetParams={RESET_ON_FILTER}
+            />
+            <TextFilter
+              id="audit-correlation"
+              param={FILTER_PARAMS.correlation}
+              label={copy.audit.filterCorrelation}
+              placeholder={copy.audit.correlationPlaceholder}
+              resetParams={RESET_ON_FILTER}
+            />
+            <DateFilter
+              id="audit-from"
+              param={FILTER_PARAMS.from}
+              label={copy.audit.filterFrom}
+              resetParams={RESET_ON_FILTER}
+            />
+            <DateFilter
+              id="audit-to"
+              param={FILTER_PARAMS.to}
+              label={copy.audit.filterTo}
+              resetParams={RESET_ON_FILTER}
+            />
+            <ClearFiltersLink
+              params={FILTER_PARAM_KEYS}
+              label={copy.audit.clearFilters}
+              resetParams={RESET_ON_FILTER}
+            />
+          </FilterBar>
 
           <TableProgress />
-        </div>
+        </TableToolbar>
 
         <TableBody>
-          {visible.length === 0 ? (
-            <p className="text-text-muted px-4 py-12 text-center text-sm">{copy.audit.empty}</p>
+          {page.items.length === 0 ? (
+            <TableEmpty message={hasFilters ? copy.audit.empty : copy.audit.none} />
           ) : (
-            <div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-border bg-surface-muted text-text-muted border-b text-left text-xs tracking-wide uppercase">
-                    <SortableHeader
-                      label={copy.audit.columnWhen}
-                      columnKey="when"
-                      activeKey={sort.sortKey}
-                      direction={sort.direction}
-                    />
-                    <SortableHeader
-                      label={copy.audit.columnActor}
-                      columnKey="actor"
-                      activeKey={sort.sortKey}
-                      direction={sort.direction}
-                    />
-                    <SortableHeader
-                      label={copy.audit.columnAction}
-                      columnKey="action"
-                      activeKey={sort.sortKey}
-                      direction={sort.direction}
-                    />
-                    <SortableHeader
-                      label={copy.audit.columnEntity}
-                      columnKey="entity"
-                      activeKey={sort.sortKey}
-                      direction={sort.direction}
-                      className="hidden lg:table-cell"
-                    />
-                    <SortableHeader
-                      label={copy.audit.columnCompany}
-                      columnKey="company"
-                      activeKey={sort.sortKey}
-                      direction={sort.direction}
-                      className="hidden xl:table-cell"
-                    />
-                    <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                      <span className="sr-only">{copy.audit.openDetail}</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visible.map((entry) => (
-                    <tr
-                      key={entry.id}
-                      className="border-border hover:bg-surface-muted border-b last:border-0"
+            <Table>
+              <TableHeadRow>
+                <TableHeaderCell label={copy.audit.columnWhen} />
+                <TableHeaderCell label={copy.audit.columnActor} />
+                <TableHeaderCell label={copy.audit.columnAction} />
+                <TableHeaderCell
+                  label={copy.audit.columnEntity}
+                  className="hidden lg:table-cell"
+                />
+                <TableHeaderCell
+                  label={copy.audit.columnCompany}
+                  className="hidden xl:table-cell"
+                />
+                <TableHeaderCell label={copy.audit.openDetail} align="right" isLabelHidden />
+              </TableHeadRow>
+              <tbody>
+                {page.items.map((entry) => (
+                  <TableRow key={entry.id}>
+                    <td
+                      className={`${TABLE_CELL_CLASS} text-text-muted whitespace-nowrap tabular-nums`}
                     >
-                      <td className="text-text-muted px-4 py-2.5 whitespace-nowrap tabular-nums">
-                        {formatDateTime(entry.createdAt)}
-                      </td>
+                      {formatDateTime(entry.createdAt)}
+                    </td>
 
-                      <td className="w-[24%] max-w-0 px-4 py-2.5">
-                        {entry.actor === null ? (
-                          <span className="text-text-muted block truncate italic">
-                            {copy.audit.noActor}
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-2.5">
-                            <Avatar name={entry.actor.name} className="h-7 w-7" />
-                            <div className="min-w-0">
-                              <span className="block truncate">{entry.actor.name}</span>
-                              {entry.actingAsPlatformAdmin ? (
-                                <span className="text-warning flex items-center gap-1 text-xs">
-                                  <IconShield className="h-3 w-3" />
-                                  {copy.audit.elevatedShort}
-                                </span>
-                              ) : null}
-                            </div>
+                    <td className={`${TABLE_CELL_CLASS} w-[24%] max-w-0`}>
+                      {entry.actor === null ? (
+                        <span className="text-text-muted block truncate italic">
+                          {copy.audit.noActor}
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-2.5">
+                          <Avatar name={entry.actor.name} className="h-7 w-7" />
+                          <div className="min-w-0">
+                            <span className="block truncate">{entry.actor.name}</span>
+                            {entry.actingAsPlatformAdmin ? (
+                              <span className="text-warning flex items-center gap-1 text-xs">
+                                <IconShield className="h-3 w-3" />
+                                {copy.audit.elevatedShort}
+                              </span>
+                            ) : null}
                           </div>
-                        )}
-                      </td>
+                        </div>
+                      )}
+                    </td>
 
-                      <td className="px-4 py-2.5">
-                        <span className="block">{copy.auditActions[entry.action]}</span>
-                        <span className="text-text-muted block font-mono text-xs">
-                          {entry.action}
-                        </span>
-                      </td>
+                    <td className={TABLE_CELL_CLASS}>
+                      <span className="block">{copy.auditActions[entry.action]}</span>
+                      <span className="text-text-muted block font-mono text-xs">
+                        {entry.action}
+                      </span>
+                    </td>
 
-                      <td className="hidden w-[20%] max-w-0 px-4 py-2.5 lg:table-cell">
-                        <span className="block truncate">
-                          {entry.entityLabel ?? copy.audit.emptyValue}
-                        </span>
-                        <span className="text-text-muted block truncate font-mono text-xs">
-                          {entry.entityType}
-                        </span>
-                      </td>
+                    <td className={`${TABLE_CELL_CLASS} hidden w-[20%] max-w-0 lg:table-cell`}>
+                      <span className="block truncate">
+                        {entry.entityLabel ?? copy.audit.emptyValue}
+                      </span>
+                      <span className="text-text-muted block truncate font-mono text-xs">
+                        {entry.entityType}
+                      </span>
+                    </td>
 
-                      <td className="text-text-muted hidden w-[18%] max-w-0 truncate px-4 py-2.5 xl:table-cell">
-                        {entry.organizationName ?? copy.audit.platformScope}
-                      </td>
+                    <td
+                      className={`${TABLE_CELL_CLASS} text-text-muted hidden w-[18%] max-w-0 truncate xl:table-cell`}
+                    >
+                      {entry.organizationName ?? copy.audit.platformScope}
+                    </td>
 
-                      <td className="px-4 py-2.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setOpenEntryId(entry.id)}
-                          className="border-border hover:bg-surface-muted rounded-control h-8 border px-3 text-xs transition-colors"
-                        >
-                          {copy.audit.openDetail}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                    <td className={`${TABLE_CELL_CLASS} text-right`}>
+                      <Link
+                        href={hrefWith({ [ENTRY_PARAM]: entry.id }) as never}
+                        scroll={false}
+                        className="border-border hover:bg-surface-muted rounded-control inline-flex h-8 items-center border px-3 text-xs whitespace-nowrap transition-colors"
+                      >
+                        {copy.audit.openDetail}
+                      </Link>
+                    </td>
+                  </TableRow>
+                ))}
+              </tbody>
+            </Table>
           )}
         </TableBody>
 
-        <TablePagination
-          page={page}
-          pageCount={pageCount}
+        <CursorPagination
+          newerCursor={page.newerCursor}
+          olderCursor={page.olderCursor}
+          visibleCount={page.items.length}
           pageSize={pageSize}
           pageSizeOptions={PAGE_SIZE_OPTIONS}
-          firstIndex={firstIndex}
-          visibleCount={visible.length}
-          totalCount={filtered.length}
-          controlId="audit-rows-per-page"
           defaultPageSize={DEFAULT_PAGE_SIZE}
+          controlId="audit-rows-per-page"
         />
-      </div>
+      </TableCard>
 
       {openEntry !== undefined ? (
-        <AuditDetail entry={openEntry} onClose={() => setOpenEntryId(null)} />
+        <AuditDetail
+          entry={openEntry}
+          closeHref={hrefWith({ [ENTRY_PARAM]: null })}
+          operationHref={operationHref(openEntry)}
+        />
       ) : null}
     </div>
   );
