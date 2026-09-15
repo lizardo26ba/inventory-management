@@ -24,6 +24,10 @@
  * En el extremo, el salto no se esconde: se muestra apagado y sin enlace. Un
  * control que desaparece mueve a los de al lado, y quien iba a pulsar siguiente
  * termina pulsando otra cosa.
+ *
+ * El salto y el selector de filas se exportan sueltos porque hay dos pies: este,
+ * de páginas numeradas, y el de cursor, para las listas que no se pueden contar.
+ * Compartir las piezas es lo que hace que los dos se vean iguales.
  */
 
 import Link from 'next/link';
@@ -35,7 +39,10 @@ import { IconFirstPage, IconLastPage } from './icons';
 
 const STEP_CLASS = 'rounded-control inline-flex h-8 items-center border transition-colors';
 
-function Step({
+/** El parámetro de la dirección que guarda el tamaño de página. */
+const PAGE_SIZE_PARAM = 'size';
+
+export function PaginationStep({
   href,
   label,
   icon: Icon,
@@ -81,6 +88,67 @@ function Step({
   );
 }
 
+/**
+ * Selector de filas por página, con su etiqueta.
+ *
+ * Cambiar el tamaño borra la posición: la página cuatro de un listado de veinte
+ * no existe en uno de cien, y la fila frontera de un cursor tampoco cae en el
+ * mismo sitio. Qué parámetros guardan esa posición lo dice cada pie.
+ */
+export function PageSizeControl({
+  pageSize,
+  pageSizeOptions,
+  defaultPageSize,
+  controlId,
+  resetParams,
+}: {
+  readonly pageSize: number;
+  readonly pageSizeOptions: readonly number[];
+  /** El tamaño de partida. No se escribe en la dirección, para no ensuciarla. */
+  readonly defaultPageSize: number;
+  /** Identificador del selector. Único por tabla, para su etiqueta. */
+  readonly controlId: string;
+  /** Los parámetros que guardan la posición en la lista. */
+  readonly resetParams: readonly string[];
+}): React.ReactElement {
+  const copy = useCopy();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  function changePageSize(nextSize: string): void {
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextSize === String(defaultPageSize)) params.delete(PAGE_SIZE_PARAM);
+    else params.set(PAGE_SIZE_PARAM, nextSize);
+    for (const key of resetParams) params.delete(key);
+
+    const suffix = params.toString();
+    router.replace(suffix === '' ? pathname : `${pathname}?${suffix}`, { scroll: false });
+  }
+
+  return (
+    <>
+      <label htmlFor={controlId} className="text-text-muted">
+        {copy.pagination.rowsPerPage}
+      </label>
+      <select
+        id={controlId}
+        value={String(pageSize)}
+        onChange={(event) => changePageSize(event.target.value)}
+        className="border-border bg-surface rounded-control h-8 border px-2 text-sm"
+      >
+        {pageSizeOptions.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </>
+  );
+}
+
+const PAGE_PARAMS = ['page'] as const;
+
 export function TablePagination({
   page,
   pageCount,
@@ -106,7 +174,6 @@ export function TablePagination({
   readonly defaultPageSize: number;
 }): React.ReactElement {
   const copy = useCopy();
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -126,33 +193,16 @@ export function TablePagination({
     return hrefWith({ page: targetPage === 1 ? null : String(targetPage) });
   }
 
-  // Cambiar el tamaño devuelve a la primera página: la número cuatro de un
-  // listado de veinte no existe en uno de cien.
-  function changePageSize(nextSize: string): void {
-    router.replace(
-      hrefWith({ size: nextSize === String(defaultPageSize) ? null : nextSize, page: null }),
-      { scroll: false },
-    );
-  }
-
   return (
     <div className="border-border flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm">
       <div className="flex items-center gap-3">
-        <label htmlFor={controlId} className="text-text-muted">
-          {copy.pagination.rowsPerPage}
-        </label>
-        <select
-          id={controlId}
-          value={String(pageSize)}
-          onChange={(event) => changePageSize(event.target.value)}
-          className="border-border bg-surface rounded-control h-8 border px-2 text-sm"
-        >
-          {pageSizeOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+        <PageSizeControl
+          pageSize={pageSize}
+          pageSizeOptions={pageSizeOptions}
+          defaultPageSize={defaultPageSize}
+          controlId={controlId}
+          resetParams={PAGE_PARAMS}
+        />
 
         <p className="text-text-muted">
           {totalCount === 0
@@ -169,17 +219,20 @@ export function TablePagination({
           {formatQuantity(pageCount)}
         </span>
 
-        <Step
+        <PaginationStep
           href={page > 1 ? hrefForPage(1) : null}
           label={copy.pagination.first}
           icon={IconFirstPage}
         />
-        <Step href={page > 1 ? hrefForPage(page - 1) : null} label={copy.pagination.previous} />
-        <Step
+        <PaginationStep
+          href={page > 1 ? hrefForPage(page - 1) : null}
+          label={copy.pagination.previous}
+        />
+        <PaginationStep
           href={page < pageCount ? hrefForPage(page + 1) : null}
           label={copy.pagination.next}
         />
-        <Step
+        <PaginationStep
           href={page < pageCount ? hrefForPage(pageCount) : null}
           label={copy.pagination.last}
           icon={IconLastPage}
