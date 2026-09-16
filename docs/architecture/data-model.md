@@ -237,19 +237,35 @@ Por qué no están en Prisma:
 aplicarla, se quitan del SQL las líneas que borren las claves e índices de autoría. Ver
 `.claude/agents/database-architect.md`, sección 7.
 
-## 9. Lo que la base todavía no defiende
+## 9. Seguridad a nivel de fila
+
+Está activa en toda tabla de negocio, con `FORCE`, así que ni el dueño queda exento. Es la
+segunda barrera del [ADR 0003](../adr/0003-multiempresa-con-identificador-de-organizacion.md),
+y su mecanismo está en el [ADR 0010](../adr/0010-aislamiento-con-seguridad-a-nivel-de-fila.md).
+
+- **De dónde sale la empresa.** La aplicación la declara al abrir cada transacción con
+  `set_config` local, y las políticas la leen con `app_organization_id()`. Sin contexto no
+  hay empresa, y sin empresa no se ve nada: falla cerrado.
+- **La excepción del super administrador** se enciende aparte, con `app_is_platform()`.
+- **Las tablas puente** miran la empresa de su fila padre.
+- **La bitácora** acepta escribir sin empresa cuando tampoco hay contexto, que es lo que
+  ocurre al entrar o al bloquearse una cuenta.
+- **Solo sirve con un rol sin `BYPASSRLS`.** El rol dueño lo tiene, así que con él las
+  políticas ni se evalúan. Ver `scripts/db/app-role.sql`.
+
+Quedan fuera las tablas de identidad y los catálogos globales, cuyo acceso decide el permiso
+y no la pertenencia a una empresa.
+
+## 10. Lo que la base todavía no defiende
 
 Escrito aquí para que nadie dé por supuesta una garantía que no existe.
 
-- **Seguridad a nivel de fila.** El ADR 0003 la exige como segunda barrera y no está activa
-  en ninguna tabla. Hoy el aislamiento entre empresas depende solo del filtro que aplican
-  los repositorios.
 - **Inmutabilidad del libro de movimientos.** `stock_movements` tiene restricciones de
   cantidad, pero nada impide un `UPDATE`, como sí ocurre en la bitácora. Lo sostienen la
   revisión de código y que no exista ninguna función que edite.
 - **Retención de la bitácora.** RN-074 sigue pendiente de negocio, así que no se borra nada.
 
-## 10. Cómo se mantiene este documento
+## 11. Cómo se mantiene este documento
 
 Un cambio de esquema se acompaña de su cambio aquí, según la tabla de
 [reglas de documentación](../standards/documentation-rules.md), sección 6. Lo que se
