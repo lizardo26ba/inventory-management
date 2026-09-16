@@ -35,17 +35,18 @@ referencia para personas.
 
 ## Decisiones de arquitectura
 
-| Registro                                                           | Decisión                                                               |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [0001](adr/0001-stack-tecnologico.md)                              | Next.js, PostgreSQL y Prisma en TypeScript                             |
-| [0002](adr/0002-existencias-como-libro-de-movimientos.md)          | Existencias como libro de movimientos inmutable                        |
-| [0003](adr/0003-multiempresa-con-identificador-de-organizacion.md) | Multiempresa con base compartida e identificador de organización       |
-| [0004](adr/0004-autenticacion-con-credenciales-propias.md)         | Autenticación con credenciales propias y sesión en cookie              |
-| [0005](adr/0005-super-administrador-de-plataforma.md)              | Super administrador de plataforma con acceso transversal auditado      |
-| [0006](adr/0006-operacion-multipais-y-multimoneda.md)              | Operación multipaís con moneda base por organización                   |
-| [0007](adr/0007-sesion-propia-sin-libreria-de-autenticacion.md)    | Sesión propia en base de datos, sustituye la parte de librería de 0004 |
-| [0008](adr/0008-rastreo-por-lote-y-numero-de-serie.md)             | Rastreo por lote y por número de serie, configurable por producto      |
-| [0009](adr/0009-pruebas-de-integracion-en-rama-de-neon.md)         | Pruebas de integración contra una rama de Neon dedicada                |
+| Registro                                                           | Decisión                                                                   |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| [0001](adr/0001-stack-tecnologico.md)                              | Next.js, PostgreSQL y Prisma en TypeScript                                 |
+| [0002](adr/0002-existencias-como-libro-de-movimientos.md)          | Existencias como libro de movimientos inmutable                            |
+| [0003](adr/0003-multiempresa-con-identificador-de-organizacion.md) | Multiempresa con base compartida e identificador de organización           |
+| [0004](adr/0004-autenticacion-con-credenciales-propias.md)         | Autenticación con credenciales propias y sesión en cookie                  |
+| [0005](adr/0005-super-administrador-de-plataforma.md)              | Super administrador de plataforma con acceso transversal auditado          |
+| [0006](adr/0006-operacion-multipais-y-multimoneda.md)              | Operación multipaís con moneda base por organización                       |
+| [0007](adr/0007-sesion-propia-sin-libreria-de-autenticacion.md)    | Sesión propia en base de datos, sustituye la parte de librería de 0004     |
+| [0008](adr/0008-rastreo-por-lote-y-numero-de-serie.md)             | Rastreo por lote y por número de serie, configurable por producto          |
+| [0009](adr/0009-pruebas-de-integracion-en-rama-de-neon.md)         | Pruebas de integración contra una rama de Neon dedicada                    |
+| [0010](adr/0010-aislamiento-con-seguridad-a-nivel-de-fila.md)      | Seguridad a nivel de fila con un rol de aplicación sin privilegio de salto |
 
 ## Arquitectura
 
