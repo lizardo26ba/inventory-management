@@ -24,17 +24,10 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useCopy } from '@/lib/i18n';
 import { formatQuantity } from '@/lib/format';
 import { IconFirstPage } from './icons';
+import { CURSOR_PARAM_KEYS } from './cursor-params';
 import { PageSizeControl, PaginationStep } from './pagination';
 
-/** Los parámetros de la dirección que guardan la posición en la lista. */
-export const CURSOR_PARAMS = {
-  /** Mostrar lo anterior a esta fila. */
-  older: 'older',
-  /** Mostrar lo posterior a esta fila. */
-  newer: 'newer',
-} as const;
-
-export const CURSOR_PARAM_KEYS = [CURSOR_PARAMS.older, CURSOR_PARAMS.newer] as const;
+import { CURSOR_PARAMS } from './cursor-params';
 
 export function CursorPagination({
   newerCursor,

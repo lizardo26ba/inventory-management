@@ -25,6 +25,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { CountryFlag } from '@/components/ui/flag';
 import {
+  IconAudit,
   IconChevronDown,
   IconMenu,
   IconMoon,
@@ -76,6 +77,7 @@ const SECTION_PRESENTATION: Record<
 > = {
   organizations: { label: (copy) => copy.nav.organizations, Icon: IconOrganizations },
   users: { label: (copy) => copy.nav.users, Icon: IconUsers },
+  audit: { label: (copy) => copy.nav.audit, Icon: IconAudit },
 };
 
 type NavItem = {

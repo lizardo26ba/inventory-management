@@ -45,7 +45,8 @@ import {
 import { Avatar } from '../../ui/avatar';
 import { useCopy } from '@/lib/i18n';
 import { formatDateTime } from '@/lib/format';
-import { CURSOR_PARAMS, CURSOR_PARAM_KEYS, CursorPagination } from '../../ui/cursor-pagination';
+import { CURSOR_PARAMS, CURSOR_PARAM_KEYS } from '../../ui/cursor-params';
+import { CursorPagination } from '../../ui/cursor-pagination';
 import { IconShield } from '../../ui/icons';
 import { useSimulatedQuery } from '../../simulated-query';
 import {

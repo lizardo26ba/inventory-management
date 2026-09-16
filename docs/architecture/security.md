@@ -206,6 +206,13 @@ bloqueado por intentos fallidos. Cada entrada se escribe en la misma transacció
 cambio: si el cambio se revierte, la entrada también, y si la entrada no se puede escribir,
 el cambio no ocurre.
 
+**Quién la consulta.** La pantalla de plataforma, en `/audit`, exige
+`platform.audit:read`, así que solo la alcanza el super administrador. Es una lectura por
+encima de todas las empresas, que es la excepción declarada del
+[ADR 0005](../adr/0005-super-administrador-de-plataforma.md). La bitácora de una empresa
+vista desde dentro, con `audit:read`, llegará cuando exista la comprobación de permisos
+de empresa.
+
 **Qué guarda cada entrada.**
 
 | Dato                         | Para qué                                                            |

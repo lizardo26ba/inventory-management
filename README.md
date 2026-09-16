@@ -27,7 +27,7 @@ existencias, compras y ventas, todavía no existen.
 | Prototipo de diseño                 | En curso                         |
 | Roles por empresa                   | Pendiente                        |
 | Existencias, compras y ventas       | Pendiente                        |
-| Bitácora de auditoría               | Pendiente                        |
+| Bitácora de auditoría               | Consulta de plataforma           |
 | Segundo factor                      | Suspendido de forma declarada    |
 
 El segundo factor que exige RN-005 está apagado mientras no existan sus pantallas de alta
