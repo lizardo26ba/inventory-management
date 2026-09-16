@@ -49,9 +49,10 @@ referencia para personas.
 
 ## Arquitectura
 
-| Documento                             | Para qué sirve                                              |
-| ------------------------------------- | ----------------------------------------------------------- |
-| [Seguridad](architecture/security.md) | Quién puede hacer qué: alcances, roles y matriz de permisos |
+| Documento                                     | Para qué sirve                                              |
+| --------------------------------------------- | ----------------------------------------------------------- |
+| [Seguridad](architecture/security.md)         | Quién puede hacer qué: alcances, roles y matriz de permisos |
+| [Modelo de datos](architecture/data-model.md) | Qué guarda cada tabla y qué invariante defiende la base     |
 
 ## Negocio
 
@@ -71,7 +72,6 @@ Se generan conforme avance la implementación, siguiendo la estructura definida 
 reglas de documentación.
 
 - `architecture/overview.md`
-- `architecture/data-model.md`
 - `guides/getting-started.md`
 - `guides/contributing.md`
 - `guides/deployment.md`
