@@ -1073,9 +1073,20 @@ model AuditLog {
   actor        User?         @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: Restrict)
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
+  /// Los indices sostienen la pantalla de la bitacora, que pagina por cursor sobre
+  /// (created_at, id) y filtra por valores exactos. Todos empiezan por la columna
+  /// del filtro y terminan en el instante, que es el orden de la lista: asi la
+  /// base recorre el indice y se detiene, en lugar de ordenar lo que encuentra.
+  ///
+  /// El primero no empieza por organization_id a proposito. La vista de plataforma
+  /// lista por encima de todas las empresas, y solo la alcanza el super
+  /// administrador con su permiso. ADR 0003, ADR 0005.
+  @@index([createdAt, id])
   @@index([organizationId, createdAt])
   @@index([organizationId, entityType, entityId])
-  @@index([actorId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@index([correlationId])
   @@map("audit_logs")
 }
 
