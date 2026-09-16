@@ -37,11 +37,25 @@ export default defineConfig({
         },
       },
       {
-        resolve: { alias },
+        resolve: {
+          alias: {
+            ...alias,
+            // El repositorio y el cliente de Prisma importan server-only, que lanza
+            // fuera del servidor de React. Aquí se sustituye por un módulo vacío.
+            'server-only': fileURLToPath(
+              new URL('./tests/integration/support/server-only.ts', import.meta.url),
+            ),
+          },
+        },
         test: {
           name: 'integration',
           include: ['tests/integration/**/*.test.ts'],
           environment: 'node',
+          // Corre contra una rama de Neon dedicada: la preparación global la
+          // recrea desde cero y cada archivo apunta la aplicación a ella antes de
+          // importarla. Ver docs/adr/0009-pruebas-de-integracion-en-rama-de-neon.md
+          globalSetup: ['tests/integration/global-setup.ts'],
+          setupFiles: ['tests/integration/setup-env.ts'],
           // La ejecución en serie se pide desde el guion con
           // --no-file-parallelism, porque es una opción de raíz y no de
           // proyecto. Sin ella, el estado de la base se cruza entre archivos y

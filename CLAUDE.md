@@ -17,6 +17,7 @@ versión funcional cubre existencias, compras y ventas.
 | Autenticación       | Credenciales propias con Argon2id y sesión en base de datos     | [ADR 0007](docs/adr/0007-sesion-propia-sin-libreria-de-autenticacion.md)    |
 | Super administrador | Acceso transversal, con segundo factor y auditoría obligatorios | [ADR 0005](docs/adr/0005-super-administrador-de-plataforma.md)              |
 | Multipaís           | Moneda base por organización, tasa congelada en cada documento  | [ADR 0006](docs/adr/0006-operacion-multipais-y-multimoneda.md)              |
+| Integración         | Rama de Neon dedicada, recreada en cada ejecución               | [ADR 0009](docs/adr/0009-pruebas-de-integracion-en-rama-de-neon.md)         |
 | Despliegue          | Local por ahora. Contenedor listo para Azure más adelante       | Pendiente                                                                   |
 
 Dominios de la primera versión: organizaciones y usuarios, roles y permisos, catálogo de
@@ -25,16 +26,16 @@ ventas, y bitácora de auditoría.
 
 ## 1. Stack aprobado
 
-| Capa          | Tecnología                                       | No usar                           |
-| ------------- | ------------------------------------------------ | --------------------------------- |
-| Lenguaje      | TypeScript en modo `strict`                      | JavaScript plano                  |
-| Framework     | Next.js (App Router)                             | Pages Router                      |
-| UI            | React Server Components, Tailwind CSS, shadcn/ui | CSS-in-JS en runtime              |
-| ORM           | Prisma                                           | Consultas SQL concatenadas        |
-| Base de datos | PostgreSQL                                       | NoSQL para datos transaccionales  |
-| Validación    | Zod (esquemas compartidos cliente/servidor)      | Validación solo en cliente        |
-| Autenticación | Sesión propia en base de datos                   | Auth.js, tokens en `localStorage` |
-| Pruebas       | Vitest, Testcontainers, Playwright               | Pruebas contra base de producción |
+| Capa          | Tecnología                                        | No usar                           |
+| ------------- | ------------------------------------------------- | --------------------------------- |
+| Lenguaje      | TypeScript en modo `strict`                       | JavaScript plano                  |
+| Framework     | Next.js (App Router)                              | Pages Router                      |
+| UI            | React Server Components, Tailwind CSS, shadcn/ui  | CSS-in-JS en runtime              |
+| ORM           | Prisma                                            | Consultas SQL concatenadas        |
+| Base de datos | PostgreSQL                                        | NoSQL para datos transaccionales  |
+| Validación    | Zod (esquemas compartidos cliente/servidor)       | Validación solo en cliente        |
+| Autenticación | Sesión propia en base de datos                    | Auth.js, tokens en `localStorage` |
+| Pruebas       | Vitest, rama de Neon para integración, Playwright | Pruebas contra base de producción |
 
 Cualquier dependencia nueva requiere un ADR (ver `docs/standards/documentation-rules.md`).
 

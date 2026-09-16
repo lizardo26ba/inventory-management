@@ -3,7 +3,7 @@
 **Audiencia:** todas
 **Estado:** vigente
 **Responsable:** equipo de arquitectura
-**Última revisión:** 2026-09-12
+**Última revisión:** 2026-09-15
 
 Punto de entrada a la documentación del sistema de inventario. Todo documento nuevo se
 registra aquí.
@@ -45,6 +45,7 @@ referencia para personas.
 | [0006](adr/0006-operacion-multipais-y-multimoneda.md)              | Operación multipaís con moneda base por organización                   |
 | [0007](adr/0007-sesion-propia-sin-libreria-de-autenticacion.md)    | Sesión propia en base de datos, sustituye la parte de librería de 0004 |
 | [0008](adr/0008-rastreo-por-lote-y-numero-de-serie.md)             | Rastreo por lote y por número de serie, configurable por producto      |
+| [0009](adr/0009-pruebas-de-integracion-en-rama-de-neon.md)         | Pruebas de integración contra una rama de Neon dedicada                |
 
 ## Arquitectura
 
