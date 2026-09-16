@@ -5,6 +5,7 @@ import {
   parseAuditListQuery,
 } from '@/modules/audit';
 import { AuditView } from '@/modules/audit/components/audit-view';
+import { scopeOf } from '@/modules/auth/scope';
 import { requirePlatformPermission } from '@/modules/auth/session';
 import { listOrganizations } from '@/modules/organizations/repository';
 
@@ -27,7 +28,10 @@ export default async function AuditPage({
 }: {
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<React.ReactElement> {
-  await requirePlatformPermission('platform.audit:read');
+  const session = await requirePlatformPermission('platform.audit:read');
+  // El alcance viaja a la base, que aplica sus políticas con él. Se construye
+  // después de autorizar, nunca antes. ADR 0010.
+  const scope = scopeOf(session);
 
   const params = await searchParams;
   const query = parseAuditListQuery(params);
@@ -38,11 +42,17 @@ export default async function AuditPage({
   // Las empresas son las opciones del filtro. La lista de plataforma cabe de
   // sobra en una página; cuando deje de caber, esta consulta será propia.
   const [page, companies, detail] = await Promise.all([
-    listPlatformAuditEntries(query),
-    listOrganizations({ search: '', sort: 'name', direction: 'asc', page: 1, pageSize: 100 }),
+    listPlatformAuditEntries(scope, query),
+    listOrganizations(scope, {
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+      page: 1,
+      pageSize: 100,
+    }),
     openEntryId === undefined || openEntryId === ''
       ? null
-      : findPlatformAuditEntry(openEntryId),
+      : findPlatformAuditEntry(scope, openEntryId),
   ]);
 
   return (

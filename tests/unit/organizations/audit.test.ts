@@ -21,17 +21,37 @@ vi.mock('@/modules/auth/session', () => ({
   requirePlatformPermission: (code: string) => requirePlatformPermission(code),
 }));
 
+vi.mock('@/modules/auth/scope', () => ({
+  scopeOf: () => PLATFORM_SCOPE,
+}));
+
 vi.mock('@/modules/audit', () => ({
   buildAuditContext: (...args: readonly unknown[]) => buildAuditContext(...args),
 }));
+
+/**
+ * El repositorio recibe el alcance de datos como primer argumento. Aquí se aparta
+ * para que cada comprobación siga mirando lo que le toca; que el alcance llegue de
+ * verdad lo fija su propia prueba.
+ */
+const scopes: unknown[] = [];
+
+function withoutScope(fn: (...args: readonly unknown[]) => unknown) {
+  return (scope: unknown, ...args: readonly unknown[]): unknown => {
+    scopes.push(scope);
+    return fn(...args);
+  };
+}
+
+/** El alcance que construye una sesión de super administrador sin empresa elegida. */
+const PLATFORM_SCOPE = { organizationId: null, actingAsPlatformAdmin: true };
 
 vi.mock('@/modules/organizations/repository', () => ({
   createOrganization: vi.fn(),
   listCountryOptions: vi.fn(),
   listTakenSlugs: vi.fn(),
-  setOrganizationActive: (...args: readonly unknown[]) =>
-    setOrganizationActiveInDatabase(...args),
-  softDeleteOrganization: (...args: readonly unknown[]) => softDeleteOrganization(...args),
+  setOrganizationActive: withoutScope((...args) => setOrganizationActiveInDatabase(...args)),
+  softDeleteOrganization: withoutScope((...args) => softDeleteOrganization(...args)),
   updateOrganization: vi.fn(),
 }));
 
@@ -51,6 +71,7 @@ const AUDIT_CONTEXT = { correlationId: 'correlacion-de-prueba' };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  scopes.length = 0;
   requirePlatformPermission.mockResolvedValue(SESSION);
   buildAuditContext.mockResolvedValue(AUDIT_CONTEXT);
   setOrganizationActiveInDatabase.mockResolvedValue(true);
@@ -58,6 +79,12 @@ beforeEach(() => {
 });
 
 describe('el contexto de auditoría lleva el permiso ejercido', () => {
+  it('el alcance de datos llega al repositorio, delante de todo lo demás', async () => {
+    await setOrganizationActive({ id: ORGANIZATION_ID, isActive: false });
+
+    expect(scopes[0]).toEqual(PLATFORM_SCOPE);
+  });
+
   it('suspender deja el permiso de suspender', async () => {
     await setOrganizationActive({ id: ORGANIZATION_ID, isActive: false });
 

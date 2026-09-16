@@ -22,10 +22,11 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { type PermissionCode } from '@/lib/auth/permissions';
+import type { DataScope } from '@/lib/db/scope';
 import { ConflictError, NotFoundError, toErrorPayload, type ErrorPayload } from '@/lib/errors';
 import { logger } from '@/lib/observability/logger';
 import { buildAuditContext } from '@/modules/audit';
-import { hashPassword, requirePlatformPermission } from '@/modules/auth';
+import { hashPassword, requirePlatformPermission, scopeOf } from '@/modules/auth';
 
 import {
   checkEmail,
@@ -62,11 +63,12 @@ export type CreateUserResult =
  * rol de otra empresa concedería permisos que nadie revisó.
  */
 async function checkAccesses(
+  scope: DataScope,
   accesses: readonly AccessInput[],
 ): Promise<{ readonly ok: true } | { readonly ok: false; readonly error: ErrorPayload }> {
   if (accesses.length === 0) return { ok: true };
 
-  const organizations = await listOrganizationChoices();
+  const organizations = await listOrganizationChoices(scope);
   const rolesByOrganization = new Map(
     organizations.map((organization) => [
       organization.id,
@@ -103,6 +105,7 @@ export async function createUser(input: unknown): Promise<CreateUserResult> {
 
   try {
     const session = await requirePlatformPermission(permission);
+    const scope = scopeOf(session);
 
     const parsed = createUserSchema.safeParse(input);
     if (!parsed.success) {
@@ -119,19 +122,20 @@ export async function createUser(input: unknown): Promise<CreateUserResult> {
       await requirePlatformPermission('platform.admin:grant');
     }
 
-    const checked = await checkAccesses(parsed.data.accesses);
+    const checked = await checkAccesses(scope, parsed.data.accesses);
     if (!checked.ok) return { ok: false, error: checked.error };
 
     // El correo se comprueba antes por cortesía, para poder señalar el campo. La
     // garantía real es la restricción única de la base, que no tiene rendija
     // entre la consulta y la escritura y se traduce más abajo.
-    if ((await checkEmail(parsed.data.email)) === 'TAKEN') {
+    if ((await checkEmail(scope, parsed.data.email)) === 'TAKEN') {
       return { ok: false, error: { code: 'CONFLICT', fieldErrors: { email: 'emailTaken' } } };
     }
 
     const temporaryPassword = generateTemporaryPassword();
 
     await insertUser(
+      scope,
       {
         actorId: session.userId,
         email: parsed.data.email,
@@ -192,6 +196,7 @@ export async function updateUser(input: unknown): Promise<UserActionResult> {
 
   try {
     const session = await requirePlatformPermission(permission);
+    const scope = scopeOf(session);
 
     const parsed = updateUserSchema.safeParse(input);
     if (!parsed.success) {
@@ -201,7 +206,7 @@ export async function updateUser(input: unknown): Promise<UserActionResult> {
       };
     }
 
-    const current = await findUser(parsed.data.id);
+    const current = await findUser(scope, parsed.data.id);
     if (current === null) throw new NotFoundError('La cuenta no existe o ya fue eliminada.');
 
     // Solo se pide el permiso cuando el acceso de plataforma cambia. Guardar un
@@ -229,14 +234,15 @@ export async function updateUser(input: unknown): Promise<UserActionResult> {
       };
     }
 
-    const checked = await checkAccesses(parsed.data.accesses);
+    const checked = await checkAccesses(scope, parsed.data.accesses);
     if (!checked.ok) return { ok: false, error: checked.error };
 
-    if ((await checkEmail(parsed.data.email, parsed.data.id)) === 'TAKEN') {
+    if ((await checkEmail(scope, parsed.data.email, parsed.data.id)) === 'TAKEN') {
       return { ok: false, error: { code: 'CONFLICT', fieldErrors: { email: 'emailTaken' } } };
     }
 
     const result = await saveUser(
+      scope,
       parsed.data.id,
       parsed.data.version,
       {
@@ -290,6 +296,7 @@ export async function setUserActive(input: unknown): Promise<UserActionResult> {
 
   try {
     const session = await requirePlatformPermission(permission);
+    const scope = scopeOf(session);
 
     const parsed = setUserActiveSchema.safeParse(input);
     if (!parsed.success) {
@@ -300,6 +307,7 @@ export async function setUserActive(input: unknown): Promise<UserActionResult> {
     }
 
     const changed = await updateUserActive(
+      scope,
       parsed.data.id,
       parsed.data.isActive,
       session.userId,
@@ -326,6 +334,7 @@ export async function deleteUser(input: unknown): Promise<UserActionResult> {
 
   try {
     const session = await requirePlatformPermission(permission);
+    const scope = scopeOf(session);
 
     const parsed = userIdSchema.safeParse(input);
     if (!parsed.success) {
@@ -336,6 +345,7 @@ export async function deleteUser(input: unknown): Promise<UserActionResult> {
     }
 
     const removed = await removeUser(
+      scope,
       parsed.data.id,
       session.userId,
       await buildAuditContext(session, permission),

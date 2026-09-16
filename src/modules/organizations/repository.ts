@@ -3,7 +3,7 @@ import 'server-only';
 /**
  * Único lugar del dominio de empresas que habla con Prisma.
  *
- * Dos decisiones que conviene leer antes de tocar una consulta:
+ * Tres decisiones que conviene leer antes de tocar una consulta:
  *
  * 1. Filtrar, ordenar y recortar ocurre en la base, no en memoria. Traer la
  *    tabla entera para quedarse con veinte filas funciona con veintidós
@@ -11,6 +11,9 @@ import 'server-only';
  * 2. Los recuentos de usuarios y de almacenes se cuentan, no se guardan. Un
  *    contador en la fila sería más rápido de leer y se desincroniza el día que
  *    alguien inserte una membresía por otro camino.
+ * 3. Toda consulta corre dentro del ayudante de alcance, que abre la transacción
+ *    y le dice a la base en qué empresa se actúa. Sin él no hay contexto y las
+ *    políticas devuelven cero filas. ADR 0010.
  *
  * Una empresa borrada no existe para nadie: el filtro por fecha de borrado va en
  * todas las consultas de este archivo, sin excepción.
@@ -18,7 +21,7 @@ import 'server-only';
 
 import { type Prisma } from '@prisma/client';
 
-import { prisma } from '@/lib/db/client';
+import { withScope, type DataScope } from '@/lib/db/scope';
 import { createSystemRoles } from '@/lib/db/system-roles';
 import { diffFields, recordAuditEntries, type AuditContext } from '@/modules/audit';
 
@@ -122,11 +125,12 @@ function toListItem(row: ListRow, warehouseCount: number): OrganizationListItem 
  * así que es una consulta acotada y no una por fila.
  */
 async function countWarehousesByOrganization(
+  tx: Prisma.TransactionClient,
   organizationIds: readonly string[],
 ): Promise<ReadonlyMap<string, number>> {
   if (organizationIds.length === 0) return new Map();
 
-  const groups = await prisma.warehouse.groupBy({
+  const groups = await tx.warehouse.groupBy({
     by: ['organizationId'],
     where: { organizationId: { in: [...organizationIds] }, deletedAt: null },
     _count: { _all: true },
@@ -136,6 +140,7 @@ async function countWarehousesByOrganization(
 }
 
 export async function listOrganizations(
+  scope: DataScope,
   query: OrganizationListQuery,
 ): Promise<OrganizationPage> {
   const where: Prisma.OrganizationWhereInput = {
@@ -143,31 +148,36 @@ export async function listOrganizations(
     ...searchFilter(query.search),
   };
 
-  // El recuento y la página van en la misma transacción implícita: si se
-  // pidieran por separado, una alta entre las dos consultas daría un total que
-  // no cuadra con las filas mostradas.
-  const [rows, total] = await Promise.all([
-    prisma.organization.findMany({
-      where,
-      select: LIST_SELECT,
-      orderBy: [
-        orderBy(query.sort, query.direction),
-        // Desempate estable. Sin él, dos empresas con la misma fecha pueden
-        // cambiar de sitio entre páginas y una fila se vería dos veces.
-        { id: 'asc' },
-      ],
-      skip: (query.page - 1) * query.pageSize,
-      take: query.pageSize,
-    }),
-    prisma.organization.count({ where }),
-  ]);
+  return withScope(scope, async (tx) => {
+    // El recuento y la página van en la misma transacción: si se pidieran por
+    // separado, una alta entre las dos consultas daría un total que no cuadra
+    // con las filas mostradas.
+    const [rows, total] = await Promise.all([
+      tx.organization.findMany({
+        where,
+        select: LIST_SELECT,
+        orderBy: [
+          orderBy(query.sort, query.direction),
+          // Desempate estable. Sin él, dos empresas con la misma fecha pueden
+          // cambiar de sitio entre páginas y una fila se vería dos veces.
+          { id: 'asc' },
+        ],
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      tx.organization.count({ where }),
+    ]);
 
-  const warehouseCounts = await countWarehousesByOrganization(rows.map((row) => row.id));
+    const warehouseCounts = await countWarehousesByOrganization(
+      tx,
+      rows.map((row) => row.id),
+    );
 
-  return {
-    items: rows.map((row) => toListItem(row, warehouseCounts.get(row.id) ?? 0)),
-    total,
-  };
+    return {
+      items: rows.map((row) => toListItem(row, warehouseCounts.get(row.id) ?? 0)),
+      total,
+    };
+  });
 }
 
 /**
@@ -175,21 +185,23 @@ export async function listOrganizations(
  *
  * No las afecta la búsqueda: responden a cuánto hay, no a cuánto coincide.
  */
-export async function summarizeOrganizations(): Promise<OrganizationsSummary> {
-  const [organizationCount, userCount, warehouseCount, countries] = await Promise.all([
-    prisma.organization.count({ where: NOT_DELETED }),
-    prisma.membership.count({ where: { revokedAt: null, organization: NOT_DELETED } }),
-    // Los almacenes de una empresa borrada se borran con ella: la operación de
-    // borrado lo garantiza, y por eso aquí basta con mirar el almacén.
-    prisma.warehouse.count({ where: { deletedAt: null } }),
-    prisma.organization.findMany({
-      where: NOT_DELETED,
-      select: { countryCode: true },
-      distinct: ['countryCode'],
-    }),
-  ]);
+export async function summarizeOrganizations(scope: DataScope): Promise<OrganizationsSummary> {
+  return withScope(scope, async (tx) => {
+    const [organizationCount, userCount, warehouseCount, countries] = await Promise.all([
+      tx.organization.count({ where: NOT_DELETED }),
+      tx.membership.count({ where: { revokedAt: null, organization: NOT_DELETED } }),
+      // Los almacenes de una empresa borrada se borran con ella: la operación de
+      // borrado lo garantiza, y por eso aquí basta con mirar el almacén.
+      tx.warehouse.count({ where: { deletedAt: null } }),
+      tx.organization.findMany({
+        where: NOT_DELETED,
+        select: { countryCode: true },
+        distinct: ['countryCode'],
+      }),
+    ]);
 
-  return { organizationCount, userCount, warehouseCount, countryCount: countries.length };
+    return { organizationCount, userCount, warehouseCount, countryCount: countries.length };
+  });
 }
 
 /** Los países y monedas que se pueden elegir. Vienen del catálogo, no del código. */
@@ -206,22 +218,24 @@ export type CountryOption = {
   readonly phoneExample: string;
 };
 
-export function listCountryOptions(): Promise<CountryOption[]> {
-  return prisma.country.findMany({
-    where: { isActive: true },
-    select: {
-      code: true,
-      name: true,
-      defaultCurrencyCode: true,
-      defaultTimeZone: true,
-      taxIdLabel: true,
-      taxIdPattern: true,
-      phonePrefix: true,
-      phoneMask: true,
-      phoneExample: true,
-    },
-    orderBy: { name: 'asc' },
-  });
+export async function listCountryOptions(scope: DataScope): Promise<CountryOption[]> {
+  return withScope(scope, (tx) =>
+    tx.country.findMany({
+      where: { isActive: true },
+      select: {
+        code: true,
+        name: true,
+        defaultCurrencyCode: true,
+        defaultTimeZone: true,
+        taxIdLabel: true,
+        taxIdPattern: true,
+        phonePrefix: true,
+        phoneMask: true,
+        phoneExample: true,
+      },
+      orderBy: { name: 'asc' },
+    }),
+  );
 }
 
 export type CurrencyOption = {
@@ -229,12 +243,14 @@ export type CurrencyOption = {
   readonly name: string;
 };
 
-export function listCurrencyOptions(): Promise<CurrencyOption[]> {
-  return prisma.currency.findMany({
-    where: { isActive: true },
-    select: { code: true, name: true },
-    orderBy: { code: 'asc' },
-  });
+export async function listCurrencyOptions(scope: DataScope): Promise<CurrencyOption[]> {
+  return withScope(scope, (tx) =>
+    tx.currency.findMany({
+      where: { isActive: true },
+      select: { code: true, name: true },
+      orderBy: { code: 'asc' },
+    }),
+  );
 }
 
 /**
@@ -244,12 +260,16 @@ export function listCurrencyOptions(): Promise<CurrencyOption[]> {
  * que existen, así que reutilizarlo mezclaría la numeración de dos empresas
  * distintas.
  */
-export async function listTakenSlugs(): Promise<string[]> {
-  const rows = await prisma.organization.findMany({ select: { slug: true } });
+export async function listTakenSlugs(scope: DataScope): Promise<string[]> {
+  const rows = await withScope(scope, (tx) =>
+    tx.organization.findMany({ select: { slug: true } }),
+  );
+
   return rows.map((row) => row.slug);
 }
 
 export async function createOrganization(
+  scope: DataScope,
   data: {
     /** Quien la está creando. Solo el super administrador, por RN-003. */
     readonly actorId: string;
@@ -272,7 +292,7 @@ export async function createOrganization(
   // queda ni la empresa.
   const { actorId, ...fields } = data;
 
-  return prisma.$transaction(async (tx) => {
+  return withScope(scope, async (tx) => {
     const created = await tx.organization.create({
       // Al nacer, quien la creó es también quien la tocó por última vez.
       data: { ...fields, createdById: actorId, updatedById: actorId },
@@ -305,12 +325,13 @@ export async function createOrganization(
  * tampoco un cambio, así que no deja entrada.
  */
 export async function setOrganizationActive(
+  scope: DataScope,
   id: string,
   isActive: boolean,
   actorId: string,
   audit: AuditContext,
 ): Promise<boolean> {
-  return prisma.$transaction(async (tx) => {
+  return withScope(scope, async (tx) => {
     const current = await tx.organization.findFirst({
       where: { id, ...NOT_DELETED },
       select: { name: true, isActive: true },
@@ -356,6 +377,7 @@ export async function setOrganizationActive(
  * ya nadie ve.
  */
 export async function softDeleteOrganization(
+  scope: DataScope,
   id: string,
   actorId: string,
   audit: AuditContext,
@@ -365,7 +387,7 @@ export async function softDeleteOrganization(
   // empresa. Ver docs/standards/dates-and-times.md
   const deletedAt = new Date();
 
-  return prisma.$transaction(async (tx) => {
+  return withScope(scope, async (tx) => {
     const current = await tx.organization.findFirst({
       where: { id, ...NOT_DELETED },
       select: { name: true, isActive: true },
@@ -410,54 +432,59 @@ export async function softDeleteOrganization(
  * dirección: es corto, se reconoce y se puede leer en voz alta. El identificador
  * interno no aparece en ninguna ruta.
  */
-export async function findOrganizationBySlug(slug: string): Promise<OrganizationDetail | null> {
-  const row = await prisma.organization.findFirst({
-    where: { slug, ...NOT_DELETED },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      legalName: true,
-      countryCode: true,
-      baseCurrencyCode: true,
-      taxId: true,
-      email: true,
-      phone: true,
-      address: true,
-      timeZone: true,
-      isActive: true,
-      createdAt: true,
-      version: true,
-      country: { select: { name: true } },
-      _count: { select: { memberships: true } },
-    },
+export async function findOrganizationBySlug(
+  scope: DataScope,
+  slug: string,
+): Promise<OrganizationDetail | null> {
+  return withScope(scope, async (tx) => {
+    const row = await tx.organization.findFirst({
+      where: { slug, ...NOT_DELETED },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        legalName: true,
+        countryCode: true,
+        baseCurrencyCode: true,
+        taxId: true,
+        email: true,
+        phone: true,
+        address: true,
+        timeZone: true,
+        isActive: true,
+        createdAt: true,
+        version: true,
+        country: { select: { name: true } },
+        _count: { select: { memberships: true } },
+      },
+    });
+
+    if (row === null) return null;
+
+    const warehouseCount = await tx.warehouse.count({
+      where: { organizationId: row.id, deletedAt: null },
+    });
+
+    return {
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      legalName: row.legalName,
+      countryCode: row.countryCode,
+      countryName: row.country.name,
+      baseCurrencyCode: row.baseCurrencyCode,
+      taxId: row.taxId,
+      email: row.email,
+      phone: row.phone,
+      address: row.address,
+      timeZone: row.timeZone,
+      isActive: row.isActive,
+      createdAt: row.createdAt,
+      userCount: row._count.memberships,
+      warehouseCount,
+      version: row.version,
+    };
   });
-
-  if (row === null) return null;
-
-  const warehouseCount = await prisma.warehouse.count({
-    where: { organizationId: row.id, deletedAt: null },
-  });
-
-  return {
-    id: row.id,
-    slug: row.slug,
-    name: row.name,
-    legalName: row.legalName,
-    countryCode: row.countryCode,
-    countryName: row.country.name,
-    baseCurrencyCode: row.baseCurrencyCode,
-    taxId: row.taxId,
-    email: row.email,
-    phone: row.phone,
-    address: row.address,
-    timeZone: row.timeZone,
-    isActive: row.isActive,
-    createdAt: row.createdAt,
-    userCount: row._count.memberships,
-    warehouseCount,
-    version: row.version,
-  };
 }
 
 /**
@@ -484,6 +511,7 @@ export type UpdateResult =
  * inventario: cambiarlos reescribiría la historia.
  */
 export async function updateOrganization(
+  scope: DataScope,
   id: string,
   version: number,
   actorId: string,
@@ -498,7 +526,7 @@ export async function updateOrganization(
   },
   audit: AuditContext,
 ): Promise<UpdateResult> {
-  return prisma.$transaction(async (tx) => {
+  return withScope(scope, async (tx) => {
     const current = await tx.organization.findFirst({
       where: { id, ...NOT_DELETED },
       select: {

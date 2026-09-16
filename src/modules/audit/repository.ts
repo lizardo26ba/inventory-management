@@ -19,7 +19,7 @@ import 'server-only';
 
 import { type Prisma } from '@prisma/client';
 
-import { prisma } from '@/lib/db/client';
+import { withScope, type DataScope } from '@/lib/db/scope';
 
 import { PLATFORM_SCOPE, type AuditListQuery } from './schema';
 import { startOfNextUtcDay, startOfUtcDay, toAuditFields, toAuditRow } from './service';
@@ -132,10 +132,13 @@ function filtersFor(query: AuditListQuery): Prisma.AuditLogWhereInput {
 /** La fila frontera. Un cursor que ya no existe se trata como si no viniera. */
 type Boundary = { readonly id: string; readonly createdAt: Date };
 
-async function findBoundary(id: string | undefined): Promise<Boundary | null> {
+async function findBoundary(
+  tx: Prisma.TransactionClient,
+  id: string | undefined,
+): Promise<Boundary | null> {
   if (id === undefined) return null;
 
-  return prisma.auditLog.findUnique({ where: { id }, select: { id: true, createdAt: true } });
+  return tx.auditLog.findUnique({ where: { id }, select: { id: true, createdAt: true } });
 }
 
 /**
@@ -168,47 +171,57 @@ function beyond(boundary: Boundary, direction: 'older' | 'newer'): Prisma.AuditL
  * da la vuelta aquí, de modo que la pantalla siempre recibe lo más reciente
  * primero.
  */
-export async function listPlatformAuditEntries(query: AuditListQuery): Promise<AuditLogPage> {
+export async function listPlatformAuditEntries(
+  scope: DataScope,
+  query: AuditListQuery,
+): Promise<AuditLogPage> {
   const filters = filtersFor(query);
-
   const goingBack = query.newer !== undefined;
-  const boundary = await findBoundary(goingBack ? query.newer : query.older);
 
-  const where =
-    boundary === null
-      ? filters
-      : { AND: [filters, beyond(boundary, goingBack ? 'newer' : 'older')] };
+  return withScope(scope, async (tx) => {
+    const boundary = await findBoundary(tx, goingBack ? query.newer : query.older);
 
-  const direction: Prisma.SortOrder = goingBack && boundary !== null ? 'asc' : 'desc';
-  const rows = await prisma.auditLog.findMany({
-    where,
-    select: LIST_SELECT,
-    orderBy: [{ createdAt: direction }, { id: direction }],
-    take: query.pageSize + 1,
+    const where =
+      boundary === null
+        ? filters
+        : { AND: [filters, beyond(boundary, goingBack ? 'newer' : 'older')] };
+
+    const direction: Prisma.SortOrder = goingBack && boundary !== null ? 'asc' : 'desc';
+    const rows = await tx.auditLog.findMany({
+      where,
+      select: LIST_SELECT,
+      orderBy: [{ createdAt: direction }, { id: direction }],
+      take: query.pageSize + 1,
+    });
+
+    const hasMore = rows.length > query.pageSize;
+    const page = rows.slice(0, query.pageSize);
+    const items = (direction === 'asc' ? [...page].reverse() : page).map(toListItem);
+
+    const first = items[0];
+    const last = items[items.length - 1];
+
+    // Hacia lo más reciente, lo de más dice si todavía queda algo por encima, y
+    // siempre queda algo por debajo: la página de la que se vino.
+    const hasNewer = direction === 'asc' ? hasMore : boundary !== null;
+    const hasOlder = direction === 'asc' ? true : hasMore;
+
+    return {
+      items,
+      newerCursor: hasNewer && first !== undefined ? first.id : null,
+      olderCursor: hasOlder && last !== undefined ? last.id : null,
+    };
   });
-
-  const hasMore = rows.length > query.pageSize;
-  const page = rows.slice(0, query.pageSize);
-  const items = (direction === 'asc' ? [...page].reverse() : page).map(toListItem);
-
-  const first = items[0];
-  const last = items[items.length - 1];
-
-  // Hacia lo más reciente, lo de más dice si todavía queda algo por encima, y
-  // siempre queda algo por debajo: la página de la que se vino.
-  const hasNewer = direction === 'asc' ? hasMore : boundary !== null;
-  const hasOlder = direction === 'asc' ? true : hasMore;
-
-  return {
-    items,
-    newerCursor: hasNewer && first !== undefined ? first.id : null,
-    olderCursor: hasOlder && last !== undefined ? last.id : null,
-  };
 }
 
 /** Una entrada concreta, con el antes y el después. */
-export async function findPlatformAuditEntry(id: string): Promise<AuditLogDetail | null> {
-  const row = await prisma.auditLog.findUnique({ where: { id }, select: DETAIL_SELECT });
+export async function findPlatformAuditEntry(
+  scope: DataScope,
+  id: string,
+): Promise<AuditLogDetail | null> {
+  const row = await withScope(scope, (tx) =>
+    tx.auditLog.findUnique({ where: { id }, select: DETAIL_SELECT }),
+  );
 
   return row === null ? null : toDetail(row);
 }

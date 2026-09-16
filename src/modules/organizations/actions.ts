@@ -18,10 +18,12 @@ import { redirect } from 'next/navigation';
 import { type ZodError } from 'zod';
 
 import { type PermissionCode } from '@/lib/auth/permissions';
+import type { DataScope } from '@/lib/db/scope';
 import { ConflictError, NotFoundError, toErrorPayload, type ErrorPayload } from '@/lib/errors';
 import { logger } from '@/lib/observability/logger';
 import { isPhoneComplete } from '@/lib/phone';
 import { buildAuditContext } from '@/modules/audit';
+import { scopeOf } from '@/modules/auth/scope';
 import { requirePlatformPermission } from '@/modules/auth/session';
 
 import {
@@ -90,12 +92,15 @@ type CountryCheck =
  * formulario ya avisa de estas dos cosas; aquí se repiten porque la acción
  * también se puede invocar sin pasar por él.
  */
-async function checkAgainstCountry(data: {
-  readonly countryCode: string;
-  readonly phone: string;
-  readonly taxId: string;
-}): Promise<CountryCheck> {
-  const countries = await listCountryOptions();
+async function checkAgainstCountry(
+  scope: DataScope,
+  data: {
+    readonly countryCode: string;
+    readonly phone: string;
+    readonly taxId: string;
+  },
+): Promise<CountryCheck> {
+  const countries = await listCountryOptions(scope);
   const country = countries.find((candidate) => candidate.code === data.countryCode);
 
   if (country === undefined) {
@@ -139,6 +144,7 @@ export async function createOrganization(input: unknown): Promise<OrganizationAc
 
   try {
     const session = await requirePlatformPermission(permission);
+    const scope = scopeOf(session);
 
     const parsed = createOrganizationSchema.safeParse(input);
     if (!parsed.success) {
@@ -148,12 +154,13 @@ export async function createOrganization(input: unknown): Promise<OrganizationAc
       };
     }
 
-    const checked = await checkAgainstCountry(parsed.data);
+    const checked = await checkAgainstCountry(scope, parsed.data);
     if (!checked.ok) return { ok: false, error: checked.error };
 
-    const slug = buildOrganizationSlug(parsed.data.name, await listTakenSlugs());
+    const slug = buildOrganizationSlug(parsed.data.name, await listTakenSlugs(scope));
 
     await insertOrganization(
+      scope,
       {
         actorId: session.userId,
         slug,
@@ -209,6 +216,7 @@ export async function updateOrganization(input: unknown): Promise<OrganizationAc
 
   try {
     const session = await requirePlatformPermission(permission);
+    const scope = scopeOf(session);
 
     const parsed = updateOrganizationSchema.safeParse(input);
     if (!parsed.success) {
@@ -218,10 +226,11 @@ export async function updateOrganization(input: unknown): Promise<OrganizationAc
       };
     }
 
-    const checked = await checkAgainstCountry(parsed.data);
+    const checked = await checkAgainstCountry(scope, parsed.data);
     if (!checked.ok) return { ok: false, error: checked.error };
 
     const result = await saveOrganization(
+      scope,
       parsed.data.id,
       parsed.data.version,
       session.userId,
@@ -283,6 +292,7 @@ export async function setOrganizationActive(input: unknown): Promise<Organizatio
 
   try {
     const session = await requirePlatformPermission(permission);
+    const scope = scopeOf(session);
 
     const parsed = setOrganizationActiveSchema.safeParse(input);
     if (!parsed.success) {
@@ -290,6 +300,7 @@ export async function setOrganizationActive(input: unknown): Promise<Organizatio
     }
 
     const changed = await updateOrganizationActive(
+      scope,
       parsed.data.id,
       parsed.data.isActive,
       session.userId,
@@ -321,6 +332,7 @@ export async function deleteOrganization(input: unknown): Promise<OrganizationAc
 
   try {
     const session = await requirePlatformPermission(permission);
+    const scope = scopeOf(session);
 
     const parsed = organizationIdSchema.safeParse(input);
     if (!parsed.success) {
@@ -328,6 +340,7 @@ export async function deleteOrganization(input: unknown): Promise<OrganizationAc
     }
 
     const deleted = await removeOrganization(
+      scope,
       parsed.data.id,
       session.userId,
       await buildAuditContext(session, permission),

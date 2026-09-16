@@ -16,6 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { prisma } from '@/lib/db/client';
+import { type DataScope } from '@/lib/db/scope';
 import {
   findPlatformAuditEntry,
   listPlatformAuditEntries,
@@ -25,6 +26,12 @@ import {
 import { type AuditContext, type AuditEntry } from '@/modules/audit/types';
 
 const PAGE_SIZE = 2;
+
+/**
+ * El alcance con el que consulta la pantalla de plataforma: sin empresa elegida y
+ * con la excepción del super administrador encendida. ADR 0005 y ADR 0010.
+ */
+const PLATFORM: DataScope = { organizationId: null, actingAsPlatformAdmin: true };
 
 /** Dirección del rango reservado para documentación. No es de nadie. */
 function contextFor(correlationId: string): AuditContext {
@@ -67,7 +74,7 @@ function query(overrides: Partial<AuditListQuery> = {}): AuditListQuery {
 }
 
 async function labelsOf(correlationId: string, cursor: Partial<AuditListQuery> = {}) {
-  const page = await listPlatformAuditEntries(query({ correlationId, ...cursor }));
+  const page = await listPlatformAuditEntries(PLATFORM, query({ correlationId, ...cursor }));
   return {
     labels: page.items.map((item) => item.entityLabel),
     newerCursor: page.newerCursor,
@@ -134,6 +141,7 @@ describe('lectura de la bitácora', () => {
     ]);
 
     const page = await listPlatformAuditEntries(
+      PLATFORM,
       query({ correlationId, action: 'user.deactivated' }),
     );
 
@@ -145,8 +153,14 @@ describe('lectura de la bitácora', () => {
     await writeOperation(correlationId, [entry('de hoy')]);
 
     const today = new Date().toISOString().slice(0, 10);
-    const dentro = await listPlatformAuditEntries(query({ correlationId, from: today }));
-    const fuera = await listPlatformAuditEntries(query({ correlationId, to: '2020-01-01' }));
+    const dentro = await listPlatformAuditEntries(
+      PLATFORM,
+      query({ correlationId, from: today }),
+    );
+    const fuera = await listPlatformAuditEntries(
+      PLATFORM,
+      query({ correlationId, to: '2020-01-01' }),
+    );
 
     expect(dentro.items).toHaveLength(1);
     expect(fuera.items).toHaveLength(0);
@@ -161,9 +175,9 @@ describe('lectura de la bitácora', () => {
       }),
     ]);
 
-    const page = await listPlatformAuditEntries(query({ correlationId }));
+    const page = await listPlatformAuditEntries(PLATFORM, query({ correlationId }));
     const id = page.items[0]?.id ?? '';
-    const detail = await findPlatformAuditEntry(id);
+    const detail = await findPlatformAuditEntry(PLATFORM, id);
 
     expect(detail?.before).toEqual({ status: 'ACTIVE', attempts: 0 });
     expect(detail?.after).toEqual({ status: 'SUSPENDED', attempts: 5 });
@@ -171,6 +185,6 @@ describe('lectura de la bitácora', () => {
   });
 
   it('un identificador que no existe no es un error, es que no hay nada', async () => {
-    expect(await findPlatformAuditEntry(randomUUID())).toBeNull();
+    expect(await findPlatformAuditEntry(PLATFORM, randomUUID())).toBeNull();
   });
 });

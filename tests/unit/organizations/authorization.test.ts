@@ -24,6 +24,10 @@ vi.mock('@/modules/auth/session', () => ({
   requirePlatformPermission: (code: string) => requirePlatformPermission(code),
 }));
 
+vi.mock('@/modules/auth/scope', () => ({
+  scopeOf: () => ({ organizationId: null, actingAsPlatformAdmin: true }),
+}));
+
 vi.mock('@/modules/audit', () => ({
   buildAuditContext: (...args: readonly unknown[]) => buildAuditContext(...args),
 }));

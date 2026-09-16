@@ -23,6 +23,12 @@ vi.mock('@/modules/auth/session', () => ({
   requirePlatformPermission: (code: string) => requirePlatformPermission(code),
 }));
 
+// Traduce la sesión al alcance que lee la base. Aquí no llega a usarse: la puerta
+// rechaza antes. Se simula porque toca el cliente de la base al importarse.
+vi.mock('@/modules/auth/scope', () => ({
+  scopeOf: () => ({ organizationId: null, actingAsPlatformAdmin: true }),
+}));
+
 vi.mock('@/modules/audit', () => ({
   AUDIT_ENTRY_PARAM: 'entry',
   parseAuditListQuery: () => ({ pageSize: 20 }),

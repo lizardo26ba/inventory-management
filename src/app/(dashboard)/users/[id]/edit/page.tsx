@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 
 import { PageHeader } from '@/components/ui/page-header';
 import { getCopy } from '@/lib/i18n/server';
-import { requirePlatformPermission } from '@/modules/auth';
+import { requirePlatformPermission, scopeOf } from '@/modules/auth';
 import { UserForm } from '@/modules/users/components/user-form';
 import {
   findUserById,
@@ -26,10 +26,11 @@ export default async function EditUserPage({
 }: {
   readonly params: Promise<{ readonly id: string }>;
 }): Promise<React.ReactElement> {
-  await requirePlatformPermission('platform.user:update');
+  const session = await requirePlatformPermission('platform.user:update');
+  const scope = scopeOf(session);
 
   const { id } = await params;
-  const user = await findUserById(id);
+  const user = await findUserById(scope, id);
 
   // Una cuenta borrada no existe para nadie. Da la misma respuesta que una que
   // nunca existió.
@@ -37,8 +38,8 @@ export default async function EditUserPage({
 
   const [copy, countries, organizations] = await Promise.all([
     getCopy(),
-    listCountryChoices(),
-    listOrganizationChoices(),
+    listCountryChoices(scope),
+    listOrganizationChoices(scope),
   ]);
 
   return (

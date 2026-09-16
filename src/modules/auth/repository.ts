@@ -12,9 +12,16 @@ import 'server-only';
  * pantalla.
  *
  * Lo que queda en la bitácora se escribe en la misma transacción que el cambio.
+ *
+ * Aquí se entra sin sesión, así que lo que escribe va con el alcance anónimo: no
+ * hay empresa que declarar y no se enciende ninguna excepción. Las cuentas y las
+ * sesiones son tablas de identidad, que el ADR 0010 deja fuera de la seguridad a
+ * nivel de fila, y por eso sus consultas no abren transacción: hacerlo triplicaría
+ * los viajes a la base en cada petición sin proteger nada.
  */
 
 import { prisma } from '@/lib/db/client';
+import { ANONYMOUS_SCOPE, withScope } from '@/lib/db/scope';
 import { recordAuditEntries, type AuditContext } from '@/modules/audit';
 
 export type SignInCandidate = {
@@ -78,7 +85,7 @@ export async function registerFailedAttempt(
   state: { readonly failedLoginAttempts: number; readonly lockedUntil: Date | null },
   audit: AuditContext,
 ): Promise<void> {
-  await prisma.$transaction(async (tx) => {
+  await withScope(ANONYMOUS_SCOPE, async (tx) => {
     await tx.user.update({
       where: { id: user.id },
       data: state,
@@ -121,7 +128,7 @@ export async function openSession(
   },
   audit: AuditContext,
 ): Promise<void> {
-  await prisma.$transaction(async (tx) => {
+  await withScope(ANONYMOUS_SCOPE, async (tx) => {
     await tx.session.create({
       data: {
         userId: input.userId,
@@ -258,7 +265,7 @@ export async function updatePassword(
   passwordHash: string,
   audit: AuditContext,
 ): Promise<void> {
-  await prisma.$transaction(async (tx) => {
+  await withScope(ANONYMOUS_SCOPE, async (tx) => {
     await tx.user.update({
       where: { id: user.id },
       data: {
