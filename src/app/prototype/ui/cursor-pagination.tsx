@@ -24,10 +24,8 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useCopy } from '@/lib/i18n';
 import { formatQuantity } from '@/lib/format';
 import { IconFirstPage } from './icons';
-import { CURSOR_PARAM_KEYS } from './cursor-params';
+import { CURSOR_PARAM_KEYS, CURSOR_PARAMS } from './cursor-params';
 import { PageSizeControl, PaginationStep } from './pagination';
-
-import { CURSOR_PARAMS } from './cursor-params';
 
 export function CursorPagination({
   newerCursor,
