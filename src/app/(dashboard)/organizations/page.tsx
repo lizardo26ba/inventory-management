@@ -1,6 +1,7 @@
 import { OrganizationsView } from '@/modules/organizations/components/organizations-view';
 import { listOrganizations, summarizeOrganizations } from '@/modules/organizations/repository';
 import { parseOrganizationListQuery } from '@/modules/organizations/schema';
+import { scopeOf } from '@/modules/auth/scope';
 import { requirePlatformPermission } from '@/modules/auth/session';
 
 /**
@@ -20,12 +21,13 @@ export default async function OrganizationsPage({
 }: {
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<React.ReactElement> {
-  await requirePlatformPermission('platform.organization:read');
+  const session = await requirePlatformPermission('platform.organization:read');
+  const scope = scopeOf(session);
 
   const query = parseOrganizationListQuery(await searchParams);
   const [page, summary] = await Promise.all([
-    listOrganizations(query),
-    summarizeOrganizations(),
+    listOrganizations(scope, query),
+    summarizeOrganizations(scope),
   ]);
 
   return (

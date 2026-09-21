@@ -15,7 +15,7 @@
 import { type PermissionCode } from '@/lib/auth/permissions';
 
 /** Cómo se nombra una sección entre el servidor y el marco. */
-export type NavSectionKey = 'organizations' | 'users';
+export type NavSectionKey = 'organizations' | 'users' | 'audit';
 
 export type NavSection = {
   readonly key: NavSectionKey;
@@ -34,11 +34,9 @@ export type NavSection = {
  * Esto decide qué se ve, nunca qué se puede hacer. Lo segundo lo decide el
  * servidor en cada pantalla, y seguiría rechazando aunque esta lista mintiera.
  * Es el principio 1 de CLAUDE.md: esconder un control no es autorizar.
- *
- * La bitácora entrará aquí cuando exista su pantalla. Está dibujada en el
- * prototipo y todavía no tiene ruta real.
  */
 export const ADMINISTRATION_SECTIONS = [
   { key: 'organizations', href: '/organizations', permission: 'platform.organization:read' },
   { key: 'users', href: '/users', permission: 'platform.user:read' },
+  { key: 'audit', href: '/audit', permission: 'platform.audit:read' },
 ] as const satisfies readonly NavSection[];

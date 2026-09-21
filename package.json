@@ -16,6 +16,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "secrets:scan": "secretlint \"**/*\"",
+    "audit:deps": "tsx scripts/ci/audit-dependencies.ts",
     "test": "vitest run --project unit --passWithNoTests",
     "test:watch": "vitest --project unit",
     "test:integration": "vitest run --project integration --no-file-parallelism --passWithNoTests",

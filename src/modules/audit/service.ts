@@ -4,6 +4,8 @@
  * Funciones puras: se prueban sin levantar nada y no importan Prisma ni Next.
  */
 
+import { z } from 'zod';
+
 import { PERMISSIONS, type PermissionCode } from '@/lib/auth/permissions';
 import { InternalError } from '@/lib/errors';
 
@@ -32,6 +34,8 @@ const SENSITIVE_KEY_FRAGMENTS = [
   'cookie',
   'authorization',
 ] as const;
+
+const MILLISECONDS_PER_DAY = 86_400_000;
 
 function isSensitiveKey(key: string): boolean {
   const lower = key.toLowerCase();
@@ -117,4 +121,38 @@ export function toAuditRow(context: AuditContext, entry: AuditEntry): AuditRow {
     userAgent: context.userAgent,
     correlationId: context.correlationId,
   };
+}
+
+/**
+ * Una columna JSON acepta cualquier forma, así que al leerla hay que comprobarla.
+ *
+ * Lo que la aplicación escribe es siempre un objeto plano de valores simples. Si
+ * lo guardado no encaja, se devuelve nada en lugar de arrastrar una forma
+ * desconocida hasta la pantalla.
+ */
+const auditFieldsSchema = z.record(
+  z.string(),
+  z.union([z.string(), z.number(), z.boolean(), z.null()]),
+);
+
+export function toAuditFields(value: unknown): AuditFields | null {
+  const parsed = auditFieldsSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+/**
+ * El instante en que empieza un día del calendario, en tiempo universal.
+ *
+ * El filtro de la pantalla son días, no instantes, y la plataforma no tiene zona
+ * propia: está por encima de las empresas, que sí la tienen. Se declara aquí cuál
+ * se usa, que es lo que pide `docs/standards/dates-and-times.md`. Cuando la
+ * bitácora se mire dentro de una empresa, el corte será el de su zona.
+ */
+export function startOfUtcDay(day: string): Date {
+  return new Date(`${day}T00:00:00.000Z`);
+}
+
+/** El principio del día siguiente: el corte de arriba, que no incluye su propio día. */
+export function startOfNextUtcDay(day: string): Date {
+  return new Date(startOfUtcDay(day).getTime() + MILLISECONDS_PER_DAY);
 }

@@ -11,12 +11,12 @@ valor.
 
 ## 1. Estrategia y pirámide
 
-| Nivel             | Herramienta               | Qué cubre                                               | Proporción                |
-| ----------------- | ------------------------- | ------------------------------------------------------- | ------------------------- |
-| Unitaria          | Vitest                    | Servicios, cálculos, reglas de negocio, utilidades      | La mayoría                |
-| Integración       | Vitest con Testcontainers | Repositorios, transacciones, restricciones, migraciones | Una porción significativa |
-| Extremo a extremo | Playwright                | Recorridos críticos completos en navegador              | Unas pocas                |
-| Carga             | k6                        | Puntos calientes y operaciones concurrentes             | Por campaña               |
+| Nivel             | Herramienta             | Qué cubre                                               | Proporción                |
+| ----------------- | ----------------------- | ------------------------------------------------------- | ------------------------- |
+| Unitaria          | Vitest                  | Servicios, cálculos, reglas de negocio, utilidades      | La mayoría                |
+| Integración       | Vitest con rama de Neon | Repositorios, transacciones, restricciones, migraciones | Una porción significativa |
+| Extremo a extremo | Playwright              | Recorridos críticos completos en navegador              | Unas pocas                |
+| Carga             | k6                      | Puntos calientes y operaciones concurrentes             | Por campaña               |
 
 Regla de asignación: si el defecto puede detectarse en un nivel más bajo, se prueba ahí.
 Las pruebas de extremo a extremo se reservan para recorridos que atraviesan varias capas.
@@ -37,7 +37,9 @@ Las pruebas de extremo a extremo se reservan para recorridos que atraviesan vari
 - Prohibidas las esperas por tiempo fijo. Se espera por una condición observable. El
   reloj se controla con temporizadores simulados.
 - Prohibido simular la base de datos en pruebas de integración. Se usa un Postgres real
-  en contenedor, con el mismo esquema de producción aplicado por migración.
+  en una rama de Neon dedicada, recreada desde cero con las migraciones en cada ejecución.
+  La tabla de auditoría no se puede vaciar, así que cada prueba crea sus propios datos y
+  filtra por ellos. Ver [ADR 0009](../../docs/adr/0009-pruebas-de-integracion-en-rama-de-neon.md).
 
 ## 3. Pruebas obligatorias por tipo de cambio
 
@@ -126,7 +128,7 @@ entrega.
 
 - [ ] Existen los casos negativos de autenticación y autorización.
 - [ ] Si el cambio toca existencias, hay prueba de concurrencia y de reversión.
-- [ ] Las pruebas de integración corren contra Postgres real en contenedor.
+- [ ] Las pruebas de integración corren contra Postgres real en la rama de Neon de pruebas.
 - [ ] Sin esperas por tiempo fijo ni dependencias de orden.
 - [ ] Los datos se generan con fábricas y cada prueba limpia lo suyo.
 - [ ] La prueba falla si se revierte el código que la motiva, y se ha comprobado.

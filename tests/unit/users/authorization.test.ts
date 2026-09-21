@@ -25,9 +25,27 @@ const removeUser = vi.fn();
 const listOrganizationChoices = vi.fn();
 const findUser = vi.fn();
 
+/**
+ * El repositorio recibe el alcance de datos como primer argumento. Aquí se aparta
+ * para que cada comprobación siga mirando lo que le toca; que el alcance llegue de
+ * verdad lo fija su propia prueba.
+ */
+const scopes: unknown[] = [];
+
+function withoutScope(fn: (...args: readonly unknown[]) => unknown) {
+  return (scope: unknown, ...args: readonly unknown[]): unknown => {
+    scopes.push(scope);
+    return fn(...args);
+  };
+}
+
+/** El alcance que construye una sesión de super administrador sin empresa elegida. */
+const PLATFORM_SCOPE = { organizationId: null, actingAsPlatformAdmin: true };
+
 vi.mock('@/modules/auth', () => ({
   requirePlatformPermission: (code: string) => requirePlatformPermission(code),
   hashPassword: (plain: string) => hashPassword(plain),
+  scopeOf: () => PLATFORM_SCOPE,
 }));
 
 vi.mock('@/modules/audit', () => ({
@@ -35,13 +53,13 @@ vi.mock('@/modules/audit', () => ({
 }));
 
 vi.mock('@/modules/users/repository', () => ({
-  checkEmail: (...args: readonly unknown[]) => checkEmail(...args),
-  createUser: (...args: readonly unknown[]) => insertUser(...args),
-  findUserById: (...args: readonly unknown[]) => findUser(...args),
-  listOrganizationChoices: () => listOrganizationChoices(),
-  setUserActive: (...args: readonly unknown[]) => updateUserActive(...args),
-  softDeleteUser: (...args: readonly unknown[]) => removeUser(...args),
-  updateUser: (...args: readonly unknown[]) => saveUser(...args),
+  checkEmail: withoutScope((...args) => checkEmail(...args)),
+  createUser: withoutScope((...args) => insertUser(...args)),
+  findUserById: withoutScope((...args) => findUser(...args)),
+  listOrganizationChoices: withoutScope(() => listOrganizationChoices()),
+  setUserActive: withoutScope((...args) => updateUserActive(...args)),
+  softDeleteUser: withoutScope((...args) => removeUser(...args)),
+  updateUser: withoutScope((...args) => saveUser(...args)),
 }));
 
 // Navegar y revalidar son cosa del marco. Aquí se anulan: esta prueba mira la
@@ -73,6 +91,7 @@ const EDITED_USER = { ...NEW_USER, id: SOME_USER_ID, version: 2 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  scopes.length = 0;
   requirePlatformPermission.mockRejectedValue(
     new AuthorizationError('La sesión no es de un super administrador.'),
   );

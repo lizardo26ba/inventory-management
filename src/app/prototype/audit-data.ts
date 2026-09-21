@@ -441,3 +441,59 @@ export const auditEntries: readonly AuditEntry[] = Array.from(
     }));
   },
 ).flat();
+
+/** Las empresas que aparecen en la bitácora, para el filtro. */
+export const auditCompanies: readonly { readonly id: string; readonly name: string }[] =
+  Object.values(COMPANIES);
+
+/** Una página de la bitácora y las fronteras para moverse desde ella. */
+export type AuditEntryPage = {
+  readonly items: readonly AuditEntry[];
+  /** La primera fila, si hay algo más reciente que ella. */
+  readonly newerCursor: string | null;
+  /** La última fila, si hay algo más antiguo que ella. */
+  readonly olderCursor: string | null;
+};
+
+/** De lo más reciente a lo más antiguo. El identificador desempata el mismo instante. */
+function newestFirst(left: AuditEntry, right: AuditEntry): number {
+  if (left.createdAt !== right.createdAt) return left.createdAt < right.createdAt ? 1 : -1;
+  if (left.id === right.id) return 0;
+  return left.id < right.id ? 1 : -1;
+}
+
+/**
+ * Lo que hará la consulta real sobre `(created_at, id)`: ordenar de lo más
+ * reciente a lo más antiguo y cortar desde la fila frontera, sin contar nada.
+ *
+ * Varias entradas de una misma operación comparten instante, así que el
+ * identificador desempata. Sin él, una fila podría caer a la vez al final de una
+ * página y al principio de la siguiente.
+ *
+ * Un cursor que no está en el resultado, porque se escribió a mano o se cambió un
+ * filtro, vuelve a lo más reciente en lugar de dejar la tabla vacía.
+ */
+export function pageAuditEntries(
+  entries: readonly AuditEntry[],
+  cursor: { readonly older: string | null; readonly newer: string | null },
+  pageSize: number,
+): AuditEntryPage {
+  const sorted = [...entries].sort(newestFirst);
+
+  const olderIndex = sorted.findIndex((candidate) => candidate.id === cursor.older);
+  const newerIndex = sorted.findIndex((candidate) => candidate.id === cursor.newer);
+
+  let start = 0;
+  if (olderIndex >= 0) start = olderIndex + 1;
+  else if (newerIndex >= 0) start = Math.max(0, newerIndex - pageSize);
+
+  const items = sorted.slice(start, start + pageSize);
+  const first = items[0];
+  const last = items[items.length - 1];
+
+  return {
+    items,
+    newerCursor: start > 0 && first !== undefined ? first.id : null,
+    olderCursor: start + pageSize < sorted.length && last !== undefined ? last.id : null,
+  };
+}

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 
 import { PageHeader } from '@/components/ui/page-header';
 import { getCopy } from '@/lib/i18n/server';
+import { scopeOf } from '@/modules/auth/scope';
 import { requirePlatformPermission } from '@/modules/auth/session';
 import { OrganizationForm } from '@/modules/organizations/components/organization-form';
 import {
@@ -27,17 +28,18 @@ export default async function EditOrganizationPage({
 }: {
   readonly params: Promise<{ readonly slug: string }>;
 }): Promise<React.ReactElement> {
-  await requirePlatformPermission('platform.organization:update');
+  const session = await requirePlatformPermission('platform.organization:update');
+  const scope = scopeOf(session);
 
   const { slug } = await params;
-  const organization = await findOrganizationBySlug(slug);
+  const organization = await findOrganizationBySlug(scope, slug);
 
   if (organization === null) notFound();
 
   const [copy, countries, currencies] = await Promise.all([
     getCopy(),
-    listCountryOptions(),
-    listCurrencyOptions(),
+    listCountryOptions(scope),
+    listCurrencyOptions(scope),
   ]);
 
   const prefix =

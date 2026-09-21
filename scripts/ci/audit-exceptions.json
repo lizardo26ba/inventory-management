@@ -1,0 +1,20 @@
+[
+  {
+    "advisory": "GHSA-6g55-p6wh-862q",
+    "package": "postcss",
+    "reason": "Viene dentro de next 15.5.25, que es la última de la rama 15; el arreglo exige Next 16. Solo actúa al compilar, sobre el CSS propio del proyecto, así que no hay entrada de un atacante que lo alcance.",
+    "expires": "2026-11-19"
+  },
+  {
+    "advisory": "GHSA-r28c-9q8g-f849",
+    "package": "postcss",
+    "reason": "Mismo origen que GHSA-6g55-p6wh-862q: postcss dentro de next 15.5.25. Solo actúa al compilar, sobre el CSS propio del proyecto.",
+    "expires": "2026-11-19"
+  },
+  {
+    "advisory": "GHSA-ggr8-5vv4-36mx",
+    "package": "deepmerge-ts",
+    "reason": "Viene dentro de la herramienta de Prisma, que lo usa para fusionar su propia configuración. No recibe datos de usuarios. npm propone bajar a prisma 6.12.0, que no es un arreglo.",
+    "expires": "2026-11-19"
+  }
+]

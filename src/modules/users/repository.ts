@@ -19,7 +19,7 @@ import 'server-only';
 
 import { type Prisma } from '@prisma/client';
 
-import { prisma } from '@/lib/db/client';
+import { withScope, type DataScope } from '@/lib/db/scope';
 import {
   diffFields,
   recordAuditEntries,
@@ -142,29 +142,31 @@ function toListItem(row: ListRow): UserListItem {
   };
 }
 
-export async function listUsers(query: UserListQuery): Promise<UserPage> {
+export async function listUsers(scope: DataScope, query: UserListQuery): Promise<UserPage> {
   const where: Prisma.UserWhereInput = {
     ...NOT_DELETED,
     ...searchFilter(query.search),
   };
 
-  const [rows, total] = await Promise.all([
-    prisma.user.findMany({
-      where,
-      select: LIST_SELECT,
-      orderBy: [
-        ...orderBy(query.sort, query.direction),
-        // Desempate estable. Sin él, dos cuentas con la misma fecha pueden
-        // cambiar de sitio entre páginas y una fila se vería dos veces.
-        { id: 'asc' },
-      ],
-      skip: (query.page - 1) * query.pageSize,
-      take: query.pageSize,
-    }),
-    prisma.user.count({ where }),
-  ]);
+  return withScope(scope, async (tx) => {
+    const [rows, total] = await Promise.all([
+      tx.user.findMany({
+        where,
+        select: LIST_SELECT,
+        orderBy: [
+          ...orderBy(query.sort, query.direction),
+          // Desempate estable. Sin él, dos cuentas con la misma fecha pueden
+          // cambiar de sitio entre páginas y una fila se vería dos veces.
+          { id: 'asc' },
+        ],
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      tx.user.count({ where }),
+    ]);
 
-  return { items: rows.map(toListItem), total };
+    return { items: rows.map(toListItem), total };
+  });
 }
 
 /**
@@ -172,34 +174,38 @@ export async function listUsers(query: UserListQuery): Promise<UserPage> {
  *
  * No las afecta la búsqueda: responden a cuánto hay, no a cuánto coincide.
  */
-export async function summarizeUsers(): Promise<UsersSummary> {
-  const [userCount, activeCount, organizations, administratorMemberships] = await Promise.all([
-    prisma.user.count({ where: NOT_DELETED }),
-    prisma.user.count({ where: { ...NOT_DELETED, status: 'ACTIVE' } }),
-    prisma.membership.findMany({
-      where: { ...ACTIVE_MEMBERSHIP, user: NOT_DELETED },
-      select: { organizationId: true },
-      distinct: ['organizationId'],
-    }),
-    // Administrador es el rol del sistema con ese código. Se cuentan personas,
-    // no membresías: quien administra tres empresas es una sola persona.
-    prisma.membership.findMany({
-      where: {
-        ...ACTIVE_MEMBERSHIP,
-        user: NOT_DELETED,
-        roles: { some: { role: { code: 'admin' } } },
-      },
-      select: { userId: true },
-      distinct: ['userId'],
-    }),
-  ]);
+export async function summarizeUsers(scope: DataScope): Promise<UsersSummary> {
+  return withScope(scope, async (tx) => {
+    const [userCount, activeCount, organizations, administratorMemberships] = await Promise.all(
+      [
+        tx.user.count({ where: NOT_DELETED }),
+        tx.user.count({ where: { ...NOT_DELETED, status: 'ACTIVE' } }),
+        tx.membership.findMany({
+          where: { ...ACTIVE_MEMBERSHIP, user: NOT_DELETED },
+          select: { organizationId: true },
+          distinct: ['organizationId'],
+        }),
+        // Administrador es el rol del sistema con ese código. Se cuentan personas,
+        // no membresías: quien administra tres empresas es una sola persona.
+        tx.membership.findMany({
+          where: {
+            ...ACTIVE_MEMBERSHIP,
+            user: NOT_DELETED,
+            roles: { some: { role: { code: 'admin' } } },
+          },
+          select: { userId: true },
+          distinct: ['userId'],
+        }),
+      ],
+    );
 
-  return {
-    userCount,
-    activeCount,
-    organizationsReached: organizations.length,
-    administratorCount: administratorMemberships.length,
-  };
+    return {
+      userCount,
+      activeCount,
+      organizationsReached: organizations.length,
+      administratorCount: administratorMemberships.length,
+    };
+  });
 }
 
 const DETAIL_SELECT = {
@@ -212,11 +218,13 @@ const DETAIL_SELECT = {
   lastLoginAt: true,
 } satisfies Prisma.UserSelect;
 
-export async function findUserById(id: string): Promise<UserDetail | null> {
-  const row = await prisma.user.findFirst({
-    where: { id, ...NOT_DELETED },
-    select: DETAIL_SELECT,
-  });
+export async function findUserById(scope: DataScope, id: string): Promise<UserDetail | null> {
+  const row = await withScope(scope, (tx) =>
+    tx.user.findFirst({
+      where: { id, ...NOT_DELETED },
+      select: DETAIL_SELECT,
+    }),
+  );
 
   if (row === null) return null;
 
@@ -242,20 +250,22 @@ export async function findUserById(id: string): Promise<UserDetail | null> {
  * lista de quién la alcanza, y esconderla haría desaparecer accesos ya
  * concedidos de la pantalla que sirve para revisarlos.
  */
-export async function listOrganizationChoices(): Promise<OrganizationChoice[]> {
-  const rows = await prisma.organization.findMany({
-    where: { deletedAt: null },
-    select: {
-      id: true,
-      name: true,
-      countryCode: true,
-      roles: {
-        select: { id: true, code: true, name: true },
-        orderBy: { name: 'asc' },
+export async function listOrganizationChoices(scope: DataScope): Promise<OrganizationChoice[]> {
+  const rows = await withScope(scope, (tx) =>
+    tx.organization.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        countryCode: true,
+        roles: {
+          select: { id: true, code: true, name: true },
+          orderBy: { name: 'asc' },
+        },
       },
-    },
-    orderBy: { name: 'asc' },
-  });
+      orderBy: { name: 'asc' },
+    }),
+  );
 
   return rows.map((row) => ({
     id: row.id,
@@ -275,13 +285,16 @@ export type EmailAvailability = 'FREE' | 'TAKEN';
  * historia de dos personas distintas bajo el mismo nombre.
  */
 export async function checkEmail(
+  scope: DataScope,
   email: string,
   exceptUserId?: string,
 ): Promise<EmailAvailability> {
-  const existing = await prisma.user.findFirst({
-    where: { email, ...(exceptUserId === undefined ? {} : { id: { not: exceptUserId } }) },
-    select: { id: true },
-  });
+  const existing = await withScope(scope, (tx) =>
+    tx.user.findFirst({
+      where: { email, ...(exceptUserId === undefined ? {} : { id: { not: exceptUserId } }) },
+      select: { id: true },
+    }),
+  );
 
   return existing === null ? 'FREE' : 'TAKEN';
 }
@@ -387,10 +400,11 @@ function roleLabel(
  * cuenta, así que mientras siga puesta no es de su dueño.
  */
 export async function createUser(
+  scope: DataScope,
   data: CreateUserData,
   audit: AuditContext,
 ): Promise<{ readonly id: string }> {
-  return prisma.$transaction(async (tx) => {
+  return withScope(scope, async (tx) => {
     const created = await tx.user.create({
       data: {
         email: data.email,
@@ -544,12 +558,13 @@ function membershipEntry(
 }
 
 export async function updateUser(
+  scope: DataScope,
   id: string,
   version: number,
   data: UpdateUserData,
   audit: AuditContext,
 ): Promise<UpdateResult> {
-  return prisma.$transaction(async (tx) => {
+  return withScope(scope, async (tx) => {
     const current = await tx.user.findFirst({
       where: { id, deletedAt: null },
       select: {
@@ -799,6 +814,7 @@ export async function updateUser(
  * Pedir el estado que ya tenía no es un cambio, así que no deja entrada.
  */
 export async function setUserActive(
+  scope: DataScope,
   id: string,
   isActive: boolean,
   actorId: string,
@@ -806,7 +822,7 @@ export async function setUserActive(
 ): Promise<boolean> {
   const status = isActive ? 'ACTIVE' : 'SUSPENDED';
 
-  return prisma.$transaction(async (tx) => {
+  return withScope(scope, async (tx) => {
     const current = await tx.user.findFirst({
       where: { id, deletedAt: null },
       select: { email: true, status: true },
@@ -851,13 +867,14 @@ export async function setUserActive(
  * que quien mire la bitácora de esa empresa vea que la persona salió.
  */
 export async function softDeleteUser(
+  scope: DataScope,
   id: string,
   actorId: string,
   audit: AuditContext,
 ): Promise<boolean> {
   const deletedAt = new Date();
 
-  return prisma.$transaction(async (tx) => {
+  return withScope(scope, async (tx) => {
     const current = await tx.user.findFirst({
       where: { id, deletedAt: null },
       select: {
@@ -925,12 +942,14 @@ export async function softDeleteUser(
  * lee lo que necesita, con el recorte que necesita. Aquí no hacen falta la
  * plantilla del teléfono ni el formato fiscal.
  */
-export async function listCountryChoices(): Promise<
-  { readonly code: string; readonly name: string; readonly phonePrefix: string }[]
-> {
-  return prisma.country.findMany({
-    where: { isActive: true },
-    select: { code: true, name: true, phonePrefix: true },
-    orderBy: { name: 'asc' },
-  });
+export async function listCountryChoices(
+  scope: DataScope,
+): Promise<{ readonly code: string; readonly name: string; readonly phonePrefix: string }[]> {
+  return withScope(scope, (tx) =>
+    tx.country.findMany({
+      where: { isActive: true },
+      select: { code: true, name: true, phonePrefix: true },
+      orderBy: { name: 'asc' },
+    }),
+  );
 }

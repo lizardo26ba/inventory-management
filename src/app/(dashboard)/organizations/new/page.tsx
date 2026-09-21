@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/ui/page-header';
 import { getCopy } from '@/lib/i18n/server';
+import { scopeOf } from '@/modules/auth/scope';
 import { requirePlatformPermission } from '@/modules/auth/session';
 import { OrganizationForm } from '@/modules/organizations/components/organization-form';
 import {
@@ -17,15 +18,16 @@ import { ORGANIZATIONS_PATH } from '@/modules/organizations/routes';
  * un país es sembrar una fila, no desplegar.
  */
 export default async function NewOrganizationPage(): Promise<React.ReactElement> {
-  await requirePlatformPermission('platform.organization:create');
+  const session = await requirePlatformPermission('platform.organization:create');
+  const scope = scopeOf(session);
 
   const [copy, countries, currencies, takenSlugs] = await Promise.all([
     getCopy(),
-    listCountryOptions(),
-    listCurrencyOptions(),
+    listCountryOptions(scope),
+    listCurrencyOptions(scope),
     // Los códigos ya usados viajan al formulario para que enseñe el que se va a
     // asignar. El definitivo lo calcula el servidor al escribir la fila.
-    listTakenSlugs(),
+    listTakenSlugs(scope),
   ]);
 
   return (

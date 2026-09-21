@@ -1,0 +1,6 @@
+import { ListPageSkeleton } from '@/components/ui/skeleton';
+
+/** Esqueleto de la bitácora. Sin cifras arriba, como la vista. */
+export default function AuditLoading(): React.ReactElement {
+  return <ListPageSkeleton columns={5} summaryCards={0} />;
+}

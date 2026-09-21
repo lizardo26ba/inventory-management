@@ -1,4 +1,4 @@
-import { requirePlatformPermission } from '@/modules/auth';
+import { requirePlatformPermission, scopeOf } from '@/modules/auth';
 import { UsersView } from '@/modules/users/components/users-view';
 import { listUsers, summarizeUsers } from '@/modules/users/repository';
 import { parseUserListQuery } from '@/modules/users/schema';
@@ -19,10 +19,11 @@ export default async function UsersPage({
 }: {
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<React.ReactElement> {
-  await requirePlatformPermission('platform.user:read');
+  const session = await requirePlatformPermission('platform.user:read');
+  const scope = scopeOf(session);
 
   const query = parseUserListQuery(await searchParams);
-  const [page, summary] = await Promise.all([listUsers(query), summarizeUsers()]);
+  const [page, summary] = await Promise.all([listUsers(scope, query), summarizeUsers(scope)]);
 
   return <UsersView items={page.items} total={page.total} summary={summary} query={query} />;
 }

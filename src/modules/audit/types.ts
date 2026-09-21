@@ -102,6 +102,57 @@ export type AuditEntry = {
   readonly after?: AuditFields | null;
 };
 
+/** Quien operó, tal como se muestra. */
+export type AuditLogActor = {
+  readonly name: string;
+  readonly email: string;
+};
+
+/**
+ * Una entrada tal como la lee una pantalla.
+ *
+ * La acción viaja como texto y no como `AuditAction`. Lo guardado es lo que se
+ * escribió el día de la operación, y el catálogo de hoy puede haber cambiado: una
+ * acción retirada seguiría en la base y estrechar el tipo la haría desaparecer de
+ * la lista. Quien la pinta resuelve su nombre y, si no lo encuentra, muestra el
+ * código.
+ */
+export type AuditLogListItem = {
+  readonly id: string;
+  readonly createdAt: Date;
+  readonly action: string;
+  readonly entityType: string;
+  readonly entityLabel: string | null;
+  readonly organizationId: string | null;
+  readonly organizationName: string | null;
+  /** Nulo cuando nadie había iniciado sesión: el bloqueo por intentos. */
+  readonly actor: AuditLogActor | null;
+  readonly actingAsPlatformAdmin: boolean;
+  readonly correlationId: string;
+};
+
+/** La entrada entera. Lleva lo que solo se mira al abrir el detalle. */
+export type AuditLogDetail = AuditLogListItem & {
+  readonly entityId: string | null;
+  readonly permissionCode: string | null;
+  readonly before: AuditFields | null;
+  readonly after: AuditFields | null;
+  readonly ipAddress: string | null;
+  readonly userAgent: string | null;
+};
+
+/**
+ * Una página y las fronteras para moverse desde ella.
+ *
+ * No hay total ni número de página: contarlos costaría recorrer la tabla entera.
+ * Un cursor nulo significa que por ese lado no hay nada más.
+ */
+export type AuditLogPage = {
+  readonly items: readonly AuditLogListItem[];
+  readonly newerCursor: string | null;
+  readonly olderCursor: string | null;
+};
+
 /** La fila que se escribe, ya resuelta. */
 export type AuditRow = {
   readonly organizationId: string | null;
