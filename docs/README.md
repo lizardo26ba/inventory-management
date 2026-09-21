@@ -47,6 +47,7 @@ referencia para personas.
 | [0008](adr/0008-rastreo-por-lote-y-numero-de-serie.md)             | Rastreo por lote y por número de serie, configurable por producto          |
 | [0009](adr/0009-pruebas-de-integracion-en-rama-de-neon.md)         | Pruebas de integración contra una rama de Neon dedicada                    |
 | [0010](adr/0010-aislamiento-con-seguridad-a-nivel-de-fila.md)      | Seguridad a nivel de fila con un rol de aplicación sin privilegio de salto |
+| [0011](adr/0011-integracion-continua-en-github-actions.md)         | Integración continua en GitHub Actions, con PostgreSQL en contenedor       |
 
 ## Arquitectura
 

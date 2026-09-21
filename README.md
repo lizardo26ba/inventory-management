@@ -96,19 +96,20 @@ inventados. Sirve para acordar el diseño antes de llevarlo a las pantallas real
 
 ## Guiones disponibles
 
-| Guion                      | Qué hace                                                                               |
-| -------------------------- | -------------------------------------------------------------------------------------- |
-| `npm run dev`              | Levanta la aplicación en modo desarrollo                                               |
-| `npm run build`            | Compila para producción                                                                |
-| `npm run verify`           | Formato, linter, tipos y pruebas unitarias. Lo mismo que corre en integración continua |
-| `npm run test`             | Pruebas unitarias                                                                      |
-| `npm run test:integration` | Pruebas de integración contra PostgreSQL real                                          |
-| `npm run test:e2e`         | Pruebas de extremo a extremo en navegador                                              |
-| `npm run db:migrate`       | Crea y aplica una migración en desarrollo. Nunca contra `main` de Neon                 |
-| `npm run db:deploy`        | Aplica las migraciones pendientes sin crear ni resetear. Lo único que se usa en `main` |
-| `npm run db:seed`          | Siembra los datos base                                                                 |
-| `npm run db:studio`        | Abre el explorador visual de la base de datos                                          |
-| `npm run secrets:scan`     | Busca credenciales filtradas en el código                                              |
+| Guion                      | Qué hace                                                                                                       |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`              | Levanta la aplicación en modo desarrollo                                                                       |
+| `npm run build`            | Compila para producción                                                                                        |
+| `npm run verify`           | Formato, linter, tipos y pruebas unitarias. Lo mismo que corre en integración continua                         |
+| `npm run test`             | Pruebas unitarias                                                                                              |
+| `npm run test:integration` | Pruebas de integración contra PostgreSQL real                                                                  |
+| `npm run test:e2e`         | Pruebas de extremo a extremo en navegador                                                                      |
+| `npm run db:migrate`       | Crea y aplica una migración en desarrollo. Nunca contra `main` de Neon                                         |
+| `npm run db:deploy`        | Aplica las migraciones pendientes sin crear ni resetear. Lo único que se usa en `main`                         |
+| `npm run db:seed`          | Siembra los datos base                                                                                         |
+| `npm run db:studio`        | Abre el explorador visual de la base de datos                                                                  |
+| `npm run secrets:scan`     | Busca credenciales filtradas en el código                                                                      |
+| `npm run audit:deps`       | Audita dependencias; falla ante avisos altos sin excepción vigente. Lo mismo que corre en integración continua |
 
 ## Cómo contribuir
 

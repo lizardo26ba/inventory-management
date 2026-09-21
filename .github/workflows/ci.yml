@@ -1,0 +1,152 @@
+# Integración continua.
+#
+# Las etapas y su orden salen de .claude/agents/qa-test-engineer.md, sección 7, y
+# todas bloquean la fusión. Qué base usa la suite de integración, qué se hace con las
+# vulnerabilidades conocidas y qué etapas faltan está en el ADR 0011.
+#
+# Ningún secreto vive aquí. La base de pruebas es un contenedor que nace y muere con
+# la ejecución, y la clave de sesión se genera en cada ejecución: no protege nada real.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Solo leer el repositorio. Ninguna etapa necesita escribir en él.
+permissions:
+  contents: read
+
+# Un envío nuevo a la misma rama cancela la ejecución anterior, que ya no dice nada.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # La versión mínima que declara package.json.
+  NODE_VERSION: '22'
+  # Los ganchos de Git son para las personas, no para la canalización.
+  HUSKY: '0'
+
+jobs:
+  verify:
+    name: Formato, linter, tipos y unitarias
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      # El cliente de Prisma se genera del esquema. Sin él, los tipos no compilan.
+      - run: npx prisma generate
+
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+
+  integration:
+    name: Integración contra PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          # El nombre termina en _test: la guarda de la suite lo exige antes de
+          # borrar nada. Ver tests/integration/support/test-database.ts
+          POSTGRES_DB: inventario_test
+          POSTGRES_USER: postgres
+          # Sin contraseña: el contenedor solo existe dentro de esta ejecución y
+          # nadie más puede alcanzarlo. Así no hay secreto que guardar ni filtrar.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres@localhost:5432/inventario_test
+      AUTH_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+
+      # La configuración de servidor exige una clave de sesión de al menos 32
+      # caracteres. Se genera aquí y se enmascara en el registro.
+      - name: Clave de sesión de un solo uso
+        run: |
+          secret="$(openssl rand -base64 32)"
+          echo "::add-mask::$secret"
+          echo "AUTH_SECRET=$secret" >> "$GITHUB_ENV"
+
+      # Recrea la base desde cero, aplica todas las migraciones y corre la suite,
+      # incluida la prueba de aislamiento entre empresas.
+      - run: npm run test:integration
+
+  build:
+    name: Compilación
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # La compilación valida la configuración, pero no se conecta a la base: las
+      # pantallas que leen datos se resuelven en cada petición.
+      DATABASE_URL: postgresql://postgres@localhost:5432/inventario_build
+      DIRECT_DATABASE_URL: postgresql://postgres@localhost:5432/inventario_build
+      AUTH_URL: http://localhost:3000
+      # Las dos públicas del cliente se incrustan en el paquete al compilar, así que
+      # tienen que existir aquí. No son secretas: el prefijo lo declara.
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_ENVIRONMENT_LABEL: ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Clave de sesión de un solo uso
+        run: |
+          secret="$(openssl rand -base64 32)"
+          echo "::add-mask::$secret"
+          echo "AUTH_SECRET=$secret" >> "$GITHUB_ENV"
+
+      - run: npm run build
+
+  security:
+    name: Secretos y dependencias
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+      - run: npm run secrets:scan
+
+      # Falla ante cualquier aviso alto o crítico que no esté anotado, con motivo y
+      # caducidad, en scripts/ci/audit-exceptions.json. ADR 0011.
+      - run: npm run audit:deps
