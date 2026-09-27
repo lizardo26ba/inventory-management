@@ -84,24 +84,10 @@ export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
 ];
 
 /**
- * El código que acepta la maqueta en lugar del de la app, y los de respaldo que
- * enseña al activar. En la aplicación real el código cambia cada 30 segundos y
- * los de respaldo se generan al azar y se guardan solo como huella.
+ * El código que acepta la maqueta en lugar del de la app. En la aplicación real
+ * cambia cada 30 segundos.
  */
 export const DEMO_TWO_FACTOR_CODE = '123456';
-
-export const DEMO_RECOVERY_CODES: readonly string[] = [
-  '7K3M-9QXT',
-  'H4WP-2ZRN',
-  'B8LD-6FCY',
-  'Q2VN-5TJK',
-  'M9RX-3HWA',
-  'E6TC-8PLZ',
-  'Z5KY-1DQM',
-  'R3FB-7NVE',
-  'W7HJ-4XKC',
-  'N1PQ-9LGT',
-];
 
 /** La clave que se teclearía a mano si el QR no se puede escanear. */
 export const DEMO_TWO_FACTOR_KEY = 'JBSW Y3DP EHPK 3PXP JBSW Y3DP EHPK 3PXP';

@@ -210,30 +210,22 @@ export const copyEs: Copy = {
     passwordRequired: 'Escribe tu contraseña.',
     demoHintTitle: 'Credenciales del prototipo',
     demoHintBody:
-      'Cada cuenta recorre un camino distinto: la plataforma con su segundo factor, una cuenta de plataforma que aún debe activarlo, un miembro de varias empresas y un miembro de una sola. Código de la app: 123456. Código de respaldo: 7K3M-9QXT.',
+      'Cada cuenta recorre un camino distinto: la plataforma con su segundo factor, una cuenta de plataforma que aún debe activarlo, un miembro de varias empresas y un miembro de una sola. Código de la app: 123456.',
   },
 
   twoFactor: {
     verifyTitle: 'Confirma que eres tú',
     verifySubtitle:
       'Abre tu app autenticadora y escribe el código de 6 dígitos de esta cuenta.',
-    verifyRecoverySubtitle:
-      'Escribe uno de los códigos de respaldo que guardaste al activar el segundo factor.',
     codeLabel: 'Código de verificación',
-    character: 'Carácter',
-    characterOf: 'de',
+    digit: 'Dígito',
+    digitOf: 'de',
     codeHelp: 'El código cambia cada 30 segundos.',
     verify: 'Verificar',
     verifying: 'Verificando',
     codeRequired: 'Escribe los 6 dígitos de tu app.',
     invalidCode:
       'Ese código no es válido. Revisa que la hora de tu teléfono sea la correcta y vuelve a intentarlo.',
-    useRecovery: 'Usar un código de respaldo',
-    useApp: 'Usar la app autenticadora',
-    recoveryLabel: 'Código de respaldo',
-    recoveryHelp: 'Cada código de respaldo sirve una sola vez.',
-    recoveryRequired: 'Escribe uno de tus códigos de respaldo.',
-    invalidRecovery: 'Ese código de respaldo no es válido o ya se usó.',
     setupTitle: 'Protege tu cuenta de plataforma',
     setupSubtitle:
       'El super administrador alcanza todas las empresas, así que su cuenta necesita un segundo factor. Toma dos minutos.',
@@ -245,14 +237,6 @@ export const copyEs: Copy = {
     stepConfirm: '2. Escribe el código que muestra la app',
     activate: 'Activar',
     activating: 'Activando',
-    codesTitle: 'Guarda tus códigos de respaldo',
-    codesSubtitle:
-      'Si pierdes el teléfono, estos códigos son la única forma de volver a entrar. Cada uno sirve una vez. No se volverán a mostrar.',
-    codesLabel: 'Códigos de respaldo',
-    copyCodes: 'Copiar códigos',
-    codesCopied: 'Copiados',
-    codesSaved: 'Guardé estos códigos en un lugar seguro',
-    finish: 'Continuar',
   },
 
   organizations: {

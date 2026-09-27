@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * El campo del código de un solo uso, una casilla por carácter.
+ * El campo del código de un solo uso, una casilla por dígito.
  *
- * Una casilla por carácter deja ver de un vistazo cuánto falta y dónde está un
+ * Una casilla por dígito deja ver de un vistazo cuánto falta y dónde está un
  * error de tecleo. El precio son tres cosas que un campo único trae gratis, y que
  * aquí se hacen a mano porque sin ellas las casillas estorban:
  *
@@ -15,32 +15,21 @@
  *   dice qué posición es. Sin eso, un lector de pantalla anuncia seis campos
  *   sin nombre.
  *
- * Solo entran letras y números. Los códigos de la app son solo cifras, y ahí se
- * descarta además toda letra y sale el teclado numérico. Los de respaldo llevan
- * letras, que se guardan en mayúscula.
+ * Solo entran cifras: lo demás se descarta al escribirlo, y sale el teclado
+ * numérico.
  *
  * El valor es una cadena del largo del código, con un espacio en cada casilla
  * vacía. `isCodeComplete` dice si ya no queda ninguna.
  */
 
-import { Fragment, useRef } from 'react';
+import { useRef } from 'react';
 
 import { inputBorderClass } from './form';
 
-export type CodeCharset = 'digits' | 'alphanumeric';
-
 const EMPTY = ' ';
+const NOT_A_DIGIT = /[^0-9]/g;
 
-const DISALLOWED: Record<CodeCharset, RegExp> = {
-  digits: /[^0-9]/g,
-  alphanumeric: /[^A-Z0-9]/g,
-};
-
-function keepAllowed(raw: string, charset: CodeCharset): string {
-  return raw.toUpperCase().replace(DISALLOWED[charset], '');
-}
-
-/** Si todas las casillas tienen su carácter. */
+/** Si todas las casillas tienen su dígito. */
 export function isCodeComplete(value: string, length: number): boolean {
   return value.length === length && !value.includes(EMPTY);
 }
@@ -50,10 +39,8 @@ export function OneTimeCodeField({
   value,
   onChange,
   length,
-  charset,
   groupLabel,
   positionLabel,
-  groupSize,
   hasError,
   describedBy,
 }: {
@@ -62,27 +49,21 @@ export function OneTimeCodeField({
   readonly value: string;
   readonly onChange: (next: string) => void;
   readonly length: number;
-  readonly charset: CodeCharset;
   /** El nombre del campo, para el grupo. */
   readonly groupLabel: string;
-  /** Cómo se anuncia cada casilla: "Carácter 2 de 6". */
+  /** Cómo se anuncia cada casilla: "Dígito 2 de 6". */
   readonly positionLabel: (position: number, total: number) => string;
-  /**
-   * Cada cuántas casillas va un separador. Solo es visual: los códigos de
-   * respaldo se leen en dos grupos de cuatro, pero el guion no se escribe.
-   */
-  readonly groupSize?: number;
   readonly hasError: boolean;
   readonly describedBy?: string;
 }): React.ReactElement {
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
-  const chars = Array.from({ length }, (_, index) => {
-    const char = value[index];
-    return char === undefined || char === EMPTY ? '' : char;
+  const digits = Array.from({ length }, (_, index) => {
+    const digit = value[index];
+    return digit === undefined || digit === EMPTY ? '' : digit;
   });
 
   function emit(next: readonly string[]): void {
-    onChange(next.map((char) => (char === '' ? EMPTY : char)).join(''));
+    onChange(next.map((digit) => (digit === '' ? EMPTY : digit)).join(''));
   }
 
   function focusAt(index: number): void {
@@ -92,31 +73,31 @@ export function OneTimeCodeField({
   }
 
   function handleInput(index: number, raw: string): void {
-    const typed = keepAllowed(raw, charset);
-    const next = [...chars];
+    const typed = raw.replace(NOT_A_DIGIT, '');
+    const next = [...digits];
 
     if (typed === '') {
-      // Lo escrito no era válido, o se borró: la casilla queda vacía y el foco
-      // no se mueve.
+      // Lo escrito no era una cifra, o se borró: la casilla queda vacía y el
+      // foco no se mueve.
       next[index] = '';
       emit(next);
       return;
     }
 
-    // Uno o varios caracteres: se reparten desde esta casilla. Un solo carácter
-    // es teclear; varios son pegar o el autocompletado del teléfono.
+    // Una o varias cifras: se reparten desde esta casilla. Una sola es teclear;
+    // varias son pegar o el autocompletado del teléfono.
     const incoming = typed.slice(0, length - index).split('');
-    incoming.forEach((char, offset) => {
-      next[index + offset] = char;
+    incoming.forEach((digit, offset) => {
+      next[index + offset] = digit;
     });
     emit(next);
     focusAt(index + incoming.length);
   }
 
   function handleKeyDown(index: number, event: React.KeyboardEvent<HTMLInputElement>): void {
-    if (event.key === 'Backspace' && chars[index] === '' && index > 0) {
+    if (event.key === 'Backspace' && digits[index] === '' && index > 0) {
       event.preventDefault();
-      const next = [...chars];
+      const next = [...digits];
       next[index - 1] = '';
       emit(next);
       focusAt(index - 1);
@@ -129,8 +110,6 @@ export function OneTimeCodeField({
     }
   }
 
-  const isNumeric = charset === 'digits';
-
   return (
     <div
       role="group"
@@ -138,40 +117,26 @@ export function OneTimeCodeField({
       aria-describedby={describedBy}
       className="mt-1.5 flex items-center justify-center gap-1.5 sm:gap-2"
     >
-      {chars.map((char, index) => {
-        const startsGroup = groupSize !== undefined && index > 0 && index % groupSize === 0;
-
-        return (
-          <Fragment key={index}>
-            {startsGroup ? (
-              <span aria-hidden="true" className="text-text-muted shrink-0">
-                –
-              </span>
-            ) : null}
-            {/* Las casillas encogen para caber en un teléfono, hasta su ancho
-                de escritorio y no más. Todas iguales: el guion va aparte. */}
-            <input
-              ref={(element) => {
-                inputs.current[index] = element;
-              }}
-              id={index === 0 ? id : undefined}
-              value={char}
-              onChange={(event) => handleInput(index, event.target.value)}
-              onKeyDown={(event) => handleKeyDown(index, event)}
-              onFocus={(event) => event.target.select()}
-              inputMode={isNumeric ? 'numeric' : 'text'}
-              // Solo la primera recibe el código que propone el teléfono.
-              autoComplete={index === 0 ? 'one-time-code' : 'off'}
-              autoCapitalize="characters"
-              autoCorrect="off"
-              spellCheck={false}
-              aria-label={positionLabel(index + 1, length)}
-              aria-invalid={hasError}
-              className={`rounded-control bg-surface h-12 w-full max-w-10 min-w-0 flex-1 border text-center font-mono text-xl uppercase ${inputBorderClass(hasError)}`}
-            />
-          </Fragment>
-        );
-      })}
+      {digits.map((digit, index) => (
+        <input
+          key={index}
+          ref={(element) => {
+            inputs.current[index] = element;
+          }}
+          id={index === 0 ? id : undefined}
+          value={digit}
+          onChange={(event) => handleInput(index, event.target.value)}
+          onKeyDown={(event) => handleKeyDown(index, event)}
+          onFocus={(event) => event.target.select()}
+          inputMode="numeric"
+          // Solo la primera recibe el código que propone el teléfono.
+          autoComplete={index === 0 ? 'one-time-code' : 'off'}
+          aria-label={positionLabel(index + 1, length)}
+          aria-invalid={hasError}
+          // Encogen para caber en un teléfono, hasta su ancho de escritorio.
+          className={`rounded-control bg-surface h-12 w-full max-w-10 min-w-0 flex-1 border text-center font-mono text-xl ${inputBorderClass(hasError)}`}
+        />
+      ))}
     </div>
   );
 }

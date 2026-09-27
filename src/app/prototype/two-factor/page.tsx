@@ -7,10 +7,6 @@
  * después de la contraseña. Hasta superarlo no hay sesión útil: ninguna pantalla
  * de plataforma se abre.
  *
- * El código de respaldo va detrás de un enlace y no al lado, porque es la salida
- * de emergencia, no la puerta. Al cambiar de modo el campo se vacía: un código de
- * la app escrito en el campo de respaldo sería un intento gastado sin motivo.
- *
  * En la aplicación real la comprobación es una Server Action con límite de
  * intentos, y el mensaje de error no dice cuántos quedan.
  */
@@ -19,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useId, useState } from 'react';
 
 import { useCopy } from '@/lib/i18n';
-import { DEMO_RECOVERY_CODES, DEMO_TWO_FACTOR_CODE } from '../demo-credentials';
+import { DEMO_TWO_FACTOR_CODE } from '../demo-credentials';
 import { simulateWrite } from '../latency';
 import { landingFor, useSessionStore } from '../session-store';
 import { ActionButton, useAsyncAction } from '../ui/action-button';
@@ -28,12 +24,7 @@ import { FormAlert } from '../ui/form-alert';
 import { isCodeComplete, OneTimeCodeField } from '../ui/one-time-code-field';
 import { TwoFactorFrame } from './two-factor-frame';
 
-const APP_CODE_LENGTH = 6;
-/** Dos grupos de cuatro. El guion se ve, pero no se escribe. */
-const RECOVERY_CODE_LENGTH = 8;
-const RECOVERY_GROUP_SIZE = 4;
-
-type Mode = 'app' | 'recovery';
+const CODE_LENGTH = 6;
 
 export default function TwoFactorPage(): React.ReactElement {
   const copy = useCopy();
@@ -42,26 +33,16 @@ export default function TwoFactorPage(): React.ReactElement {
   const submit = useAsyncAction();
   const fieldId = useId();
 
-  const [mode, setMode] = useState<Mode>('app');
   const [code, setCode] = useState('');
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-
-  const isApp = mode === 'app';
-
-  function switchMode(): void {
-    setMode(isApp ? 'recovery' : 'app');
-    setCode('');
-    setFieldError(null);
-    setFormError(null);
-  }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     setFormError(null);
 
-    if (!isCodeComplete(code, isApp ? APP_CODE_LENGTH : RECOVERY_CODE_LENGTH)) {
-      setFieldError(isApp ? copy.twoFactor.codeRequired : copy.twoFactor.recoveryRequired);
+    if (!isCodeComplete(code, CODE_LENGTH)) {
+      setFieldError(copy.twoFactor.codeRequired);
       return;
     }
     setFieldError(null);
@@ -69,12 +50,8 @@ export default function TwoFactorPage(): React.ReactElement {
     void submit.run(async () => {
       await simulateWrite();
 
-      // Los de respaldo se enseñan con guion y se escriben sin él.
-      const valid = isApp
-        ? code === DEMO_TWO_FACTOR_CODE
-        : DEMO_RECOVERY_CODES.some((recovery) => recovery.replace('-', '') === code);
-      if (!valid) {
-        setFormError(isApp ? copy.twoFactor.invalidCode : copy.twoFactor.invalidRecovery);
+      if (code !== DEMO_TWO_FACTOR_CODE) {
+        setFormError(copy.twoFactor.invalidCode);
         return;
       }
 
@@ -83,36 +60,28 @@ export default function TwoFactorPage(): React.ReactElement {
     });
   }
 
-  const describedBy = fieldError !== null ? `${fieldId}-error` : `${fieldId}-help`;
-
   return (
-    <TwoFactorFrame
-      title={copy.twoFactor.verifyTitle}
-      subtitle={isApp ? copy.twoFactor.verifySubtitle : copy.twoFactor.verifyRecoverySubtitle}
-    >
+    <TwoFactorFrame title={copy.twoFactor.verifyTitle} subtitle={copy.twoFactor.verifySubtitle}>
       <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
         {formError !== null ? <FormAlert>{formError}</FormAlert> : null}
 
         <Field
           id={fieldId}
-          label={isApp ? copy.twoFactor.codeLabel : copy.twoFactor.recoveryLabel}
-          help={isApp ? copy.twoFactor.codeHelp : copy.twoFactor.recoveryHelp}
+          label={copy.twoFactor.codeLabel}
+          help={copy.twoFactor.codeHelp}
           error={fieldError ?? undefined}
         >
           <OneTimeCodeField
-            key={mode}
             id={fieldId}
             value={code}
             onChange={setCode}
-            length={isApp ? APP_CODE_LENGTH : RECOVERY_CODE_LENGTH}
-            charset={isApp ? 'digits' : 'alphanumeric'}
-            groupSize={isApp ? undefined : RECOVERY_GROUP_SIZE}
-            groupLabel={isApp ? copy.twoFactor.codeLabel : copy.twoFactor.recoveryLabel}
+            length={CODE_LENGTH}
+            groupLabel={copy.twoFactor.codeLabel}
             positionLabel={(position, total) =>
-              `${copy.twoFactor.character} ${position} ${copy.twoFactor.characterOf} ${total}`
+              `${copy.twoFactor.digit} ${position} ${copy.twoFactor.digitOf} ${total}`
             }
             hasError={fieldError !== null}
-            describedBy={describedBy}
+            describedBy={fieldError !== null ? `${fieldId}-error` : `${fieldId}-help`}
           />
         </Field>
 
@@ -124,14 +93,6 @@ export default function TwoFactorPage(): React.ReactElement {
         >
           {copy.twoFactor.verify}
         </ActionButton>
-
-        <button
-          type="button"
-          onClick={switchMode}
-          className="text-primary text-sm underline-offset-4 hover:underline"
-        >
-          {isApp ? copy.twoFactor.useRecovery : copy.twoFactor.useApp}
-        </button>
       </form>
     </TwoFactorFrame>
   );
