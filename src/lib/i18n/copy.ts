@@ -587,6 +587,8 @@ export const copyEn = {
     'auth.signed_in': 'Signed in',
     'auth.password_changed': 'Password changed',
     'auth.locked_out': 'Locked out after failed attempts',
+    'auth.company_entered': 'Entered a company',
+    'auth.company_left': 'Left a company',
   },
 
   admin: {

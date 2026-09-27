@@ -43,6 +43,17 @@ export const signInSchema = z.object({
 
 export type SignInInput = z.infer<typeof signInSchema>;
 
+/**
+ * Entrar en una empresa. Solo viaja cuál: quién entra y con qué alcance lo decide
+ * el servidor con la sesión, nunca lo que diga el navegador. Estricto, para que
+ * un campo de más, como una marca de plataforma, se rechace en lugar de ignorarse.
+ */
+export const enterCompanySchema = z.strictObject({
+  organizationId: z.string().uuid('required'),
+});
+
+export type EnterCompanyInput = z.infer<typeof enterCompanySchema>;
+
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, 'required'),

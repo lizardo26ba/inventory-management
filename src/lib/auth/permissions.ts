@@ -126,6 +126,18 @@ export const PERMISSIONS = [
 /** Todos los códigos de permiso válidos, como tipo. */
 export type PermissionCode = (typeof PERMISSIONS)[number]['code'];
 
+const DECLARED_CODES: ReadonlySet<string> = new Set(
+  PERMISSIONS.map((permission) => permission.code),
+);
+
+/**
+ * Si un texto que llega de fuera, como una fila de la base, es un permiso que el
+ * catálogo declara. Lo que no lo es no concede nada.
+ */
+export function isPermissionCode(code: string): code is PermissionCode {
+  return DECLARED_CODES.has(code);
+}
+
 export const ORGANIZATION_PERMISSIONS = PERMISSIONS.filter(
   (permission) => permission.scope === 'ORGANIZATION',
 );

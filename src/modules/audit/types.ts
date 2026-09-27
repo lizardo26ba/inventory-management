@@ -36,6 +36,8 @@ export const AUDIT_ACTIONS = [
   'auth.signed_in',
   'auth.password_changed',
   'auth.locked_out',
+  'auth.company_entered',
+  'auth.company_left',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

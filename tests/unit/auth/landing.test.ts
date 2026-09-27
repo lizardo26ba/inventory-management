@@ -52,7 +52,7 @@ describe('resolveLanding', () => {
     });
   });
 
-  it('quien no alcanza ninguna empresa lo sabe, en lugar de ver una pantalla vacía', () => {
-    expect(resolveLanding(sessionOf())).toEqual({ kind: 'noAccess' });
+  it('un miembro sin empresa activa va a elegir en cuál trabajar', () => {
+    expect(resolveLanding(sessionOf())).toEqual({ kind: 'chooseCompany' });
   });
 });
