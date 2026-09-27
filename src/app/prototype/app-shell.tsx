@@ -26,7 +26,10 @@ import { useCompanyStore } from './company-store';
 import type { Copy } from '@/lib/i18n';
 import { useCopy } from '@/lib/i18n';
 import { LanguageSwitcher } from './ui/language-switcher';
-import { currentUser, type Company } from './fake-data';
+import type { Company } from './fake-data';
+import { useSessionStore } from './session-store';
+import { findRole } from './users-data';
+import { NoticeBar } from './ui/notice-bar';
 import { CountryFlag } from './ui/flag';
 import {
   IconArrowLeft,
@@ -40,6 +43,7 @@ import {
   IconPurchases,
   IconSales,
   IconSearch,
+  IconShield,
   IconSignOut,
   IconStock,
   IconSun,
@@ -82,6 +86,7 @@ const PLATFORM_PREFIXES = ADMINISTRATION_ITEMS.map((item) => item.href);
 
 const COMPANY_HOME = '/prototype';
 const PLATFORM_HOME = '/prototype/organizations';
+const COMPANY_PICKER = '/prototype/select-company';
 
 function NavGroup({
   title,
@@ -144,10 +149,14 @@ function ContextSwitcher({
 }): React.ReactElement {
   const copy = useCopy();
 
+  const { account, leaveCompany } = useSessionStore();
+
   if (isPlatformContext) {
+    // Se entra a una empresa eligiéndola en la lista, nunca desde aquí: RN-004
+    // pide que la elección sea explícita, y la lista es donde se ve cuál es.
     return (
       <Link
-        href={COMPANY_HOME as never}
+        href={PLATFORM_HOME as never}
         onClick={onNavigate}
         className="border-border hover:bg-surface-muted rounded-control flex w-full items-center gap-3 border px-3 py-2 text-left transition-colors"
       >
@@ -167,12 +176,8 @@ function ContextSwitcher({
     );
   }
 
-  return (
-    <Link
-      href={PLATFORM_HOME as never}
-      onClick={onNavigate}
-      className="border-border hover:bg-surface-muted rounded-control flex w-full items-center gap-3 border px-3 py-2 text-left transition-colors"
-    >
+  const identity = (
+    <>
       <CountryFlag countryCode={company?.countryCode ?? ''} className="h-8 w-8" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{company?.name ?? ''}</span>
@@ -180,6 +185,32 @@ function ContextSwitcher({
           {company?.countryCode} · {company?.currency}
         </span>
       </span>
+    </>
+  );
+
+  // Quien pertenece a una sola empresa no tiene a dónde cambiar: se enseña en
+  // qué empresa está, sin el aspecto de algo que se pueda pulsar.
+  const canSwitch = account.isPlatformAdmin || account.memberships.length > 1;
+  if (!canSwitch) {
+    return (
+      <div className="border-border rounded-control flex w-full items-center gap-3 border px-3 py-2">
+        {identity}
+      </div>
+    );
+  }
+
+  // La plataforma cambia de empresa volviendo a su lista, y al hacerlo sale de
+  // la actual. Un miembro de varias vuelve a su selector.
+  return (
+    <Link
+      href={(account.isPlatformAdmin ? PLATFORM_HOME : COMPANY_PICKER) as never}
+      onClick={() => {
+        if (account.isPlatformAdmin) leaveCompany();
+        onNavigate();
+      }}
+      className="border-border hover:bg-surface-muted rounded-control flex w-full items-center gap-3 border px-3 py-2 text-left transition-colors"
+    >
+      {identity}
       <IconChevronDown className="text-text-muted h-4 w-4 shrink-0" />
       <span className="sr-only">{copy.shell.switchCompany}</span>
     </Link>
@@ -196,8 +227,26 @@ function ContextSwitcher({
  * sesión que invalidar. En la aplicación real esto borra la sesión en la base y
  * la cookie, de modo que el botón de atrás no devuelva a nadie adentro.
  */
-function AccountMenu(): React.ReactElement {
+function AccountMenu({
+  company,
+  isPlatformContext,
+}: {
+  readonly company: Company | undefined;
+  readonly isPlatformContext: boolean;
+}): React.ReactElement {
   const copy = useCopy();
+  const { account, isElevated, signOut } = useSessionStore();
+
+  // Debajo del nombre va el papel con el que se está trabajando ahora: en la
+  // plataforma, o dentro de una empresa con acceso elevado, el de plataforma; si
+  // no, el rol que la persona tiene en la empresa donde está.
+  const membership = account.memberships.find(
+    (candidate) => candidate.companyId === company?.id,
+  );
+  const roleLabel =
+    isPlatformContext || isElevated || membership === undefined
+      ? copy.admin.platformRole
+      : (findRole(membership.roleCode)?.name ?? membership.roleCode);
 
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -239,6 +288,7 @@ function AccountMenu(): React.ReactElement {
             role="menuitem"
             onClick={() => {
               setIsOpen(false);
+              signOut();
               router.push('/prototype/login' as never);
             }}
             className="text-danger hover:bg-danger-soft flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors"
@@ -257,12 +307,10 @@ function AccountMenu(): React.ReactElement {
         onClick={() => setIsOpen((open) => !open)}
         className="rounded-control hover:bg-surface-muted flex w-full items-center gap-3 px-2 py-2 text-left transition-colors"
       >
-        <Avatar name={currentUser.name} />
+        <Avatar name={account.name} />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{currentUser.name}</span>
-          <span className="text-text-muted block truncate text-xs">
-            {currentUser.roleLabel}
-          </span>
+          <span className="block truncate text-sm font-medium">{account.name}</span>
+          <span className="text-text-muted block truncate text-xs">{roleLabel}</span>
         </span>
         <IconChevronDown className="text-text-muted h-4 w-4 shrink-0" />
         <span className="sr-only">{copy.shell.account}</span>
@@ -282,6 +330,7 @@ function Sidebar({
 
   const isPlatformContext = PLATFORM_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const { activeCompany } = useCompanyStore();
+  const { account, leaveCompany } = useSessionStore();
 
   return (
     <div className="bg-surface flex h-full flex-col">
@@ -318,22 +367,29 @@ function Sidebar({
               pathname={pathname}
               onNavigate={onNavigate}
             />
-            <div className="px-3 py-2">
-              <Link
-                href={PLATFORM_HOME as never}
-                onClick={onNavigate}
-                className="text-text-muted hover:bg-surface-muted hover:text-text rounded-control flex items-center gap-3 px-3 py-2 text-sm transition-colors"
-              >
-                <IconArrowLeft className="h-[1.125rem] w-[1.125rem] shrink-0" />
-                <span className="truncate">{copy.admin.backToAdministration}</span>
-              </Link>
-            </div>
+            {/* Solo la plataforma tiene una administración a la que volver, y
+                volver es salir de la empresa. */}
+            {account.isPlatformAdmin ? (
+              <div className="px-3 py-2">
+                <Link
+                  href={PLATFORM_HOME as never}
+                  onClick={() => {
+                    leaveCompany();
+                    onNavigate();
+                  }}
+                  className="text-text-muted hover:bg-surface-muted hover:text-text rounded-control flex items-center gap-3 px-3 py-2 text-sm transition-colors"
+                >
+                  <IconArrowLeft className="h-[1.125rem] w-[1.125rem] shrink-0" />
+                  <span className="truncate">{copy.admin.backToAdministration}</span>
+                </Link>
+              </div>
+            ) : null}
           </>
         )}
       </nav>
 
       <div className="border-border border-t p-3">
-        <AccountMenu />
+        <AccountMenu company={activeCompany} isPlatformContext={isPlatformContext} />
       </div>
     </div>
   );
@@ -347,6 +403,10 @@ export function AppShell({
   const copy = useCopy();
 
   const pathname = usePathname();
+  const router = useRouter();
+  const { isElevated, leaveCompany } = useSessionStore();
+  const { activeCompany } = useCompanyStore();
+  const isPlatformContext = PLATFORM_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
 
@@ -420,9 +480,31 @@ export function AppShell({
           </div>
         </header>
 
-        <p className="border-border bg-warning-soft text-text-muted border-b px-4 py-1.5 text-center text-xs">
-          {copy.app.prototypeNotice}
-        </p>
+        <NoticeBar>{copy.app.prototypeNotice}</NoticeBar>
+
+        {/* El distintivo permanente del ADR 0005: mientras la plataforma esté
+            dentro de una empresa, cada pantalla lo dice y ofrece la salida. */}
+        {isElevated && !isPlatformContext ? (
+          <NoticeBar
+            tone="danger"
+            icon={<IconShield className="text-danger h-4 w-4 shrink-0" />}
+            action={
+              <button
+                type="button"
+                onClick={() => {
+                  leaveCompany();
+                  router.push(PLATFORM_HOME as never);
+                }}
+                className="text-danger font-medium underline-offset-4 hover:underline"
+              >
+                {copy.elevatedAccess.leave}
+              </button>
+            }
+          >
+            {copy.elevatedAccess.actingIn} <strong>{activeCompany?.name}</strong>{' '}
+            {copy.elevatedAccess.asPlatform}
+          </NoticeBar>
+        ) : null}
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>

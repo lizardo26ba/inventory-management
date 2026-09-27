@@ -89,6 +89,20 @@ export const copyEs: Copy = {
     body: 'Tu cuenta funciona, pero nadie le ha concedido acceso a una empresa. Pídeselo a quien administra la plataforma.',
   },
 
+  companyPicker: {
+    title: 'Elige una empresa',
+    subtitle:
+      'Tu cuenta tiene acceso a más de una empresa. Elige en cuál vas a trabajar; puedes cambiar cuando quieras.',
+    yourRole: 'Tu rol',
+    noCompanies: 'Tu cuenta funciona, pero todavía nadie le ha concedido acceso a una empresa.',
+  },
+
+  elevatedAccess: {
+    actingIn: 'Estás en',
+    asPlatform: 'como super administrador. Todo lo que hagas aquí queda registrado.',
+    leave: 'Salir de la empresa',
+  },
+
   nav: {
     sectionOperation: 'Operación',
     sectionAdministration: 'Administración',
@@ -198,7 +212,8 @@ export const copyEs: Copy = {
     emailRequired: 'Escribe tu correo.',
     passwordRequired: 'Escribe tu contraseña.',
     demoHintTitle: 'Credenciales del prototipo',
-    demoHintBody: 'Entra con admin@gt.com y la contraseña admin.',
+    demoHintBody:
+      'Cada cuenta recorre un camino distinto: la plataforma, un miembro de varias empresas y un miembro de una sola.',
   },
 
   organizations: {
@@ -528,6 +543,7 @@ export const copyEs: Copy = {
     signedInAs: 'Sesión de',
     signOut: 'Cerrar la sesión',
     platform: 'Plataforma',
+    platformRole: 'Super administrador',
     platformHint: 'Todas las empresas',
     enterCompany: 'Entrar a una empresa',
     backToAdministration: 'Volver a administración',

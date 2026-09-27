@@ -22,6 +22,7 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 
 import { buildCompanyCode } from './company-code';
 import { simulateWrite } from './latency';
+import { useSessionStore } from './session-store';
 import {
   companies as seedCompanies,
   currentUser,
@@ -119,14 +120,13 @@ export function CompanyStoreProvider({
   readonly children: React.ReactNode;
 }): React.ReactElement {
   const [companies, setCompanies] = useState<readonly Company[]>(seedCompanies);
-  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(null);
-
+  // La empresa activa es de la sesión, no de este almacén: el selector de
+  // empresa vive fuera del marco y también la escribe. Sin ninguna elegida se
+  // enseña la primera, para que abrir una pantalla de operación por su
+  // dirección siga mostrando algo en la maqueta.
+  const { activeCompanyId, enterCompany } = useSessionStore();
   const activeCompany =
     companies.find((company) => company.id === activeCompanyId) ?? companies[0];
-
-  const enterCompany = useCallback((id: string) => {
-    setActiveCompanyId(id);
-  }, []);
 
   const findById = useCallback(
     (id: string) => companies.find((company) => company.id === id),

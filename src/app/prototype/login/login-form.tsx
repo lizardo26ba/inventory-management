@@ -16,8 +16,9 @@ import { useRouter } from 'next/navigation';
 import { useId, useState } from 'react';
 
 import { useCopy } from '@/lib/i18n';
-import { DEMO_LANDING_PATH, matchesDemoCredentials } from '../demo-credentials';
+import { findDemoAccount } from '../demo-credentials';
 import { simulateWrite } from '../latency';
+import { landingFor, useSessionStore } from '../session-store';
 import { ActionButton, useAsyncAction } from '../ui/action-button';
 import { Field, INPUT_CLASS, inputBorderClass } from '../ui/form';
 import { FormAlert } from '../ui/form-alert';
@@ -32,6 +33,7 @@ export function LoginForm(): React.ReactElement {
   const copy = useCopy();
 
   const router = useRouter();
+  const { signIn, enterCompany } = useSessionStore();
   const submit = useAsyncAction();
   const emailId = useId();
   const passwordId = useId();
@@ -57,8 +59,12 @@ export function LoginForm(): React.ReactElement {
     void submit.run(async () => {
       await simulateWrite();
 
-      if (matchesDemoCredentials(email, password)) {
-        router.push(DEMO_LANDING_PATH as never);
+      const account = findDemoAccount(email, password);
+      if (account !== undefined) {
+        signIn(account);
+        const landing = landingFor(account);
+        if (landing.companyId !== null) enterCompany(landing.companyId);
+        router.push(landing.path as never);
         return;
       }
       // El mensaje no distingue entre correo inexistente y contraseña

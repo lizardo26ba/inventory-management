@@ -111,6 +111,20 @@ export const copyEn = {
     body: 'Your account works, but nobody has granted it access to a company. Ask whoever administers the platform.',
   },
 
+  companyPicker: {
+    title: 'Choose a company',
+    subtitle:
+      'Your account has access to more than one company. Pick the one to work in; you can switch at any time.',
+    yourRole: 'Your role',
+    noCompanies: 'Your account works, but nobody has granted it access to a company yet.',
+  },
+
+  elevatedAccess: {
+    actingIn: 'You are in',
+    asPlatform: 'as platform administrator. Everything you do here is recorded.',
+    leave: 'Leave company',
+  },
+
   nav: {
     sectionOperation: 'Operation',
     sectionAdministration: 'Administration',
@@ -220,7 +234,8 @@ export const copyEn = {
     emailRequired: 'Enter your email.',
     passwordRequired: 'Enter your password.',
     demoHintTitle: 'Prototype credentials',
-    demoHintBody: 'Sign in with admin@gt.com and the password admin.',
+    demoHintBody:
+      'Each account follows a different path: the platform, a member of several companies, and a member of just one.',
   },
 
   organizations: {
@@ -579,6 +594,7 @@ export const copyEn = {
     signOut: 'Sign out',
     platform: 'Platform',
     platformHint: 'All companies',
+    platformRole: 'Platform administrator',
     enterCompany: 'Enter a company',
     backToAdministration: 'Back to administration',
   },

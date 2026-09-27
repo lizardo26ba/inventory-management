@@ -14,12 +14,61 @@
  * carpeta del prototipo.
  */
 
-export const DEMO_EMAIL = 'admin@gt.com';
-export const DEMO_PASSWORD = 'admin';
+/**
+ * Quién puede entrar en la maqueta, y con qué alcance.
+ *
+ * Hay tres cuentas porque hay tres caminos después del acceso, y cada uno se
+ * tiene que poder recorrer: la plataforma, que empieza en la lista de empresas;
+ * un miembro de varias empresas, que elige en cuál trabajar; y un miembro de una
+ * sola, que entra directo porque no hay nada que elegir.
+ */
+export type DemoAccount = {
+  readonly email: string;
+  readonly password: string;
+  readonly name: string;
+  readonly initials: string;
+  readonly isPlatformAdmin: boolean;
+  /** Empresas a las que pertenece, con el rol que tiene en cada una. */
+  readonly memberships: readonly { readonly companyId: string; readonly roleCode: string }[];
+};
 
-/** Destino tras un acceso correcto: la administración de empresas. */
-export const DEMO_LANDING_PATH = '/prototype/organizations';
+/** La cuenta con la que arranca la maqueta si se abre sin pasar por el acceso. */
+export const DEFAULT_DEMO_ACCOUNT: DemoAccount = {
+  email: 'admin@gt.com',
+  password: 'admin',
+  name: 'Platform admin',
+  initials: 'PA',
+  isPlatformAdmin: true,
+  memberships: [],
+};
 
-export function matchesDemoCredentials(email: string, password: string): boolean {
-  return email.trim().toLowerCase() === DEMO_EMAIL && password === DEMO_PASSWORD;
+export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
+  DEFAULT_DEMO_ACCOUNT,
+  {
+    email: 'maria@gt.com',
+    password: 'maria',
+    name: 'María López',
+    initials: 'ML',
+    isPlatformAdmin: false,
+    memberships: [
+      { companyId: 'c-01', roleCode: 'admin' },
+      { companyId: 'c-02', roleCode: 'purchasing' },
+      { companyId: 'c-03', roleCode: 'viewer' },
+    ],
+  },
+  {
+    email: 'luis@gt.com',
+    password: 'luis',
+    name: 'Luis Herrera',
+    initials: 'LH',
+    isPlatformAdmin: false,
+    memberships: [{ companyId: 'c-01', roleCode: 'sales' }],
+  },
+];
+
+export function findDemoAccount(email: string, password: string): DemoAccount | undefined {
+  const normalized = email.trim().toLowerCase();
+  return DEMO_ACCOUNTS.find(
+    (account) => account.email === normalized && account.password === password,
+  );
 }
