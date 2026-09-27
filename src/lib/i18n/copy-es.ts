@@ -210,7 +210,33 @@ export const copyEs: Copy = {
     passwordRequired: 'Escribe tu contraseña.',
     demoHintTitle: 'Credenciales del prototipo',
     demoHintBody:
-      'Cada cuenta recorre un camino distinto: la plataforma, un miembro de varias empresas y un miembro de una sola.',
+      'Cada cuenta recorre un camino distinto: la plataforma con su segundo factor, una cuenta de plataforma que aún debe activarlo, un miembro de varias empresas y un miembro de una sola. Código de la app: 123456.',
+  },
+
+  twoFactor: {
+    verifyTitle: 'Confirma que eres tú',
+    verifySubtitle:
+      'Abre tu app autenticadora y escribe el código de 6 dígitos de esta cuenta.',
+    codeLabel: 'Código de verificación',
+    digit: 'Dígito',
+    digitOf: 'de',
+    codeHelp: 'El código cambia cada 30 segundos.',
+    verify: 'Verificar',
+    verifying: 'Verificando',
+    codeRequired: 'Escribe los 6 dígitos de tu app.',
+    invalidCode:
+      'Ese código no es válido. Revisa que la hora de tu teléfono sea la correcta y vuelve a intentarlo.',
+    setupTitle: 'Protege tu cuenta de plataforma',
+    setupSubtitle:
+      'El super administrador alcanza todas las empresas, así que su cuenta necesita un segundo factor. Toma dos minutos.',
+    stepScan: '1. Escanea este código con tu app autenticadora',
+    stepScanHelp:
+      'Google Authenticator, Microsoft Authenticator, 1Password o cualquier app compatible con TOTP.',
+    qrLabel: 'Código QR para añadir esta cuenta a una app autenticadora',
+    manualKey: '¿No puedes escanearlo? Escribe esta clave a mano:',
+    stepConfirm: '2. Escribe el código que muestra la app',
+    activate: 'Activar',
+    activating: 'Activando',
   },
 
   organizations: {

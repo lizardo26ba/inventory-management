@@ -18,7 +18,7 @@ import { useId, useState } from 'react';
 import { useCopy } from '@/lib/i18n';
 import { findDemoAccount } from '../demo-credentials';
 import { simulateWrite } from '../latency';
-import { landingFor, useSessionStore } from '../session-store';
+import { landingFor, twoFactorStepFor, useSessionStore } from '../session-store';
 import { ActionButton, useAsyncAction } from '../ui/action-button';
 import { Field, INPUT_CLASS, inputBorderClass } from '../ui/form';
 import { FormAlert } from '../ui/form-alert';
@@ -62,6 +62,12 @@ export function LoginForm(): React.ReactElement {
       const account = findDemoAccount(email, password);
       if (account !== undefined) {
         signIn(account);
+        // La plataforma no pasa sin su segundo factor. Lo demás va directo.
+        const twoFactorStep = twoFactorStepFor(account);
+        if (twoFactorStep !== null) {
+          router.push(twoFactorStep as never);
+          return;
+        }
         const landing = landingFor(account);
         if (landing.companyId !== null) enterCompany(landing.companyId);
         router.push(landing.path as never);
