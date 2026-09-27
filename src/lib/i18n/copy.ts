@@ -241,6 +241,8 @@ export const copyEn = {
     verifyRecoverySubtitle:
       'Enter one of the recovery codes you saved when you set up the second factor.',
     codeLabel: 'Authentication code',
+    character: 'Character',
+    characterOf: 'of',
     codeHelp: 'The code changes every 30 seconds.',
     verify: 'Verify',
     verifying: 'Verifying',

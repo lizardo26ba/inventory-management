@@ -25,12 +25,13 @@ import { landingFor, useSessionStore } from '../session-store';
 import { ActionButton, useAsyncAction } from '../ui/action-button';
 import { Field } from '../ui/form';
 import { FormAlert } from '../ui/form-alert';
-import { OneTimeCodeField } from '../ui/one-time-code-field';
+import { isCodeComplete, OneTimeCodeField } from '../ui/one-time-code-field';
 import { TwoFactorFrame } from './two-factor-frame';
 
 const APP_CODE_LENGTH = 6;
-/** Cuatro, guion, cuatro. */
-const RECOVERY_CODE_LENGTH = 9;
+/** Dos grupos de cuatro. El guion se ve, pero no se escribe. */
+const RECOVERY_CODE_LENGTH = 8;
+const RECOVERY_GROUP_SIZE = 4;
 
 type Mode = 'app' | 'recovery';
 
@@ -59,10 +60,7 @@ export default function TwoFactorPage(): React.ReactElement {
     event.preventDefault();
     setFormError(null);
 
-    const complete = isApp
-      ? code.length === APP_CODE_LENGTH
-      : code.length === RECOVERY_CODE_LENGTH;
-    if (!complete) {
+    if (!isCodeComplete(code, isApp ? APP_CODE_LENGTH : RECOVERY_CODE_LENGTH)) {
       setFieldError(isApp ? copy.twoFactor.codeRequired : copy.twoFactor.recoveryRequired);
       return;
     }
@@ -71,7 +69,10 @@ export default function TwoFactorPage(): React.ReactElement {
     void submit.run(async () => {
       await simulateWrite();
 
-      const valid = isApp ? code === DEMO_TWO_FACTOR_CODE : DEMO_RECOVERY_CODES.includes(code);
+      // Los de respaldo se enseñan con guion y se escriben sin él.
+      const valid = isApp
+        ? code === DEMO_TWO_FACTOR_CODE
+        : DEMO_RECOVERY_CODES.some((recovery) => recovery.replace('-', '') === code);
       if (!valid) {
         setFormError(isApp ? copy.twoFactor.invalidCode : copy.twoFactor.invalidRecovery);
         return;
@@ -104,7 +105,12 @@ export default function TwoFactorPage(): React.ReactElement {
             value={code}
             onChange={setCode}
             length={isApp ? APP_CODE_LENGTH : RECOVERY_CODE_LENGTH}
-            numeric={isApp}
+            charset={isApp ? 'digits' : 'alphanumeric'}
+            groupSize={isApp ? undefined : RECOVERY_GROUP_SIZE}
+            groupLabel={isApp ? copy.twoFactor.codeLabel : copy.twoFactor.recoveryLabel}
+            positionLabel={(position, total) =>
+              `${copy.twoFactor.character} ${position} ${copy.twoFactor.characterOf} ${total}`
+            }
             hasError={fieldError !== null}
             describedBy={describedBy}
           />

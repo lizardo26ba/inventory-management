@@ -29,7 +29,7 @@ import { buttonClass } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
 import { Field } from '../../ui/form';
 import { FormAlert } from '../../ui/form-alert';
-import { OneTimeCodeField } from '../../ui/one-time-code-field';
+import { isCodeComplete, OneTimeCodeField } from '../../ui/one-time-code-field';
 import { QrCode } from '../../ui/qr-code';
 import { RecoveryCodes } from '../../ui/recovery-codes';
 import { TwoFactorFrame } from '../two-factor-frame';
@@ -66,7 +66,7 @@ function ScanStep({ onActivated }: { readonly onActivated: () => void }): React.
     event.preventDefault();
     setFormError(null);
 
-    if (code.length !== CODE_LENGTH) {
+    if (!isCodeComplete(code, CODE_LENGTH)) {
       setFieldError(copy.twoFactor.codeRequired);
       return;
     }
@@ -117,6 +117,11 @@ function ScanStep({ onActivated }: { readonly onActivated: () => void }): React.
             value={code}
             onChange={setCode}
             length={CODE_LENGTH}
+            charset="digits"
+            groupLabel={copy.twoFactor.codeLabel}
+            positionLabel={(position, total) =>
+              `${copy.twoFactor.character} ${position} ${copy.twoFactor.characterOf} ${total}`
+            }
             hasError={fieldError !== null}
             describedBy={fieldError !== null ? `${fieldId}-error` : `${fieldId}-help`}
           />

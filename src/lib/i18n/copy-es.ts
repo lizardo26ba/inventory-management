@@ -220,6 +220,8 @@ export const copyEs: Copy = {
     verifyRecoverySubtitle:
       'Escribe uno de los códigos de respaldo que guardaste al activar el segundo factor.',
     codeLabel: 'Código de verificación',
+    character: 'Carácter',
+    characterOf: 'de',
     codeHelp: 'El código cambia cada 30 segundos.',
     verify: 'Verificar',
     verifying: 'Verificando',
