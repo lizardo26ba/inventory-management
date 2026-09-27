@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation';
 
 import { resolveLanding } from '@/modules/auth/landing';
-import { CHANGE_PASSWORD_PATH, SIGN_IN_PATH } from '@/modules/auth/routes';
-import { getSession } from '@/modules/auth/session';
+import { findCompanySummary } from '@/modules/auth/repository';
+import { CHANGE_PASSWORD_PATH, SELECT_COMPANY_PATH, SIGN_IN_PATH } from '@/modules/auth/routes';
+import { getSession, requireCompanySession } from '@/modules/auth/session';
 import { ORGANIZATIONS_PATH } from '@/modules/organizations/routes';
 
-import { NoAccessPanel } from './no-access-panel';
+import { CompanyOverview } from './company-overview';
 
 /**
  * La raíz no es una pantalla: es un desvío.
@@ -25,15 +26,14 @@ export default async function RootPage(): Promise<React.ReactElement> {
       redirect(CHANGE_PASSWORD_PATH);
     case 'organizations':
       redirect(ORGANIZATIONS_PATH);
-    case 'company':
-      // El resumen de la empresa activa todavía no existe. Mientras tanto, quien
-      // tenga empresa elegida ve lo mismo que quien no alcanza ninguna, y eso es
-      // preferible a una pantalla en blanco sin explicación.
-      return <NoAccessPanel email={session.email} />;
+    case 'company': {
+      // La portada de la empresa activa. Pasa por la puerta de la empresa como
+      // cualquier otra pantalla de la operación.
+      const company = await requireCompanySession();
+      const summary = await findCompanySummary(company.organizationId);
+      return <CompanyOverview companyName={summary?.name ?? ''} />;
+    }
     case 'chooseCompany':
-      // El selector de empresa llega con las pantallas de la operación. Mientras
-      // tanto, quien tiene que elegir ve el mismo aviso que quien no alcanza
-      // ninguna, en lugar de una pantalla en blanco.
-      return <NoAccessPanel email={session.email} />;
+      redirect(SELECT_COMPANY_PATH);
   }
 }

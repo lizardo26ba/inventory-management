@@ -84,11 +84,6 @@ export const copyEs: Copy = {
     back: 'Volver al inicio',
   },
 
-  noAccess: {
-    title: 'Todavía sin empresa',
-    body: 'Tu cuenta funciona, pero nadie le ha concedido acceso a una empresa. Pídeselo a quien administra la plataforma.',
-  },
-
   companyPicker: {
     title: 'Elige una empresa',
     subtitle:
@@ -139,6 +134,8 @@ export const copyEs: Copy = {
     lowStockEmpty: 'Todos los productos están sobre su nivel mínimo.',
     recentTitle: 'Movimientos recientes',
     viewAll: 'Ver todo',
+    notReady:
+      'Aquí empieza la operación de esta empresa. Sus pantallas van llegando, empezando por los productos y los almacenes.',
   },
 
   products: {

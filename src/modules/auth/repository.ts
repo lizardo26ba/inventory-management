@@ -539,3 +539,24 @@ export async function leaveCompanySession(
     audit,
   );
 }
+
+export type CompanySummary = {
+  readonly name: string;
+  readonly countryCode: string;
+  readonly baseCurrencyCode: string;
+};
+
+/**
+ * Lo que el marco enseña de la empresa activa. Se lee con el alcance de esa
+ * empresa, así que solo la alcanza quien ya pasó la puerta de la empresa.
+ */
+export async function findCompanySummary(
+  organizationId: string,
+): Promise<CompanySummary | null> {
+  return withScope(companyScope(organizationId), (tx) =>
+    tx.organization.findFirst({
+      where: { id: organizationId, deletedAt: null },
+      select: { name: true, countryCode: true, baseCurrencyCode: true },
+    }),
+  );
+}

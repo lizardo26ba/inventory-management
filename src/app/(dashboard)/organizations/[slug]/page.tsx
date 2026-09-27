@@ -9,9 +9,11 @@ import { PageHeader } from '@/components/ui/page-header';
 import { formatDate, formatQuantity } from '@/lib/format';
 import { getCopy } from '@/lib/i18n/server';
 import { platformScopeOf } from '@/modules/auth/scope';
-import { requirePlatformPermission } from '@/modules/auth/session';
+import { holdsPlatformPermission, requirePlatformPermission } from '@/modules/auth/session';
 import { findOrganizationBySlug } from '@/modules/organizations/repository';
 import { ORGANIZATIONS_PATH, organizationPath } from '@/modules/organizations/routes';
+
+import { EnterCompanyButton } from './enter-company-button';
 
 /**
  * Ficha de una empresa, solo lectura.
@@ -49,13 +51,21 @@ export default async function OrganizationDetailPage({
         title={organization.name}
         subtitle={organization.legalName}
       >
-        <Link
-          href={`${organizationPath(organization.slug)}/edit`}
-          className={buttonClass({ variant: 'secondary', size: 'sm' })}
-        >
-          <IconPencil className="h-4 w-4" />
-          {copy.organizations.edit}
-        </Link>
+        <div className="flex items-start gap-2">
+          <Link
+            href={`${organizationPath(organization.slug)}/edit`}
+            className={buttonClass({ variant: 'secondary', size: 'sm' })}
+          >
+            <IconPencil className="h-4 w-4" />
+            {copy.organizations.edit}
+          </Link>
+
+          {/* Entrar cambia el contexto: a partir de ahí la operación existe y todo
+              lo que se ve pertenece a esta empresa. */}
+          {holdsPlatformPermission(session, 'platform.organization:enter') ? (
+            <EnterCompanyButton organizationId={organization.id} />
+          ) : null}
+        </div>
       </PageHeader>
 
       <DefinitionList>
