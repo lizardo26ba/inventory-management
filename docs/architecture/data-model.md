@@ -3,7 +3,7 @@
 **Audiencia:** desarrollo
 **Estado:** vigente
 **Responsable:** equipo de arquitectura
-**Última revisión:** 2026-09-16
+**Última revisión:** 2026-09-27
 
 Qué guarda cada tabla, qué invariante defiende la base y cómo se relacionan entre sí. Al
 terminar sabes dónde vive un dato, qué no puede ocurrirle y qué garantías no puedes dar por
@@ -246,7 +246,14 @@ y su mecanismo está en el [ADR 0010](../adr/0010-aislamiento-con-seguridad-a-ni
 - **De dónde sale la empresa.** La aplicación la declara al abrir cada transacción con
   `set_config` local, y las políticas la leen con `app_organization_id()`. Sin contexto no
   hay empresa, y sin empresa no se ve nada: falla cerrado.
-- **La excepción del super administrador** se enciende aparte, con `app_is_platform()`.
+- **La excepción del super administrador** se enciende aparte, con `app_is_platform()`, y
+  solo en las pantallas que miran todas las empresas. Dentro de una empresa, también el
+  super administrador trabaja sin ella y ve solo esa empresa.
+  [ADR 0013](../adr/0013-empresa-activa-en-la-sesion.md).
+- **Lo propio de la persona, sin empresa elegida.** Con `app_user_id()`, y solo para
+  leer, la persona ve sus membresías activas, las empresas a las que pertenecen y sus
+  roles en ellas. Es lo que permite ofrecerle dónde entrar y comprobar que su acceso sigue
+  vivo. Escribir sigue exigiendo empresa. Ningún otro alcance lleva a la persona.
 - **Las tablas puente** miran la empresa de su fila padre.
 - **La bitácora** acepta escribir sin empresa cuando tampoco hay contexto, que es lo que
   ocurre al entrar o al bloquearse una cuenta.

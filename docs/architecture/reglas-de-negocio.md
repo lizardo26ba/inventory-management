@@ -3,7 +3,7 @@
 **Audiencia:** negocio, desarrollo
 **Estado:** vigente
 **Responsable:** equipo de arquitectura
-**Última revisión:** 2026-09-10
+**Última revisión:** 2026-09-27
 
 Catálogo único de las reglas que el sistema hace cumplir. Cada regla está redactada para
 ser verificable: o el sistema la cumple o no la cumple, sin interpretación intermedia.
@@ -40,8 +40,10 @@ el cómo se resuelve.
 RN-005 está suspendida de forma temporal y declarada. Sus pantallas de alta y de
 verificación no existen todavía, así que la regla se apagaría sola dejando el despliegue
 inservible. Mientras dure, el segundo factor se exige o se salta con la variable
-`PLATFORM_ADMIN_TWO_FACTOR`, que por omisión lo exige. Ver la enmienda del
-[ADR 0005](../adr/0005-super-administrador-de-plataforma.md).
+`PLATFORM_ADMIN_TWO_FACTOR`, que por omisión lo exige. La misma variable decide para los
+administradores de empresa. Ver la enmienda del
+[ADR 0005](../adr/0005-super-administrador-de-plataforma.md) y el
+[ADR 0013](../adr/0013-empresa-activa-en-la-sesion.md).
 
 ## 2. Idioma y presentación
 
