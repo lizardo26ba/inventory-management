@@ -15,6 +15,12 @@
 -- guardan los secretos. Llega como variable de psql, asi que no queda en el
 -- repositorio. Ver docs/standards/configuration-and-secrets.md
 --
+-- En PRODUCCION no se usa este guion desde un equipo de desarrollo, porque la
+-- contrasena naceria alli, y las reglas prohiben que una credencial de
+-- produccion exista en esos equipos. Alli el rol se crea sin contrasena, que no
+-- puede iniciar sesion, y la persona se la pone en el editor SQL de la consola
+-- de Neon con ALTER ROLE inventory_app WITH PASSWORD '...'.
+--
 -- Es idempotente: se puede volver a ejecutar, y hay que hacerlo despues de
 -- recrear el esquema, porque las concesiones se van con las tablas.
 
@@ -33,7 +39,21 @@ CREATE ROLE inventory_app LOGIN PASSWORD :'app_password';
 ALTER ROLE inventory_app LOGIN PASSWORD :'app_password';
 \endif
 
-ALTER ROLE inventory_app NOBYPASSRLS NOSUPERUSER NOCREATEDB NOCREATEROLE;
+-- Un rol nuevo nace sin ninguno de esos privilegios, asi que no se declaran: se
+-- comprueban. Declararlos a mano falla en Neon, donde incluso escribir
+-- NOSUPERUSER exige ser superusuario. Si alguien se los concedio despues, el
+-- guion se detiene aqui en lugar de dejar una barrera que no protege.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_roles
+    WHERE rolname = 'inventory_app'
+      AND (rolbypassrls OR rolsuper OR rolcreatedb OR rolcreaterole)
+  ) THEN
+    RAISE EXCEPTION 'inventory_app tiene privilegios que no debe tener. Revisalo antes de usarlo.';
+  END IF;
+END
+$$;
 
 -- ---------------------------------------------------------------------------
 -- 2. Lo que puede hacer: leer y escribir datos. Nada de estructura.
