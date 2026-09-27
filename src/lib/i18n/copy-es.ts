@@ -537,6 +537,8 @@ export const copyEs: Copy = {
     'auth.signed_in': 'Inicio de sesión',
     'auth.password_changed': 'Contraseña cambiada',
     'auth.locked_out': 'Bloqueo por intentos fallidos',
+    'auth.company_entered': 'Entrada a una empresa',
+    'auth.company_left': 'Salida de una empresa',
   },
 
   admin: {

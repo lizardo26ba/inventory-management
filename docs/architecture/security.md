@@ -3,7 +3,7 @@
 **Audiencia:** desarrollo
 **Estado:** vigente
 **Responsable:** equipo de arquitectura
-**Última revisión:** 2026-09-14
+**Última revisión:** 2026-09-27
 
 Quién puede hacer qué dentro del sistema. Al terminar sabes qué permisos existen, qué
 lleva cada rol del sistema, qué se comprueba hoy en el servidor y qué reglas de acceso no
@@ -43,11 +43,16 @@ flowchart TD
   G -- Sí --> H[Se ejecuta]
 ```
 
-**La rama de empresa todavía no está construida.** Hoy el servidor solo sabe comprobar
-permisos de plataforma, porque todas las pantallas que existen son de administración de la
-plataforma. Los roles sí se crean en cada empresa desde el alta, con los permisos de la
-matriz de abajo, así que el dato está listo y lo que falta es la comprobación. Hasta que
-exista, ninguna pantalla de empresa puede darse por autorizada.
+Las dos ramas viven en el mismo punto, `src/modules/auth/session.ts`:
+
+- **Plataforma:** `requirePlatformPermission`.
+- **Empresa:** `requireCompanyPermission`, sobre la empresa activa de la sesión.
+  - Un miembro tiene los permisos de sus roles en ella, leídos en cada petición.
+  - Un super administrador dentro de la empresa tiene todos los de empresa, mientras su
+    puerta de plataforma siga abierta. ADR 0005.
+
+La empresa activa la elige la persona, nunca el navegador. La sesión rota al entrar y al
+salir. ADR 0007 y ADR 0013.
 
 ## 2. Los roles del sistema
 
@@ -172,10 +177,16 @@ mandan por encima de ella.
 - **El segundo factor es obligatorio para el super administrador y para los
   administradores de empresa** (RN-005), y hoy está suspendido de forma declarada porque
   sus pantallas de alta y verificación no existen. Se gobierna con la variable de entorno
-  `PLATFORM_ADMIN_TWO_FACTOR`, que por omisión lo exige. Ver la enmienda del
-  [ADR 0005](../adr/0005-super-administrador-de-plataforma.md).
+  `PLATFORM_ADMIN_TWO_FACTOR`, que por omisión lo exige, y la misma variable decide para
+  los dos. Ver la enmienda del [ADR 0005](../adr/0005-super-administrador-de-plataforma.md)
+  y el [ADR 0013](../adr/0013-empresa-activa-en-la-sesion.md).
+- **Administrador de empresa, a efectos del segundo factor, es quien tiene `user:update`
+  o `role:update`** en esa empresa. No es el nombre del rol: con cualquiera de los dos
+  permisos una persona decide quién entra y con qué, y puede concederse todo lo demás.
+  Ver `COMPANY_ADMINISTRATION_PERMISSIONS`.
 - **Suspender a un usuario o retirarle el acceso corta su sesión de inmediato**, no al
-  expirar (RN-006).
+  expirar (RN-006). Con empresa activa, cada petición vuelve a leer la membresía, o la
+  concesión de plataforma, y si ya no da acceso la sesión se borra.
 - **Un usuario puede quedar limitado a ciertos almacenes dentro de su empresa** (RN-008).
   Es una regla supuesta, todavía sin confirmar y sin implementar. Cuando entre, la matriz
   dejará de ser suficiente por sí sola.
@@ -201,8 +212,9 @@ Cumple RN-070 a RN-073. El catálogo de acciones es código, `AUDIT_ACTIONS` en
 lista.
 
 **Qué se registra.** Toda escritura sobre empresas, cuentas, accesos a empresa y privilegio
-de plataforma, además de tres sucesos de sesión: entrar, cambiar la contraseña y quedar
-bloqueado por intentos fallidos. Cada entrada se escribe en la misma transacción que el
+de plataforma, además de cinco sucesos de sesión: entrar, cambiar la contraseña, quedar
+bloqueado por intentos fallidos, entrar a una empresa y salir de ella. Entrar como
+plataforma queda marcado como privilegio elevado. Cada entrada se escribe en la misma transacción que el
 cambio: si el cambio se revierte, la entrada también, y si la entrada no se puede escribir,
 el cambio no ocurre.
 
@@ -210,8 +222,10 @@ el cambio no ocurre.
 `platform.audit:read`, así que solo la alcanza el super administrador. Es una lectura por
 encima de todas las empresas, que es la excepción declarada del
 [ADR 0005](../adr/0005-super-administrador-de-plataforma.md). La bitácora de una empresa
-vista desde dentro, con `audit:read`, llegará cuando exista la comprobación de permisos
-de empresa.
+vista desde dentro, con `audit:read`, llegará con las pantallas de la operación.
+
+**Lo que todavía no se registra.** Las consultas del super administrador dentro de una
+empresa, que pide RN-073. Llegan con las primeras pantallas que lean datos de empresa.
 
 **Qué guarda cada entrada.**
 

@@ -20,8 +20,10 @@ import 'server-only';
  * los viajes a la base en cada petición sin proteger nada.
  */
 
+import { isPermissionCode, type PermissionCode } from '@/lib/auth/permissions';
 import { prisma } from '@/lib/db/client';
-import { ANONYMOUS_SCOPE, withScope } from '@/lib/db/scope';
+import { ANONYMOUS_SCOPE, personalScope, withScope, type DataScope } from '@/lib/db/scope';
+import { AuthenticationError } from '@/lib/errors';
 import { recordAuditEntries, type AuditContext } from '@/modules/audit';
 
 export type SignInCandidate = {
@@ -287,4 +289,253 @@ export async function updatePassword(
       },
     ]);
   });
+}
+
+// ---------------------------------------------------------------------------
+// La empresa activa. ADR 0013.
+//
+// Cada consulta filtra por la persona, la membresía viva y la empresa viva, aunque
+// las políticas ya lo hagan. Son dos barreras, no una: las pruebas de integración
+// corren con el rol dueño, que se salta las políticas, y lo que comprueban es este
+// filtro.
+// ---------------------------------------------------------------------------
+
+/** Lo que tiene que cumplir una membresía para dar acceso. RN-006. */
+const LIVE_MEMBERSHIP = {
+  isActive: true,
+  revokedAt: null,
+  organization: { isActive: true, deletedAt: null },
+} as const;
+
+/** El alcance de una empresa, para leer lo que la persona tiene en ella. */
+function companyScope(organizationId: string): DataScope {
+  return { organizationId, userId: null, actingAsPlatformAdmin: false };
+}
+
+/** El alcance de plataforma. Solo se usa después de autorizar al super administrador. */
+const PLATFORM_DATA_SCOPE: DataScope = {
+  organizationId: null,
+  userId: null,
+  actingAsPlatformAdmin: true,
+};
+
+export type CompanyChoice = {
+  readonly organizationId: string;
+  readonly name: string;
+  readonly countryCode: string;
+  readonly countryName: string;
+  readonly baseCurrencyCode: string;
+  /** Los roles de la persona en esa empresa. Un rol propio de la empresa no tiene código. */
+  readonly roles: readonly { readonly code: string | null; readonly name: string }[];
+};
+
+/** Las empresas donde la persona puede entrar como miembro, por nombre. RN-001. */
+export async function listCompanyChoices(userId: string): Promise<CompanyChoice[]> {
+  const rows = await withScope(personalScope(userId), (tx) =>
+    tx.membership.findMany({
+      where: { userId, ...LIVE_MEMBERSHIP },
+      orderBy: { organization: { name: 'asc' } },
+      select: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            countryCode: true,
+            baseCurrencyCode: true,
+            country: { select: { name: true } },
+          },
+        },
+        roles: { select: { role: { select: { code: true, name: true } } } },
+      },
+    }),
+  );
+
+  return rows.map(({ organization, roles }) => ({
+    organizationId: organization.id,
+    name: organization.name,
+    countryCode: organization.countryCode,
+    countryName: organization.country.name,
+    baseCurrencyCode: organization.baseCurrencyCode,
+    roles: roles.map(({ role }) => role),
+  }));
+}
+
+/**
+ * La empresa de una membresía viva de la persona, o nada.
+ *
+ * Es la comprobación de RN-006: se hace al entrar y en cada petición con empresa
+ * activa, para que retirar el acceso surta efecto en el acto.
+ */
+export async function findLiveMembershipCompany(
+  userId: string,
+  organizationId: string,
+): Promise<{ readonly id: string; readonly name: string } | null> {
+  const membership = await withScope(personalScope(userId), (tx) =>
+    tx.membership.findFirst({
+      where: { userId, organizationId, ...LIVE_MEMBERSHIP },
+      select: { organization: { select: { id: true, name: true } } },
+    }),
+  );
+
+  return membership?.organization ?? null;
+}
+
+/** Los permisos que la persona tiene en una empresa por sus roles en ella. */
+export async function listCompanyPermissions(
+  userId: string,
+  organizationId: string,
+): Promise<PermissionCode[]> {
+  const rows = await withScope(companyScope(organizationId), (tx) =>
+    tx.permission.findMany({
+      where: {
+        scope: 'ORGANIZATION',
+        roles: {
+          some: {
+            role: {
+              organizationId,
+              memberships: {
+                some: { membership: { userId, organizationId, ...LIVE_MEMBERSHIP } },
+              },
+            },
+          },
+        },
+      },
+      select: { code: true },
+    }),
+  );
+
+  // Un código que el catálogo del código ya no declara no concede nada: la
+  // semilla lo borra, pero hasta que vuelva a correr podría quedar en la base.
+  return rows.map((row) => row.code).filter(isPermissionCode);
+}
+
+/**
+ * La empresa a la que va a entrar un super administrador, si existe.
+ *
+ * Una empresa desactivada se puede visitar, porque diagnosticarla es una de las
+ * razones para entrar. Una borrada, no.
+ */
+export async function findEnterableOrganization(
+  organizationId: string,
+): Promise<{ readonly id: string; readonly name: string } | null> {
+  return withScope(PLATFORM_DATA_SCOPE, (tx) =>
+    tx.organization.findFirst({
+      where: { id: organizationId, deletedAt: null },
+      select: { id: true, name: true },
+    }),
+  );
+}
+
+/**
+ * Cambia la empresa de la sesión, rotando su testigo. ADR 0007.
+ *
+ * La sesión nueva hereda de la vieja la caducidad absoluta, el segundo factor
+ * superado y la huella de red: cambiar de empresa no alarga la vida de la sesión
+ * ni borra lo que ya se comprobó. La vieja se borra en la misma transacción, así
+ * que no hay un instante con dos testigos válidos.
+ *
+ * La entrada de la bitácora es de la empresa afectada: la que se deja o en la que
+ * se entra. Por eso la transacción declara esa empresa, que es lo que la política
+ * de la bitácora exige para escribirla, y con ella lee su nombre para la entrada.
+ */
+async function switchSessionCompany(
+  input: {
+    readonly currentTokenHash: string;
+    readonly nextTokenHash: string;
+    readonly nextOrganizationId: string | null;
+    readonly actingAsPlatformAdmin: boolean;
+    readonly affectedOrganizationId: string;
+    readonly action: 'auth.company_entered' | 'auth.company_left';
+  },
+  audit: AuditContext,
+): Promise<void> {
+  await withScope(companyScope(input.affectedOrganizationId), async (tx) => {
+    const current = await tx.session.findUnique({
+      where: { tokenHash: input.currentTokenHash },
+      select: {
+        userId: true,
+        organizationId: true,
+        twoFactorVerifiedAt: true,
+        expiresAt: true,
+        ipAddress: true,
+        userAgent: true,
+      },
+    });
+
+    if (current === null) throw new AuthenticationError('La sesión ya no existe.');
+
+    await tx.session.create({
+      data: {
+        tokenHash: input.nextTokenHash,
+        userId: current.userId,
+        organizationId: input.nextOrganizationId,
+        actingAsPlatformAdmin: input.actingAsPlatformAdmin,
+        twoFactorVerifiedAt: current.twoFactorVerifiedAt,
+        expiresAt: current.expiresAt,
+        ipAddress: current.ipAddress,
+        userAgent: current.userAgent,
+      },
+    });
+    await tx.session.delete({ where: { tokenHash: input.currentTokenHash } });
+
+    const affected = await tx.organization.findUnique({
+      where: { id: input.affectedOrganizationId },
+      select: { name: true },
+    });
+
+    await recordAuditEntries(tx, audit, [
+      {
+        action: input.action,
+        entityType: 'Organization',
+        entityId: input.affectedOrganizationId,
+        entityLabel: affected?.name ?? null,
+        organizationId: input.affectedOrganizationId,
+        before: { organizationId: current.organizationId },
+        after: { organizationId: input.nextOrganizationId },
+      },
+    ]);
+  });
+}
+
+export async function enterCompanySession(
+  input: {
+    readonly currentTokenHash: string;
+    readonly nextTokenHash: string;
+    readonly organizationId: string;
+    readonly actingAsPlatformAdmin: boolean;
+  },
+  audit: AuditContext,
+): Promise<void> {
+  await switchSessionCompany(
+    {
+      currentTokenHash: input.currentTokenHash,
+      nextTokenHash: input.nextTokenHash,
+      nextOrganizationId: input.organizationId,
+      actingAsPlatformAdmin: input.actingAsPlatformAdmin,
+      affectedOrganizationId: input.organizationId,
+      action: 'auth.company_entered',
+    },
+    audit,
+  );
+}
+
+export async function leaveCompanySession(
+  input: {
+    readonly currentTokenHash: string;
+    readonly nextTokenHash: string;
+    readonly organizationId: string;
+  },
+  audit: AuditContext,
+): Promise<void> {
+  await switchSessionCompany(
+    {
+      currentTokenHash: input.currentTokenHash,
+      nextTokenHash: input.nextTokenHash,
+      nextOrganizationId: null,
+      actingAsPlatformAdmin: false,
+      affectedOrganizationId: input.organizationId,
+      action: 'auth.company_left',
+    },
+    audit,
+  );
 }

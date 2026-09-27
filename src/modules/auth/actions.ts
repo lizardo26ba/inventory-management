@@ -17,16 +17,24 @@ import { redirect } from 'next/navigation';
 import { toErrorPayload, type ErrorPayload } from '@/lib/errors';
 import { logger } from '@/lib/observability/logger';
 import { buildAuditContext } from '@/modules/audit';
+import { AuthenticationError } from '@/lib/errors';
 import {
   deleteSession,
   deleteSessionsOfUser,
+  enterCompanySession,
   findPasswordHash,
   findSignInCandidate,
+  leaveCompanySession,
   openSession,
   registerFailedAttempt,
   updatePassword,
 } from '@/modules/auth/repository';
-import { changePasswordSchema, signInSchema, toFieldErrors } from '@/modules/auth/schema';
+import {
+  changePasswordSchema,
+  enterCompanySchema,
+  signInSchema,
+  toFieldErrors,
+} from '@/modules/auth/schema';
 import {
   createSessionToken,
   hashPassword,
@@ -37,10 +45,13 @@ import {
 } from '@/modules/auth/service';
 import { SIGN_IN_PATH, SIGNED_IN_PATH } from '@/modules/auth/routes';
 import {
+  authorizeAutomaticEntry,
+  authorizeCompanyEntry,
   clearSessionCookie,
   requireSession,
   SESSION_COOKIE_NAME,
   writeSessionCookie,
+  type CompanyEntry,
 } from '@/modules/auth/session';
 
 import { cookies } from 'next/headers';
@@ -58,6 +69,43 @@ export type ActionResult =
 function failed(operation: string, error: unknown): ActionResult {
   logger.failure(`auth.${operation}`, error);
   return { ok: false, error: toErrorPayload(error) };
+}
+
+/** La huella del testigo de la petición en curso. Sin testigo no hay sesión que cambiar. */
+async function currentTokenHash(): Promise<string> {
+  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
+  if (token === undefined || token === '')
+    throw new AuthenticationError('No hay sesión activa.');
+  return hashSessionToken(token);
+}
+
+/**
+ * Pasa la sesión a una empresa ya autorizada y devuelve el testigo nuevo, que es
+ * el que tiene que ir en la cookie: el anterior deja de valer. ADR 0007.
+ */
+async function rotateIntoCompany(
+  userId: string,
+  fromTokenHash: string,
+  entry: CompanyEntry,
+): Promise<string> {
+  const next = createSessionToken();
+  const actor = {
+    userId,
+    organizationId: entry.company.id,
+    actingAsPlatformAdmin: entry.actingAsPlatformAdmin,
+  };
+
+  await enterCompanySession(
+    {
+      currentTokenHash: fromTokenHash,
+      nextTokenHash: next.tokenHash,
+      organizationId: entry.company.id,
+      actingAsPlatformAdmin: entry.actingAsPlatformAdmin,
+    },
+    await buildAuditContext(actor, entry.permissionCode),
+  );
+
+  return next.token;
 }
 
 /** Quien todavía no es nadie: un intento de entrar no tiene autor. */
@@ -127,7 +175,21 @@ export async function signIn(input: unknown): Promise<ActionResult> {
       },
       audit,
     );
-    await writeSessionCookie(token.token);
+
+    // Quien pertenece a una sola empresa entra directo en ella. Es un segundo
+    // paso, con su propia entrada en la bitácora, porque entrar en la cuenta y
+    // entrar en una empresa son hechos distintos. ADR 0013.
+    const entry = await authorizeAutomaticEntry({
+      userId: candidate.id,
+      isPlatformAdmin: candidate.isPlatformAdmin,
+      twoFactorVerifiedAt: null,
+    });
+    const sessionToken =
+      entry === null
+        ? token.token
+        : await rotateIntoCompany(candidate.id, token.tokenHash, entry);
+
+    await writeSessionCookie(sessionToken);
   } catch (error) {
     return failed('signIn', error);
   }
@@ -201,4 +263,59 @@ export async function signOut(): Promise<void> {
   }
 
   redirect(SIGN_IN_PATH);
+}
+
+/**
+ * Entrar en una empresa, o cambiar a otra.
+ *
+ * Quién entra y con qué alcance lo decide el servidor con la sesión. Del
+ * navegador solo llega cuál. Si ya había una empresa, la sesión pasa de una a
+ * otra en un solo paso. RN-001, RN-004.
+ */
+export async function enterCompany(input: unknown): Promise<ActionResult> {
+  const parsed = enterCompanySchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: { code: 'VALIDATION_FAILED', fieldErrors: toFieldErrors(parsed.error) },
+    };
+  }
+
+  try {
+    const session = await requireSession();
+    const entry = await authorizeCompanyEntry(session, parsed.data.organizationId);
+    const token = await rotateIntoCompany(session.userId, await currentTokenHash(), entry);
+    await writeSessionCookie(token);
+  } catch (error) {
+    return failed('enterCompany', error);
+  }
+
+  redirect(SIGNED_IN_PATH);
+}
+
+/**
+ * Salir de la empresa: la plataforma vuelve a su lista y un miembro a su
+ * selector. No pide permiso, porque dejar de ver algo nunca es un riesgo.
+ */
+export async function leaveCompany(): Promise<ActionResult> {
+  try {
+    const session = await requireSession();
+
+    if (session.organizationId !== null) {
+      const next = createSessionToken();
+      await leaveCompanySession(
+        {
+          currentTokenHash: await currentTokenHash(),
+          nextTokenHash: next.tokenHash,
+          organizationId: session.organizationId,
+        },
+        await buildAuditContext(session, null),
+      );
+      await writeSessionCookie(next.token);
+    }
+  } catch (error) {
+    return failed('leaveCompany', error);
+  }
+
+  redirect(SIGNED_IN_PATH);
 }

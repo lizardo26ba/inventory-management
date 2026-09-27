@@ -1,0 +1,327 @@
+/**
+ * Las puertas de la empresa activa, en el punto único de autorización.
+ *
+ * La base se simula: lo que se fija es qué decide `session.ts` con lo que la base
+ * le cuenta. Que la base cuente la verdad lo prueban las suites de integración.
+ *
+ * Casi todo son rechazos, porque es lo que protege: un miembro sin membresía viva,
+ * un permiso que no tiene, un super administrador sin segundo factor, una empresa
+ * borrada. RN-004, RN-005, RN-006, ADR 0005 y ADR 0013.
+ */
+
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { PermissionCode } from '@/lib/auth/permissions';
+import { AuthorizationError, NotFoundError, TwoFactorRequiredError } from '@/lib/errors';
+import type { ActiveSession } from '@/modules/auth/repository';
+import type { SessionContext } from '@/modules/auth/session-context';
+
+let twoFactorRequired = true;
+
+vi.mock('server-only', () => ({}));
+
+vi.mock('@/lib/config/env.server', () => ({
+  get isProduction(): boolean {
+    return false;
+  },
+  get requiresPlatformAdminTwoFactor(): boolean {
+    return twoFactorRequired;
+  },
+}));
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({ get: () => ({ value: 'testigo' }) })),
+  headers: vi.fn(),
+}));
+
+const repository = vi.hoisted(() => ({
+  deleteSession: vi.fn(),
+  findSessionByHash: vi.fn(),
+  findLiveMembershipCompany: vi.fn(),
+  listCompanyPermissions: vi.fn(),
+  findEnterableOrganization: vi.fn(),
+  listCompanyChoices: vi.fn(),
+}));
+
+vi.mock('@/modules/auth/repository', () => repository);
+
+vi.mock('@/modules/auth/service', () => ({
+  hashSessionToken: () => 'huella',
+  isSessionExpired: () => false,
+  SESSION_LIFETIME_MS: 0,
+}));
+
+const {
+  authorizeAutomaticEntry,
+  authorizeCompanyEntry,
+  getSession,
+  holdsCompanyPermission,
+  requireCompanyPermission,
+  requireCompanySession,
+} = await import('@/modules/auth/session');
+
+const COMPANY = { id: 'org-1', name: 'Empresa Uno' };
+const VERIFIED = new Date('2026-09-27T12:00:00Z');
+
+type StoredSessionOverrides = Partial<Omit<ActiveSession, 'user'>> & {
+  readonly user?: Partial<ActiveSession['user']>;
+};
+
+function storedSession(overrides: StoredSessionOverrides = {}): ActiveSession {
+  const { user, ...rest } = overrides;
+  return {
+    id: 's-1',
+    tokenHash: 'huella',
+    userId: 'u-1',
+    organizationId: null,
+    actingAsPlatformAdmin: false,
+    twoFactorVerifiedAt: null,
+    expiresAt: new Date('2026-09-28T00:00:00Z'),
+    ...rest,
+    user: {
+      email: 'persona@example.test',
+      firstName: 'Persona',
+      lastName: 'De prueba',
+      locale: 'es',
+      status: 'ACTIVE',
+      mustChangePassword: false,
+      isPlatformAdmin: false,
+      ...user,
+    },
+  };
+}
+
+function sessionOf(overrides: Partial<SessionContext> = {}): SessionContext {
+  return {
+    userId: 'u-1',
+    email: 'persona@example.test',
+    firstName: 'Persona',
+    lastName: 'De prueba',
+    locale: 'es',
+    organizationId: null,
+    isPlatformAdmin: false,
+    actingAsPlatformAdmin: false,
+    twoFactorVerifiedAt: null,
+    mustChangePassword: false,
+    ...overrides,
+  };
+}
+
+function grants(...codes: PermissionCode[]): void {
+  repository.listCompanyPermissions.mockResolvedValue(codes);
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  twoFactorRequired = true;
+  repository.findLiveMembershipCompany.mockResolvedValue(COMPANY);
+  repository.findEnterableOrganization.mockResolvedValue(COMPANY);
+  grants('product:read');
+});
+
+describe('getSession y la membresía viva (RN-006)', () => {
+  it('un miembro cuya membresía se retiró pierde la sesión en la petición siguiente', async () => {
+    repository.findSessionByHash.mockResolvedValue(storedSession({ organizationId: 'org-1' }));
+    repository.findLiveMembershipCompany.mockResolvedValue(null);
+
+    expect(await getSession()).toBeNull();
+    expect(repository.deleteSession).toHaveBeenCalledWith('huella');
+  });
+
+  it('con la membresía viva, la sesión sigue', async () => {
+    repository.findSessionByHash.mockResolvedValue(storedSession({ organizationId: 'org-1' }));
+
+    expect((await getSession())?.organizationId).toBe('org-1');
+    expect(repository.deleteSession).not.toHaveBeenCalled();
+  });
+
+  it('un super administrador dentro de una empresa la pierde si le revocan la concesión', async () => {
+    repository.findSessionByHash.mockResolvedValue(
+      storedSession({
+        organizationId: 'org-1',
+        actingAsPlatformAdmin: true,
+        user: { isPlatformAdmin: false },
+      }),
+    );
+
+    expect(await getSession()).toBeNull();
+    expect(repository.deleteSession).toHaveBeenCalledWith('huella');
+  });
+
+  it('sin empresa activa no se consulta ninguna membresía', async () => {
+    repository.findSessionByHash.mockResolvedValue(storedSession());
+
+    await getSession();
+    expect(repository.findLiveMembershipCompany).not.toHaveBeenCalled();
+  });
+});
+
+describe('requireCompanySession', () => {
+  it('se niega sin empresa activa', async () => {
+    repository.findSessionByHash.mockResolvedValue(storedSession());
+
+    await expect(requireCompanySession()).rejects.toThrow(AuthorizationError);
+  });
+
+  it('un miembro trabaja con los permisos de sus roles', async () => {
+    repository.findSessionByHash.mockResolvedValue(storedSession({ organizationId: 'org-1' }));
+    grants('product:read', 'inventory:read');
+
+    const session = await requireCompanySession();
+    expect([...session.permissions].sort()).toEqual(['inventory:read', 'product:read']);
+  });
+
+  it('un administrador de empresa sin segundo factor se detiene, si se exige', async () => {
+    repository.findSessionByHash.mockResolvedValue(storedSession({ organizationId: 'org-1' }));
+    grants('user:update');
+
+    await expect(requireCompanySession()).rejects.toThrow(TwoFactorRequiredError);
+  });
+
+  it('un super administrador dentro de la empresa tiene todos los permisos de empresa', async () => {
+    repository.findSessionByHash.mockResolvedValue(
+      storedSession({
+        organizationId: 'org-1',
+        actingAsPlatformAdmin: true,
+        twoFactorVerifiedAt: VERIFIED,
+        user: { isPlatformAdmin: true },
+      }),
+    );
+
+    const session = await requireCompanySession();
+    expect(session.permissions.has('user:update')).toBe(true);
+    expect(repository.listCompanyPermissions).not.toHaveBeenCalled();
+  });
+
+  it('pero sin segundo factor no pasa, igual que en las pantallas de plataforma', async () => {
+    repository.findSessionByHash.mockResolvedValue(
+      storedSession({
+        organizationId: 'org-1',
+        actingAsPlatformAdmin: true,
+        user: { isPlatformAdmin: true },
+      }),
+    );
+
+    await expect(requireCompanySession()).rejects.toThrow(TwoFactorRequiredError);
+  });
+});
+
+describe('requireCompanyPermission', () => {
+  beforeEach(() => {
+    repository.findSessionByHash.mockResolvedValue(storedSession({ organizationId: 'org-1' }));
+  });
+
+  it('rechaza el permiso que el miembro no tiene', async () => {
+    await expect(requireCompanyPermission('product:create')).rejects.toThrow(
+      AuthorizationError,
+    );
+  });
+
+  it('deja pasar el que tiene', async () => {
+    await expect(requireCompanyPermission('product:read')).resolves.toMatchObject({
+      organizationId: 'org-1',
+    });
+  });
+
+  it('no acepta un permiso de plataforma por la puerta de la empresa', async () => {
+    await expect(requireCompanyPermission('platform.organization:read')).rejects.toThrow(
+      AuthorizationError,
+    );
+  });
+
+  it('la variante que responde dice lo mismo', async () => {
+    const session = await requireCompanySession();
+
+    expect(holdsCompanyPermission(session, 'product:read')).toBe(true);
+    expect(holdsCompanyPermission(session, 'product:create')).toBe(false);
+  });
+});
+
+describe('authorizeCompanyEntry', () => {
+  it('un miembro entra en una empresa suya, sin acceso elevado', async () => {
+    await expect(authorizeCompanyEntry(sessionOf(), 'org-1')).resolves.toEqual({
+      company: COMPANY,
+      actingAsPlatformAdmin: false,
+      permissionCode: null,
+    });
+  });
+
+  it('no entra en una donde no tiene membresía viva, y no se le dice si existe', async () => {
+    repository.findLiveMembershipCompany.mockResolvedValue(null);
+
+    await expect(authorizeCompanyEntry(sessionOf(), 'org-2')).rejects.toThrow(NotFoundError);
+  });
+
+  it('un administrador de empresa sin segundo factor no entra, si se exige', async () => {
+    grants('role:update');
+
+    await expect(authorizeCompanyEntry(sessionOf(), 'org-1')).rejects.toThrow(
+      TwoFactorRequiredError,
+    );
+  });
+
+  it('un super administrador entra como plataforma, aunque además sea miembro', async () => {
+    const admin = sessionOf({ isPlatformAdmin: true, twoFactorVerifiedAt: VERIFIED });
+
+    await expect(authorizeCompanyEntry(admin, 'org-1')).resolves.toEqual({
+      company: COMPANY,
+      actingAsPlatformAdmin: true,
+      permissionCode: 'platform.organization:enter',
+    });
+    expect(repository.findLiveMembershipCompany).not.toHaveBeenCalled();
+  });
+
+  it('un super administrador sin segundo factor no entra, si se exige', async () => {
+    await expect(
+      authorizeCompanyEntry(sessionOf({ isPlatformAdmin: true }), 'org-1'),
+    ).rejects.toThrow(TwoFactorRequiredError);
+  });
+
+  it('entra sin segundo factor mientras la configuración lo suspende', async () => {
+    twoFactorRequired = false;
+
+    await expect(
+      authorizeCompanyEntry(sessionOf({ isPlatformAdmin: true }), 'org-1'),
+    ).resolves.toMatchObject({ actingAsPlatformAdmin: true });
+  });
+
+  it('no entra en una empresa borrada', async () => {
+    repository.findEnterableOrganization.mockResolvedValue(null);
+    const admin = sessionOf({ isPlatformAdmin: true, twoFactorVerifiedAt: VERIFIED });
+
+    await expect(authorizeCompanyEntry(admin, 'org-1')).rejects.toThrow(NotFoundError);
+  });
+});
+
+describe('authorizeAutomaticEntry', () => {
+  const member = { userId: 'u-1', isPlatformAdmin: false, twoFactorVerifiedAt: null };
+
+  it('quien pertenece a una sola empresa entra en ella', async () => {
+    repository.listCompanyChoices.mockResolvedValue([{ organizationId: 'org-1' }]);
+
+    await expect(authorizeAutomaticEntry(member)).resolves.toMatchObject({ company: COMPANY });
+  });
+
+  it('con varias tiene que elegir', async () => {
+    repository.listCompanyChoices.mockResolvedValue([
+      { organizationId: 'org-1' },
+      { organizationId: 'org-2' },
+    ]);
+
+    await expect(authorizeAutomaticEntry(member)).resolves.toBeNull();
+  });
+
+  it('la plataforma nunca entra sola: empieza en su lista', async () => {
+    await expect(
+      authorizeAutomaticEntry({ ...member, isPlatformAdmin: true }),
+    ).resolves.toBeNull();
+    expect(repository.listCompanyChoices).not.toHaveBeenCalled();
+  });
+
+  it('si esa única entrada pediría segundo factor, no entra y llega al selector', async () => {
+    repository.listCompanyChoices.mockResolvedValue([{ organizationId: 'org-1' }]);
+    grants('user:update');
+
+    await expect(authorizeAutomaticEntry(member)).resolves.toBeNull();
+  });
+});

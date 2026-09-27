@@ -15,10 +15,12 @@
  * 3. Sin empresa activa, un super administrador va a la lista de empresas, que
  *    es su punto de partida: sin empresa elegida, un resumen de existencias no
  *    significa nada.
- * 4. Cualquier otro caso es alguien que entró bien y no alcanza ninguna empresa.
- *    No es un error suyo ni un fallo del sistema: es una cuenta a la que todavía
- *    no le han concedido acceso, y hay que decírselo en lugar de dejarla ante
- *    una pantalla vacía.
+ * 4. Cualquier otro caso es un miembro sin empresa activa, que elige en cuál
+ *    trabajar. Quien pertenece a una sola ya entró en ella al iniciar sesión, así
+ *    que aquí llega quien tiene varias, o quien salió de la suya. Si resulta que
+ *    no alcanza ninguna, la pantalla de elegir se lo dice en lugar de dejarla
+ *    ante una lista vacía: esta función no consulta, así que no puede saberlo.
+ *    ADR 0013.
  */
 
 import type { SessionContext } from './session-context';
@@ -27,7 +29,7 @@ export type Landing =
   | { readonly kind: 'changePassword' }
   | { readonly kind: 'organizations' }
   | { readonly kind: 'company'; readonly organizationId: string }
-  | { readonly kind: 'noAccess' };
+  | { readonly kind: 'chooseCompany' };
 
 export function resolveLanding(session: SessionContext): Landing {
   if (session.mustChangePassword) return { kind: 'changePassword' };
@@ -35,5 +37,5 @@ export function resolveLanding(session: SessionContext): Landing {
     return { kind: 'company', organizationId: session.organizationId };
   }
   if (session.isPlatformAdmin) return { kind: 'organizations' };
-  return { kind: 'noAccess' };
+  return { kind: 'chooseCompany' };
 }

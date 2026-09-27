@@ -30,7 +30,10 @@ export default async function RootPage(): Promise<React.ReactElement> {
       // tenga empresa elegida ve lo mismo que quien no alcanza ninguna, y eso es
       // preferible a una pantalla en blanco sin explicación.
       return <NoAccessPanel email={session.email} />;
-    case 'noAccess':
+    case 'chooseCompany':
+      // El selector de empresa llega con las pantallas de la operación. Mientras
+      // tanto, quien tiene que elegir ve el mismo aviso que quien no alcanza
+      // ninguna, en lugar de una pantalla en blanco.
       return <NoAccessPanel email={session.email} />;
   }
 }
