@@ -17,7 +17,7 @@ registra aquí.
 | [Reglas de documentación](standards/documentation-rules.md)        | Cómo se escribe y mantiene toda la documentación     |
 | [Reglas de API](standards/api-documentation-rules.md)              | Cómo se documenta cada operación de servidor         |
 | [Plantilla de decisión](standards/adr-template.md)                 | Formato de los registros de decisión de arquitectura |
-| [Convenciones de Git](standards/git-conventions.md)                | Ramas, confirmaciones, revisión y versiones          |
+| [Convenciones de Git](standards/git-conventions.md)                | Idioma, ramas, confirmaciones, revisión y versiones  |
 
 ## Reglas por rol
 

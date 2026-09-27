@@ -3,26 +3,46 @@
 **Audiencia:** desarrollo
 **Estado:** vigente
 **Responsable:** equipo de arquitectura
-**Última revisión:** 2026-09-10
+**Última revisión:** 2026-09-27
 
-## 1. Ramas
+## 1. Idioma
+
+Todo lo que queda en Git y en GitHub se escribe en **inglés**:
+
+- nombres de rama;
+- mensajes de confirmación, resumen y cuerpo;
+- título y descripción de las propuestas de cambio;
+- comentarios de revisión, incidencias, etiquetas y notas de versión en GitHub.
+
+El motivo es que ese historial lo leen herramientas y personas de fuera del equipo, y el
+inglés es el idioma común de ambos.
+
+La regla no alcanza al contenido del repositorio, que sigue su propia norma: la
+documentación y los comentarios del código se escriben en español, según
+`.claude/agents/docs-writer.md`, y los textos de la interfaz, en el idioma de cada usuario.
+
+Lo que ya está escrito no se reescribe. Una rama abierta antes de esta regla puede
+conservar sus confirmaciones, pero su propuesta de cambio, y con ella la confirmación
+aplastada que llega a la rama principal, ya va en inglés.
+
+## 2. Ramas
 
 - La rama principal siempre está desplegable. Nadie escribe directamente en ella.
 - Una rama por unidad de trabajo, con nombre `tipo/descripcion-corta`, por ejemplo
-  `feat/registro-de-transferencias` o `fix/saldo-negativo-en-ajuste`.
+  `feat/stock-transfer-registration` o `fix/negative-balance-on-adjustment`.
 - Vida corta. Si una rama supera unos pocos días, el cambio es demasiado grande y debe
   dividirse.
 - Se integra la rama principal con frecuencia para evitar conflictos acumulados.
 
-## 2. Mensajes de confirmación
+## 3. Mensajes de confirmación
 
 Formato de confirmaciones convencionales:
 
 ```
-tipo(alcance): resumen en imperativo y minúscula
+type(scope): imperative summary in lowercase
 
-Cuerpo opcional que explica el porqué del cambio, no el qué. El qué ya está
-en el diff. Menciona la alternativa descartada si la hubo.
+Optional body that explains why the change was made, not what changed. The
+diff already shows what. Mention the rejected alternative, if there was one.
 
 Refs: #123
 ```
@@ -41,7 +61,7 @@ Reglas:
 - Prohibido confirmar código comentado, archivos generados, secretos o dependencias sin
   justificación.
 
-## 3. Propuestas de cambio
+## 4. Propuestas de cambio
 
 - Título con el mismo formato que el mensaje de confirmación.
 - La descripción responde: qué problema resuelve, cómo se resolvió, qué alternativas se
@@ -53,7 +73,7 @@ Reglas:
 - Tamaño objetivo por debajo de cuatrocientas líneas modificadas. Por encima, la revisión
   pierde eficacia y conviene dividir.
 
-## 4. Revisión de código
+## 5. Revisión de código
 
 Quien revisa comprueba, en este orden de prioridad:
 
@@ -70,7 +90,7 @@ Normas de convivencia: los comentarios se dirigen al código, nunca a la persona
 objeción propone una alternativa concreta. Las sugerencias opcionales se marcan como
 tales para distinguirlas de lo bloqueante.
 
-## 5. Fusión y versiones
+## 6. Fusión y versiones
 
 - Se fusiona con confirmación de combinación aplastada, para que la rama principal tenga
   un historial de una entrada por unidad de trabajo.
