@@ -5,7 +5,7 @@ import {
   parseAuditListQuery,
 } from '@/modules/audit';
 import { AuditView } from '@/modules/audit/components/audit-view';
-import { scopeOf } from '@/modules/auth/scope';
+import { platformScopeOf } from '@/modules/auth/scope';
 import { requirePlatformPermission } from '@/modules/auth/session';
 import { listOrganizations } from '@/modules/organizations/repository';
 
@@ -31,7 +31,7 @@ export default async function AuditPage({
   const session = await requirePlatformPermission('platform.audit:read');
   // El alcance viaja a la base, que aplica sus políticas con él. Se construye
   // después de autorizar, nunca antes. ADR 0010.
-  const scope = scopeOf(session);
+  const scope = platformScopeOf(session);
 
   const params = await searchParams;
   const query = parseAuditListQuery(params);

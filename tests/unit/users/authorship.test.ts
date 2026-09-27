@@ -43,12 +43,12 @@ function withoutScope(fn: (...args: readonly unknown[]) => unknown) {
 }
 
 /** El alcance que construye una sesión de super administrador sin empresa elegida. */
-const PLATFORM_SCOPE = { organizationId: null, actingAsPlatformAdmin: true };
+const PLATFORM_SCOPE = { organizationId: null, userId: null, actingAsPlatformAdmin: true };
 
 vi.mock('@/modules/auth', () => ({
   requirePlatformPermission: (code: string) => requirePlatformPermission(code),
   hashPassword: (plain: string) => hashPassword(plain),
-  scopeOf: () => PLATFORM_SCOPE,
+  platformScopeOf: () => PLATFORM_SCOPE,
 }));
 
 vi.mock('@/modules/audit', () => ({

@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/ui/page-header';
 import { getCopy } from '@/lib/i18n/server';
-import { requirePlatformPermission, scopeOf } from '@/modules/auth';
+import { requirePlatformPermission, platformScopeOf } from '@/modules/auth';
 import { UserForm } from '@/modules/users/components/user-form';
 import { listCountryChoices, listOrganizationChoices } from '@/modules/users/repository';
 import { USERS_PATH } from '@/modules/users/routes';
@@ -14,7 +14,7 @@ import { USERS_PATH } from '@/modules/users/routes';
  */
 export default async function NewUserPage(): Promise<React.ReactElement> {
   const session = await requirePlatformPermission('platform.user:create');
-  const scope = scopeOf(session);
+  const scope = platformScopeOf(session);
 
   const [copy, countries, organizations] = await Promise.all([
     getCopy(),

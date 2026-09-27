@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 
 import { PageHeader } from '@/components/ui/page-header';
 import { getCopy } from '@/lib/i18n/server';
-import { scopeOf } from '@/modules/auth/scope';
+import { platformScopeOf } from '@/modules/auth/scope';
 import { requirePlatformPermission } from '@/modules/auth/session';
 import { OrganizationForm } from '@/modules/organizations/components/organization-form';
 import {
@@ -29,7 +29,7 @@ export default async function EditOrganizationPage({
   readonly params: Promise<{ readonly slug: string }>;
 }): Promise<React.ReactElement> {
   const session = await requirePlatformPermission('platform.organization:update');
-  const scope = scopeOf(session);
+  const scope = platformScopeOf(session);
 
   const { slug } = await params;
   const organization = await findOrganizationBySlug(scope, slug);

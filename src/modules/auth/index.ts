@@ -11,7 +11,7 @@
  */
 
 export { MINIMUM_PASSWORD_LENGTH, type ChangePasswordInput, type SignInInput } from './schema';
-export { scopeOf } from './scope';
+export { companyScopeOf, platformScopeOf } from './scope';
 export { hashPassword } from './service';
 export {
   getSession,

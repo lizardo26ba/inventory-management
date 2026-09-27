@@ -26,7 +26,7 @@ import type { DataScope } from '@/lib/db/scope';
 import { ConflictError, NotFoundError, toErrorPayload, type ErrorPayload } from '@/lib/errors';
 import { logger } from '@/lib/observability/logger';
 import { buildAuditContext } from '@/modules/audit';
-import { hashPassword, requirePlatformPermission, scopeOf } from '@/modules/auth';
+import { hashPassword, requirePlatformPermission, platformScopeOf } from '@/modules/auth';
 
 import {
   checkEmail,
@@ -105,7 +105,7 @@ export async function createUser(input: unknown): Promise<CreateUserResult> {
 
   try {
     const session = await requirePlatformPermission(permission);
-    const scope = scopeOf(session);
+    const scope = platformScopeOf(session);
 
     const parsed = createUserSchema.safeParse(input);
     if (!parsed.success) {
@@ -196,7 +196,7 @@ export async function updateUser(input: unknown): Promise<UserActionResult> {
 
   try {
     const session = await requirePlatformPermission(permission);
-    const scope = scopeOf(session);
+    const scope = platformScopeOf(session);
 
     const parsed = updateUserSchema.safeParse(input);
     if (!parsed.success) {
@@ -296,7 +296,7 @@ export async function setUserActive(input: unknown): Promise<UserActionResult> {
 
   try {
     const session = await requirePlatformPermission(permission);
-    const scope = scopeOf(session);
+    const scope = platformScopeOf(session);
 
     const parsed = setUserActiveSchema.safeParse(input);
     if (!parsed.success) {
@@ -334,7 +334,7 @@ export async function deleteUser(input: unknown): Promise<UserActionResult> {
 
   try {
     const session = await requirePlatformPermission(permission);
-    const scope = scopeOf(session);
+    const scope = platformScopeOf(session);
 
     const parsed = userIdSchema.safeParse(input);
     if (!parsed.success) {

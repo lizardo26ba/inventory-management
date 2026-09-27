@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/ui/page-header';
 import { getCopy } from '@/lib/i18n/server';
-import { scopeOf } from '@/modules/auth/scope';
+import { platformScopeOf } from '@/modules/auth/scope';
 import { requirePlatformPermission } from '@/modules/auth/session';
 import { OrganizationForm } from '@/modules/organizations/components/organization-form';
 import {
@@ -19,7 +19,7 @@ import { ORGANIZATIONS_PATH } from '@/modules/organizations/routes';
  */
 export default async function NewOrganizationPage(): Promise<React.ReactElement> {
   const session = await requirePlatformPermission('platform.organization:create');
-  const scope = scopeOf(session);
+  const scope = platformScopeOf(session);
 
   const [copy, countries, currencies, takenSlugs] = await Promise.all([
     getCopy(),
