@@ -28,6 +28,11 @@ export type DemoAccount = {
   readonly name: string;
   readonly initials: string;
   readonly isPlatformAdmin: boolean;
+  /**
+   * Si ya activó el segundo factor. Solo cuenta en la plataforma, que es la única
+   * que lo lleva: sin él, al entrar se le pide activarlo. RN-005.
+   */
+  readonly hasTwoFactor: boolean;
   /** Empresas a las que pertenece, con el rol que tiene en cada una. */
   readonly memberships: readonly { readonly companyId: string; readonly roleCode: string }[];
 };
@@ -39,17 +44,28 @@ export const DEFAULT_DEMO_ACCOUNT: DemoAccount = {
   name: 'Platform admin',
   initials: 'PA',
   isPlatformAdmin: true,
+  hasTwoFactor: true,
   memberships: [],
 };
 
 export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
   DEFAULT_DEMO_ACCOUNT,
   {
+    email: 'nuevo@gt.com',
+    password: 'nuevo',
+    name: 'Nuevo admin',
+    initials: 'NA',
+    isPlatformAdmin: true,
+    hasTwoFactor: false,
+    memberships: [],
+  },
+  {
     email: 'maria@gt.com',
     password: 'maria',
     name: 'María López',
     initials: 'ML',
     isPlatformAdmin: false,
+    hasTwoFactor: false,
     memberships: [
       { companyId: 'c-01', roleCode: 'admin' },
       { companyId: 'c-02', roleCode: 'purchasing' },
@@ -62,9 +78,19 @@ export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
     name: 'Luis Herrera',
     initials: 'LH',
     isPlatformAdmin: false,
+    hasTwoFactor: false,
     memberships: [{ companyId: 'c-01', roleCode: 'sales' }],
   },
 ];
+
+/**
+ * El código que acepta la maqueta en lugar del de la app. En la aplicación real
+ * cambia cada 30 segundos.
+ */
+export const DEMO_TWO_FACTOR_CODE = '123456';
+
+/** La clave que se teclearía a mano si el QR no se puede escanear. */
+export const DEMO_TWO_FACTOR_KEY = 'JBSW Y3DP EHPK 3PXP JBSW Y3DP EHPK 3PXP';
 
 export function findDemoAccount(email: string, password: string): DemoAccount | undefined {
   const normalized = email.trim().toLowerCase();

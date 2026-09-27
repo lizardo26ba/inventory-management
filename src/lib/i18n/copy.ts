@@ -232,7 +232,32 @@ export const copyEn = {
     passwordRequired: 'Enter your password.',
     demoHintTitle: 'Prototype credentials',
     demoHintBody:
-      'Each account follows a different path: the platform, a member of several companies, and a member of just one.',
+      'Each account follows a different path: the platform with its second factor, a platform account that still has to set it up, a member of several companies, and a member of just one. Authenticator code: 123456.',
+  },
+
+  twoFactor: {
+    verifyTitle: 'Confirm it is you',
+    verifySubtitle: 'Open your authenticator app and enter the 6-digit code for this account.',
+    codeLabel: 'Authentication code',
+    digit: 'Digit',
+    digitOf: 'of',
+    codeHelp: 'The code changes every 30 seconds.',
+    verify: 'Verify',
+    verifying: 'Verifying',
+    codeRequired: 'Enter the 6 digits from your app.',
+    invalidCode:
+      'That code is not valid. Check that your phone shows the right time and try again.',
+    setupTitle: 'Protect your platform account',
+    setupSubtitle:
+      'Platform administrators reach every company, so their account needs a second factor. It takes two minutes.',
+    stepScan: '1. Scan this code with your authenticator app',
+    stepScanHelp:
+      'Google Authenticator, Microsoft Authenticator, 1Password or any app that supports TOTP.',
+    qrLabel: 'QR code to add this account to an authenticator app',
+    manualKey: 'Cannot scan it? Enter this key by hand:',
+    stepConfirm: '2. Enter the code the app shows',
+    activate: 'Activate',
+    activating: 'Activating',
   },
 
   organizations: {
