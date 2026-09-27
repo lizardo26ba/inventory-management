@@ -261,40 +261,43 @@ model Organization {
 /// Identidad global. Una persona puede pertenecer a varias organizaciones.
 /// No lleva organizationId: el vinculo se expresa en Membership.
 model User {
-  id                  String     @id @default(uuid(7))
-  email               String     @unique
-  passwordHash        String     @map("password_hash")
+  id                    String     @id @default(uuid(7))
+  email                 String     @unique
+  passwordHash          String     @map("password_hash")
   /// El nombre va partido en dos columnas porque las listas se ordenan y se
   /// buscan por apellido. Quien tenga dos apellidos los escribe juntos en el
   /// segundo campo: partirlo mas seria inventar una estructura que no todos los
   /// paises comparten.
-  firstName           String     @map("first_name")
-  lastName            String     @map("last_name")
+  firstName             String     @map("first_name")
+  lastName              String     @map("last_name")
   /// Pais de la persona, no de la empresa: una misma persona puede trabajar para
   /// empresas de varios paises. Se usa para presentar sus datos y para el
   /// formato telefonico. Opcional porque las cuentas creadas antes de que
   /// existiera la columna no lo tienen, y adivinarlo seria inventar un dato.
-  countryCode         String?    @map("country_code") @db.Char(2)
-  status              UserStatus @default(INVITED)
+  countryCode           String?    @map("country_code") @db.Char(2)
+  status                UserStatus @default(INVITED)
   /// Idioma de la interfaz. Es preferencia del usuario, no de la empresa. RN-010.
-  locale              String     @default("en")
-  emailVerifiedAt     DateTime?  @map("email_verified_at") @db.Timestamptz(6)
+  locale                String     @default("en")
+  emailVerifiedAt       DateTime?  @map("email_verified_at") @db.Timestamptz(6)
   /// Obliga a cambiar la contrasena antes de poder hacer cualquier otra cosa.
   /// Nace en verdadero para las cuentas creadas por semilla o por invitacion,
   /// donde la contrasena inicial la conoce alguien mas que su dueno.
-  mustChangePassword  Boolean    @default(false) @map("must_change_password")
+  mustChangePassword    Boolean    @default(false) @map("must_change_password")
   /// Secreto del segundo factor, cifrado en reposo por la aplicacion.
-  twoFactorSecret     String?    @map("two_factor_secret")
-  twoFactorEnabledAt  DateTime?  @map("two_factor_enabled_at") @db.Timestamptz(6)
-  failedLoginAttempts Int        @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime?  @map("locked_until") @db.Timestamptz(6)
-  lastLoginAt         DateTime?  @map("last_login_at") @db.Timestamptz(6)
-  version             Int        @default(0)
-  createdById         String     @map("created_by_id")
-  updatedById         String     @map("updated_by_id")
-  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt           DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  twoFactorSecret       String?    @map("two_factor_secret")
+  twoFactorEnabledAt    DateTime?  @map("two_factor_enabled_at") @db.Timestamptz(6)
+  /// Ultimo paso de 30 segundos aceptado. Un codigo de ese paso o de uno anterior
+  /// se rechaza, para que no sirva dos veces. ADR 0014.
+  twoFactorLastUsedStep BigInt?    @map("two_factor_last_used_step")
+  failedLoginAttempts   Int        @default(0) @map("failed_login_attempts")
+  lockedUntil           DateTime?  @map("locked_until") @db.Timestamptz(6)
+  lastLoginAt           DateTime?  @map("last_login_at") @db.Timestamptz(6)
+  version               Int        @default(0)
+  createdById           String     @map("created_by_id")
+  updatedById           String     @map("updated_by_id")
+  createdAt             DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt             DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
   country        Country?             @relation(fields: [countryCode], references: [code], onDelete: Restrict)
   memberships    Membership[]

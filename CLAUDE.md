@@ -16,6 +16,7 @@ versión funcional cubre existencias, compras y ventas.
 | Multiempresa         | Base compartida con `organization_id` en toda tabla de negocio                     | [ADR 0003](docs/adr/0003-multiempresa-con-identificador-de-organizacion.md)             |
 | Autenticación        | Credenciales propias con Argon2id y sesión en base de datos                        | [ADR 0007](docs/adr/0007-sesion-propia-sin-libreria-de-autenticacion.md)                |
 | Super administrador  | Acceso transversal, con segundo factor y auditoría obligatorios                    | [ADR 0005](docs/adr/0005-super-administrador-de-plataforma.md)                          |
+| Segundo factor       | App autenticadora, solo para el super administrador, sin códigos de respaldo       | [ADR 0014](docs/adr/0014-segundo-factor-del-super-administrador.md)                     |
 | Multipaís            | Moneda base por organización, tasa congelada en cada documento                     | [ADR 0006](docs/adr/0006-operacion-multipais-y-multimoneda.md)                          |
 | Integración          | Rama de Neon dedicada, recreada en cada ejecución                                  | [ADR 0009](docs/adr/0009-pruebas-de-integracion-en-rama-de-neon.md)                     |
 | Integración continua | GitHub Actions con PostgreSQL en contenedor; auditoría con excepciones que caducan | [ADR 0011](docs/adr/0011-integracion-continua-en-github-actions.md)                     |

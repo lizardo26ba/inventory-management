@@ -111,7 +111,8 @@ frente a administración plena.
 
 ## Enmienda 2026-09-11: el segundo factor se puede saltar por configuración
 
-**Estado:** vigente, temporal
+**Estado:** vigente, temporal. Pasa a obsoleta con las pantallas del
+[ADR 0014](0014-segundo-factor-del-super-administrador.md)
 **Decide:** propietario del producto
 
 ### Qué cambia

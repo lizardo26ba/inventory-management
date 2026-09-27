@@ -94,6 +94,10 @@ Dos reglas que no se ven en el diagrama y mandan sobre él:
 - **La sesión guarda la empresa activa.** Cambiarla rota la sesión, y mientras un super
   administrador actúa en una empresa ajena, `acting_as_platform_admin` lo dice en la sesión
   y en cada entrada de la bitácora. RN-072.
+- **El segundo factor tiene tres estados, y la base no admite otro.** Sin alta, todo nulo.
+  Pendiente, con el secreto cifrado y sin fecha de activación. Activo, con fecha y, desde
+  el primer código aceptado, el último paso usado en `two_factor_last_used_step`, que
+  impide repetir un código. ADR 0014.
 
 ## 4. Catálogos globales
 
@@ -217,13 +221,14 @@ informe no depende de la tabla de tasas al consultarse. ADR 0006.
 Prisma no conoce estas piezas. Aparecen como diferencia al comparar el esquema con la base,
 y es lo esperado; cualquier **otra** diferencia es un desalineamiento que hay que explicar.
 
-| Pieza                                     | Migración                                         |
-| ----------------------------------------- | ------------------------------------------------- |
-| Claves foráneas e índices de autoría      | `20260915033139_sellos_de_autoria`                |
-| Índice único del identificador fiscal     | `20260911210000_identificador_fiscal_normalizado` |
-| `NULLS NOT DISTINCT` del saldo            | `20260911002110_init`                             |
-| Restricciones `CHECK` de cantidad y costo | `20260911002110_init`                             |
-| Disparador y formato de la bitácora       | `20260915050000_bitacora_de_auditoria`            |
+| Pieza                                     | Migración                                               |
+| ----------------------------------------- | ------------------------------------------------------- |
+| Claves foráneas e índices de autoría      | `20260915033139_sellos_de_autoria`                      |
+| Índice único del identificador fiscal     | `20260911210000_identificador_fiscal_normalizado`       |
+| `NULLS NOT DISTINCT` del saldo            | `20260911002110_init`                                   |
+| Restricciones `CHECK` de cantidad y costo | `20260911002110_init`                                   |
+| Disparador y formato de la bitácora       | `20260915050000_bitacora_de_auditoria`                  |
+| Restricciones `CHECK` del segundo factor  | `20260927220000_segundo_factor_del_super_administrador` |
 
 Por qué no están en Prisma:
 
