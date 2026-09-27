@@ -1,7 +1,7 @@
 'use client';
 
 import { useCopy, type Copy } from '@/lib/i18n';
-import { DEMO_EMAIL, DEMO_PASSWORD } from '../demo-credentials';
+import { DEMO_ACCOUNTS } from '../demo-credentials';
 import { IconProducts, IconSales, IconStock } from '../ui/icons';
 import { LanguageSwitcher } from '../ui/language-switcher';
 import { LoginForm } from './login-form';
@@ -73,9 +73,13 @@ export default function LoginPage(): React.ReactElement {
           <div className="border-border bg-surface-muted rounded-control mt-6 border p-3">
             <p className="text-xs font-medium">{copy.login.demoHintTitle}</p>
             <p className="text-text-muted mt-1 text-xs">{copy.login.demoHintBody}</p>
-            <p className="mt-2 font-mono text-xs">
-              {DEMO_EMAIL} · {DEMO_PASSWORD}
-            </p>
+            <ul className="mt-2 space-y-1 font-mono text-xs">
+              {DEMO_ACCOUNTS.map((account) => (
+                <li key={account.email}>
+                  {account.email} · {account.password}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>
