@@ -90,11 +90,14 @@ jobs:
 
       # La configuración de servidor exige una clave de sesión de al menos 32
       # caracteres. Se genera aquí y se enmascara en el registro.
-      - name: Clave de sesión de un solo uso
+      - name: Claves de sesión y de segundo factor de un solo uso
         run: |
           secret="$(openssl rand -base64 32)"
           echo "::add-mask::$secret"
           echo "AUTH_SECRET=$secret" >> "$GITHUB_ENV"
+          key="$(openssl rand -base64 32)"
+          echo "::add-mask::$key"
+          echo "TWO_FACTOR_ENCRYPTION_KEY=$key" >> "$GITHUB_ENV"
 
       # Recrea la base desde cero, aplica todas las migraciones y corre la suite,
       # incluida la prueba de aislamiento entre empresas.
@@ -124,11 +127,14 @@ jobs:
 
       - run: npm ci
 
-      - name: Clave de sesión de un solo uso
+      - name: Claves de sesión y de segundo factor de un solo uso
         run: |
           secret="$(openssl rand -base64 32)"
           echo "::add-mask::$secret"
           echo "AUTH_SECRET=$secret" >> "$GITHUB_ENV"
+          key="$(openssl rand -base64 32)"
+          echo "::add-mask::$key"
+          echo "TWO_FACTOR_ENCRYPTION_KEY=$key" >> "$GITHUB_ENV"
 
       - run: npm run build
 

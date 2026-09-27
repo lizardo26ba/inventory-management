@@ -29,6 +29,16 @@ const MINIMUM_SECRET_LENGTH = 32;
  */
 const PLACEHOLDER_SECRET = 'reemplaza-esto-por-un-valor-generado-de-32-bytes';
 
+/** AES-256 necesita una clave de exactamente 32 bytes. ADR 0014. */
+const ENCRYPTION_KEY_BYTES = 32;
+
+/** El valor de ejemplo de la clave del segundo factor, rechazado por la misma razón. */
+const PLACEHOLDER_ENCRYPTION_KEY = 'reemplaza-esto-por-32-bytes-en-base64';
+
+function decodesToKey(value: string): boolean {
+  return Buffer.from(value, 'base64').length === ENCRYPTION_KEY_BYTES;
+}
+
 const serverSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
@@ -46,6 +56,20 @@ const serverSchema = z.object({
       message: 'sigue teniendo el valor de ejemplo; genera uno con openssl rand -base64 32',
     }),
   AUTH_URL: z.string().min(1),
+
+  /**
+   * Clave que cifra el secreto del segundo factor en la base. 32 bytes en
+   * base64. Sin ella, robar la base no basta para generar códigos. Perderla deja
+   * inservibles todos los segundos factores. ADR 0014.
+   */
+  TWO_FACTOR_ENCRYPTION_KEY: z
+    .string()
+    .refine((value) => value !== PLACEHOLDER_ENCRYPTION_KEY, {
+      message: 'sigue teniendo el valor de ejemplo; genera uno con openssl rand -base64 32',
+    })
+    .refine(decodesToKey, {
+      message: 'tiene que ser base64 de 32 bytes: openssl rand -base64 32',
+    }),
 
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),
@@ -98,6 +122,12 @@ function readServerEnvironment(): ServerEnvironment {
 export const serverEnv: ServerEnvironment = readServerEnvironment();
 
 export const isProduction = serverEnv.NODE_ENV === 'production';
+
+/** La clave del segundo factor, ya decodificada. Solo la usa el módulo de autenticación. */
+export const twoFactorEncryptionKey: Buffer = Buffer.from(
+  serverEnv.TWO_FACTOR_ENCRYPTION_KEY,
+  'base64',
+);
 export const isTest = serverEnv.NODE_ENV === 'test';
 
 /**
