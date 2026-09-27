@@ -28,10 +28,6 @@ vi.mock('@/lib/config/env.server', () => ({
   serverEnv: { AUTH_SECRET: 'clave-de-prueba-de-al-menos-32-caracteres' },
 }));
 
-vi.mock('@/lib/config/env.client', () => ({
-  clientEnv: { appUrl: 'http://localhost:3000', environmentLabel: 'pruebas' },
-}));
-
 const repository = vi.hoisted(() => ({
   acceptTwoFactorCode: vi.fn(),
   deleteSession: vi.fn(),

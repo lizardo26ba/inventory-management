@@ -21,7 +21,6 @@ import {
   generateTotpSecret,
   matchTotpStep,
 } from '@/lib/auth/totp';
-import { clientEnv } from '@/lib/config/env.client';
 import { isProduction, twoFactorEncryptionKey } from '@/lib/config/env.server';
 import { NotFoundError } from '@/lib/errors';
 import type { AuditContext } from '@/modules/audit';
@@ -43,15 +42,20 @@ const TWO_FACTOR_ISSUER = 'Inventario';
 /** La clave se enseña de cuatro en cuatro, que es como se teclea en un teléfono. */
 const MANUAL_KEY_GROUP = 4;
 
+/** Lo que se añade al emisor fuera de una compilación de producción. */
+const DEVELOPMENT_SUFFIX = 'desarrollo';
+
 /**
- * Fuera de producción el emisor lleva el nombre del entorno. Sin eso, quien
- * tiene cuenta en desarrollo y en producción ve dos entradas iguales en su app y
- * escribe el código de la que no es.
+ * Fuera de producción el emisor lo dice. Sin eso, quien tiene cuenta en su equipo
+ * y en producción ve dos entradas iguales en su app y escribe el código de la que
+ * no es.
+ *
+ * Sale de la configuración de servidor y no de la pública: esto corre en el
+ * servidor, y leer la pública obligaría a tenerla en cada despliegue solo para
+ * poner una etiqueta.
  */
 function issuer(): string {
-  return isProduction
-    ? TWO_FACTOR_ISSUER
-    : `${TWO_FACTOR_ISSUER} (${clientEnv.environmentLabel})`;
+  return isProduction ? TWO_FACTOR_ISSUER : `${TWO_FACTOR_ISSUER} (${DEVELOPMENT_SUFFIX})`;
 }
 
 function groupKey(secret: Buffer): string {
