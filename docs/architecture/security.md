@@ -174,16 +174,16 @@ mandan por encima de ella.
 - **Todo lo que hace el super administrador dentro de una empresa queda registrado**, con
   la empresa afectada y la marca de privilegio elevado (RN-072). Sus consultas también
   (RN-073).
-- **El segundo factor es obligatorio para el super administrador y para los
-  administradores de empresa** (RN-005), y hoy está suspendido de forma declarada porque
-  sus pantallas de alta y verificación no existen. Se gobierna con la variable de entorno
-  `PLATFORM_ADMIN_TWO_FACTOR`, que por omisión lo exige, y la misma variable decide para
-  los dos. Ver la enmienda del [ADR 0005](../adr/0005-super-administrador-de-plataforma.md)
-  y el [ADR 0013](../adr/0013-empresa-activa-en-la-sesion.md).
-- **Administrador de empresa, a efectos del segundo factor, es quien tiene `user:update`
-  o `role:update`** en esa empresa. No es el nombre del rol: con cualquiera de los dos
-  permisos una persona decide quién entra y con qué, y puede concederse todo lo demás.
-  Ver `COMPANY_ADMINISTRATION_PERMISSIONS`.
+- **El segundo factor es obligatorio para el super administrador, y solo para él**
+  (RN-005). Es un código de app autenticadora que se pide en cada inicio de sesión. Un
+  código no sirve dos veces, y uno equivocado cuenta como una contraseña equivocada para
+  el bloqueo de la cuenta. Hoy está suspendido de forma declarada porque sus pantallas no
+  existen: lo gobierna la variable `PLATFORM_ADMIN_TWO_FACTOR`, que por omisión lo exige.
+  Ver el [ADR 0014](../adr/0014-segundo-factor-del-super-administrador.md) y la enmienda del
+  [ADR 0005](../adr/0005-super-administrador-de-plataforma.md).
+- **Solo otro super administrador restablece un segundo factor**, y nunca el propio. Al
+  restablecerlo se cierran todas las sesiones de esa persona. No hay códigos de respaldo,
+  así que la operación mantiene al menos dos super administradores. ADR 0014.
 - **Suspender a un usuario o retirarle el acceso corta su sesión de inmediato**, no al
   expirar (RN-006). Con empresa activa, cada petición vuelve a leer la membresía, o la
   concesión de plataforma, y si ya no da acceso la sesión se borra.

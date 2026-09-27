@@ -31,19 +31,22 @@ el cómo se resuelve.
 | RN-002 | El acceso de un usuario a una empresa lo concede un administrador de esa empresa.                        | Confirmada |
 | RN-003 | Solo el super administrador crea empresas.                                                               | Confirmada |
 | RN-004 | El super administrador puede entrar a cualquier empresa, eligiéndola de forma explícita en cada ocasión. | Confirmada |
-| RN-005 | El segundo factor es obligatorio para el super administrador y para los administradores de empresa.      | Confirmada |
+| RN-005 | El segundo factor es obligatorio para el super administrador.                                            | Confirmada |
 | RN-006 | Suspender a un usuario o retirarle el acceso corta su sesión de inmediato, no al expirar.                | Confirmada |
 | RN-007 | Los permisos se agrupan en roles, y los roles se definen por empresa.                                    | Confirmada |
 | RN-008 | Un usuario puede quedar limitado a ciertos almacenes dentro de su empresa.                               | Supuesta   |
 | RN-009 | Roles iniciales: administrador, compras, ventas, almacén y consulta.                                     | Supuesta   |
 
-RN-005 está suspendida de forma temporal y declarada. Sus pantallas de alta y de
-verificación no existen todavía, así que la regla se apagaría sola dejando el despliegue
-inservible. Mientras dure, el segundo factor se exige o se salta con la variable
-`PLATFORM_ADMIN_TWO_FACTOR`, que por omisión lo exige. La misma variable decide para los
-administradores de empresa. Ver la enmienda del
-[ADR 0005](../adr/0005-super-administrador-de-plataforma.md) y el
-[ADR 0013](../adr/0013-empresa-activa-en-la-sesion.md).
+RN-005 cubría también a los administradores de empresa. El propietario del producto la
+dejó solo en el super administrador el 2026-09-27: es la única cuenta que alcanza todas las
+empresas. El segundo factor es una app autenticadora, sin códigos de respaldo; quien pierde
+el teléfono lo recupera con otro super administrador, que se lo restablece. Ver el
+[ADR 0014](../adr/0014-segundo-factor-del-super-administrador.md).
+
+Mientras no existan sus pantallas, RN-005 sigue suspendida de forma temporal y declarada:
+el segundo factor se exige o se salta con la variable `PLATFORM_ADMIN_TWO_FACTOR`, que por
+omisión lo exige. Ver la enmienda del
+[ADR 0005](../adr/0005-super-administrador-de-plataforma.md).
 
 ## 2. Idioma y presentación
 

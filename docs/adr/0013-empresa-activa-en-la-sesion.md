@@ -4,6 +4,8 @@
 **Fecha:** 2026-09-27
 **Decide:** propietario del producto
 **Consultados:** equipo de arquitectura
+**Enmendada por:** [0014](0014-segundo-factor-del-super-administrador.md), que retira el
+segundo factor de los administradores de empresa
 **Relacionadas:** [0005](0005-super-administrador-de-plataforma.md),
 [0007](0007-sesion-propia-sin-libreria-de-autenticacion.md),
 [0010](0010-aislamiento-con-seguridad-a-nivel-de-fila.md)
