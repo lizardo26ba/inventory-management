@@ -427,7 +427,9 @@ export async function createUser(
     );
 
     // La huella de la contraseña no entra: la bitácora dice que la cuenta nació,
-    // no con qué credencial.
+    // no con qué credencial. Tampoco la obligación de cambiarla: toda cuenta nace
+    // con ella, así que no dice nada, y su nombre contiene "password", que la
+    // guarda de la bitácora rechaza con razón.
     const entries: AuditEntry[] = [
       {
         action: 'user.created',
@@ -441,7 +443,6 @@ export async function createUser(
           lastName: data.lastName,
           countryCode: data.countryCode,
           status: 'ACTIVE',
-          mustChangePassword: true,
         },
       },
     ];
