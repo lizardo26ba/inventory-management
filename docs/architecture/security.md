@@ -144,25 +144,26 @@ en la bitácora de auditoría.
 
 ## 4. Permisos de plataforma
 
-Catorce permisos que solo alcanza el super administrador. No se conceden de uno en uno ni
+Quince permisos que solo alcanza el super administrador. No se conceden de uno en uno ni
 se reparten por roles: se tiene el privilegio o no se tiene.
 
-| Permiso                         | Qué permite                                              |
-| ------------------------------- | -------------------------------------------------------- |
-| `platform.organization:create`  | Crear empresas                                           |
-| `platform.organization:read`    | Ver la lista de todas las empresas                       |
-| `platform.organization:update`  | Editar los datos de cualquier empresa                    |
-| `platform.organization:suspend` | Suspender o reactivar una empresa                        |
-| `platform.organization:delete`  | Eliminar una empresa y todo lo que contiene              |
-| `platform.organization:enter`   | Entrar a una empresa de la que no se es miembro          |
-| `platform.user:read`            | Ver los usuarios de toda la plataforma                   |
-| `platform.user:create`          | Crear cuentas de usuario                                 |
-| `platform.user:update`          | Editar cualquier usuario y sus accesos a empresas        |
-| `platform.user:suspend`         | Suspender o reactivar cualquier usuario                  |
-| `platform.user:delete`          | Eliminar una cuenta de usuario                           |
-| `platform.admin:grant`          | Conceder el privilegio de super administrador            |
-| `platform.admin:revoke`         | Revocar el privilegio de super administrador             |
-| `platform.audit:read`           | Consultar la bitácora de auditoría de toda la plataforma |
+| Permiso                         | Qué permite                                               |
+| ------------------------------- | --------------------------------------------------------- |
+| `platform.organization:create`  | Crear empresas                                            |
+| `platform.organization:read`    | Ver la lista de todas las empresas                        |
+| `platform.organization:update`  | Editar los datos de cualquier empresa                     |
+| `platform.organization:suspend` | Suspender o reactivar una empresa                         |
+| `platform.organization:delete`  | Eliminar una empresa y todo lo que contiene               |
+| `platform.organization:enter`   | Entrar a una empresa de la que no se es miembro           |
+| `platform.user:read`            | Ver los usuarios de toda la plataforma                    |
+| `platform.user:create`          | Crear cuentas de usuario                                  |
+| `platform.user:update`          | Editar cualquier usuario y sus accesos a empresas         |
+| `platform.user:suspend`         | Suspender o reactivar cualquier usuario                   |
+| `platform.user:delete`          | Eliminar una cuenta de usuario                            |
+| `platform.admin:grant`          | Conceder el privilegio de super administrador             |
+| `platform.admin:revoke`         | Revocar el privilegio de super administrador              |
+| `platform.two_factor:reset`     | Restablecer el segundo factor de otro super administrador |
+| `platform.audit:read`           | Consultar la bitácora de auditoría de toda la plataforma  |
 
 ## 5. Lo que la matriz no dice
 
@@ -181,6 +182,9 @@ mandan por encima de ella.
   existen: lo gobierna la variable `PLATFORM_ADMIN_TWO_FACTOR`, que por omisión lo exige.
   Ver el [ADR 0014](../adr/0014-segundo-factor-del-super-administrador.md) y la enmienda del
   [ADR 0005](../adr/0005-super-administrador-de-plataforma.md).
+- **Un código del segundo factor equivocado cuenta como una contraseña equivocada**: suma
+  al mismo contador y, al quinto, bloquea la cuenta quince minutos y cierra la sesión a
+  medio verificar. Superarlo rota el testigo de la sesión, igual que cambiar de empresa.
 - **Solo otro super administrador restablece un segundo factor**, y nunca el propio. Al
   restablecerlo se cierran todas las sesiones de esa persona. No hay códigos de respaldo,
   así que la operación mantiene al menos dos super administradores. ADR 0014.
@@ -212,9 +216,10 @@ Cumple RN-070 a RN-073. El catálogo de acciones es código, `AUDIT_ACTIONS` en
 lista.
 
 **Qué se registra.** Toda escritura sobre empresas, cuentas, accesos a empresa y privilegio
-de plataforma, además de cinco sucesos de sesión: entrar, cambiar la contraseña, quedar
-bloqueado por intentos fallidos, entrar a una empresa y salir de ella. Entrar como
-plataforma queda marcado como privilegio elevado. Cada entrada se escribe en la misma transacción que el
+de plataforma, además de siete sucesos de sesión: entrar, cambiar la contraseña, quedar
+bloqueado por intentos fallidos, entrar a una empresa, salir de ella, activar el segundo
+factor y superarlo. Restablecer el segundo factor de otra persona también se registra,
+con quién lo hizo. Entrar como plataforma queda marcado como privilegio elevado. Cada entrada se escribe en la misma transacción que el
 cambio: si el cambio se revierte, la entrada también, y si la entrada no se puede escribir,
 el cambio no ocurre.
 

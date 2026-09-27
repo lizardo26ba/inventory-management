@@ -856,6 +856,61 @@ export async function setUserActive(
   });
 }
 
+export type ResetTwoFactorResult = 'RESET' | 'NOTHING_TO_RESET' | 'NOT_FOUND';
+
+/**
+ * Deja una cuenta sin segundo factor y cierra todas sus sesiones. ADR 0014.
+ *
+ * Borra los tres campos a la vez, que es lo único que la base admite: sin alta.
+ * Las sesiones se cierran en la misma transacción, porque quien restablece suele
+ * hacerlo porque el teléfono se perdió, y una sesión ya verificada con ese
+ * teléfono no debe sobrevivir. Al volver a entrar, la persona lo activa de nuevo.
+ *
+ * Un alta pendiente también se borra: su QR pudo verlo alguien más.
+ */
+export async function resetUserTwoFactor(
+  scope: DataScope,
+  id: string,
+  actorId: string,
+  audit: AuditContext,
+): Promise<ResetTwoFactorResult> {
+  return withScope(scope, async (tx) => {
+    const current = await tx.user.findFirst({
+      where: { id, deletedAt: null },
+      select: { email: true, twoFactorSecret: true, twoFactorEnabledAt: true },
+    });
+
+    if (current === null) return 'NOT_FOUND';
+    if (current.twoFactorSecret === null) return 'NOTHING_TO_RESET';
+
+    await tx.user.update({
+      where: { id },
+      data: {
+        twoFactorSecret: null,
+        twoFactorEnabledAt: null,
+        twoFactorLastUsedStep: null,
+        updatedById: actorId,
+      },
+    });
+
+    await tx.session.deleteMany({ where: { userId: id } });
+
+    await recordAuditEntries(tx, audit, [
+      {
+        action: 'user.two_factor_reset',
+        entityType: 'User',
+        entityId: id,
+        entityLabel: current.email,
+        organizationId: null,
+        before: { twoFactorEnabled: current.twoFactorEnabledAt !== null },
+        after: { twoFactorEnabled: false },
+      },
+    ]);
+
+    return 'RESET';
+  });
+}
+
 /**
  * Borra una cuenta sin borrarla.
  *

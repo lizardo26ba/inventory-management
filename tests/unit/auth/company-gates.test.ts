@@ -58,6 +58,7 @@ const {
   holdsCompanyPermission,
   requireCompanyPermission,
   requireCompanySession,
+  requireTwoFactorChallenge,
 } = await import('@/modules/auth/session');
 
 const COMPANY = { id: 'org-1', name: 'Empresa Uno' };
@@ -86,6 +87,7 @@ function storedSession(overrides: StoredSessionOverrides = {}): ActiveSession {
       status: 'ACTIVE',
       mustChangePassword: false,
       isPlatformAdmin: false,
+      twoFactorEnabled: false,
       ...user,
     },
   };
@@ -101,6 +103,7 @@ function sessionOf(overrides: Partial<SessionContext> = {}): SessionContext {
     organizationId: null,
     isPlatformAdmin: false,
     actingAsPlatformAdmin: false,
+    twoFactorEnabled: false,
     twoFactorVerifiedAt: null,
     mustChangePassword: false,
     ...overrides,
@@ -171,11 +174,12 @@ describe('requireCompanySession', () => {
     expect([...session.permissions].sort()).toEqual(['inventory:read', 'product:read']);
   });
 
-  it('un administrador de empresa sin segundo factor se detiene, si se exige', async () => {
+  it('un administrador de empresa trabaja sin segundo factor: RN-005 es solo de la plataforma', async () => {
     repository.findSessionByHash.mockResolvedValue(storedSession({ organizationId: 'org-1' }));
-    grants('user:update');
+    grants('user:update', 'role:update');
 
-    await expect(requireCompanySession()).rejects.toThrow(TwoFactorRequiredError);
+    const session = await requireCompanySession();
+    expect(session.permissions.has('user:update')).toBe(true);
   });
 
   it('un super administrador dentro de la empresa tiene todos los permisos de empresa', async () => {
@@ -252,12 +256,13 @@ describe('authorizeCompanyEntry', () => {
     await expect(authorizeCompanyEntry(sessionOf(), 'org-2')).rejects.toThrow(NotFoundError);
   });
 
-  it('un administrador de empresa sin segundo factor no entra, si se exige', async () => {
+  it('un administrador de empresa entra sin segundo factor', async () => {
     grants('role:update');
 
-    await expect(authorizeCompanyEntry(sessionOf(), 'org-1')).rejects.toThrow(
-      TwoFactorRequiredError,
-    );
+    await expect(authorizeCompanyEntry(sessionOf(), 'org-1')).resolves.toMatchObject({
+      company: COMPANY,
+      actingAsPlatformAdmin: false,
+    });
   });
 
   it('un super administrador entra como plataforma, aunque además sea miembro', async () => {
@@ -294,7 +299,7 @@ describe('authorizeCompanyEntry', () => {
 });
 
 describe('authorizeAutomaticEntry', () => {
-  const member = { userId: 'u-1', isPlatformAdmin: false, twoFactorVerifiedAt: null };
+  const member = { userId: 'u-1', isPlatformAdmin: false };
 
   it('quien pertenece a una sola empresa entra en ella', async () => {
     repository.listCompanyChoices.mockResolvedValue([{ organizationId: 'org-1' }]);
@@ -318,10 +323,32 @@ describe('authorizeAutomaticEntry', () => {
     expect(repository.listCompanyChoices).not.toHaveBeenCalled();
   });
 
-  it('si esa única entrada pediría segundo factor, no entra y llega al selector', async () => {
+  it('quien administra su única empresa también entra directo', async () => {
     repository.listCompanyChoices.mockResolvedValue([{ organizationId: 'org-1' }]);
     grants('user:update');
 
-    await expect(authorizeAutomaticEntry(member)).resolves.toBeNull();
+    await expect(authorizeAutomaticEntry(member)).resolves.toMatchObject({ company: COMPANY });
+  });
+});
+
+describe('requireTwoFactorChallenge (ADR 0014)', () => {
+  it('un miembro no llega a las pantallas del segundo factor', async () => {
+    repository.findSessionByHash.mockResolvedValue(storedSession());
+
+    await expect(requireTwoFactorChallenge()).rejects.toThrow(AuthorizationError);
+  });
+
+  it('un super administrador sin factor superado sí llega: es donde lo supera', async () => {
+    repository.findSessionByHash.mockResolvedValue(
+      storedSession({ user: { isPlatformAdmin: true } }),
+    );
+
+    await expect(requireTwoFactorChallenge()).resolves.toMatchObject({ isPlatformAdmin: true });
+  });
+
+  it('sin sesión no llega nadie', async () => {
+    repository.findSessionByHash.mockResolvedValue(null);
+
+    await expect(requireTwoFactorChallenge()).rejects.toThrow('No hay sesión activa.');
   });
 });

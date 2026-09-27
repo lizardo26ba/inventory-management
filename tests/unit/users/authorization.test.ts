@@ -24,6 +24,7 @@ const updateUserActive = vi.fn();
 const removeUser = vi.fn();
 const listOrganizationChoices = vi.fn();
 const findUser = vi.fn();
+const resetUserTwoFactor = vi.fn();
 
 /**
  * El repositorio recibe el alcance de datos como primer argumento. Aquí se aparta
@@ -57,6 +58,7 @@ vi.mock('@/modules/users/repository', () => ({
   createUser: withoutScope((...args) => insertUser(...args)),
   findUserById: withoutScope((...args) => findUser(...args)),
   listOrganizationChoices: withoutScope(() => listOrganizationChoices()),
+  resetUserTwoFactor: withoutScope((...args) => resetUserTwoFactor(...args)),
   setUserActive: withoutScope((...args) => updateUserActive(...args)),
   softDeleteUser: withoutScope((...args) => removeUser(...args)),
   updateUser: withoutScope((...args) => saveUser(...args)),
@@ -73,7 +75,7 @@ vi.mock('@/lib/observability/logger', () => ({
   logger: { failure: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
-const { createUser, deleteUser, setUserActive, updateUser } =
+const { createUser, deleteUser, resetTwoFactor, setUserActive, updateUser } =
   await import('@/modules/users/actions');
 
 const SOME_USER_ID = '00000000-0000-4000-8000-000000000000';
@@ -262,5 +264,65 @@ describe('acceso de plataforma', () => {
       },
     });
     expect(saveUser).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Restablecer el segundo factor. ADR 0014.
+ *
+ * Es la única salida de quien pierde el teléfono, y por eso mismo la puerta que
+ * un atacante con la contraseña querría usar: quitar el factor y poner el suyo.
+ */
+describe('restablecer el segundo factor', () => {
+  const ACTING_USER_ID = '00000000-0000-4000-8000-0000000000ff';
+
+  it('sin permiso no se restablece nada', async () => {
+    const result = await resetTwoFactor({ id: SOME_USER_ID });
+
+    expect(result).toEqual({ ok: false, error: { code: 'NOT_AUTHORIZED' } });
+    expect(requirePlatformPermission).toHaveBeenCalledWith('platform.two_factor:reset');
+    expect(resetUserTwoFactor).not.toHaveBeenCalled();
+    expect(buildAuditContext).not.toHaveBeenCalled();
+  });
+
+  it('nadie restablece el suyo, aunque tenga el permiso', async () => {
+    requirePlatformPermission.mockResolvedValue({ userId: ACTING_USER_ID });
+
+    const result = await resetTwoFactor({ id: ACTING_USER_ID });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: 'VALIDATION_FAILED', fieldErrors: { id: 'cannotResetOwnTwoFactor' } },
+    });
+    expect(resetUserTwoFactor).not.toHaveBeenCalled();
+  });
+
+  it('rechaza un campo de más en lugar de ignorarlo', async () => {
+    requirePlatformPermission.mockResolvedValue({ userId: ACTING_USER_ID });
+
+    const result = await resetTwoFactor({ id: SOME_USER_ID, keepSessions: true });
+
+    expect(result).toMatchObject({ ok: false, error: { code: 'VALIDATION_FAILED' } });
+    expect(resetUserTwoFactor).not.toHaveBeenCalled();
+  });
+
+  it('con permiso y otra cuenta, restablece con el alcance de plataforma', async () => {
+    requirePlatformPermission.mockResolvedValue({ userId: ACTING_USER_ID });
+    resetUserTwoFactor.mockResolvedValue('RESET');
+
+    const result = await resetTwoFactor({ id: SOME_USER_ID });
+
+    expect(result).toEqual({ ok: true });
+    expect(resetUserTwoFactor).toHaveBeenCalledWith(SOME_USER_ID, ACTING_USER_ID, undefined);
+    expect(scopes).toEqual([PLATFORM_SCOPE]);
+  });
+
+  it('una cuenta que no existe se dice como no encontrada', async () => {
+    requirePlatformPermission.mockResolvedValue({ userId: ACTING_USER_ID });
+    resetUserTwoFactor.mockResolvedValue('NOT_FOUND');
+
+    const result = await resetTwoFactor({ id: SOME_USER_ID });
+
+    expect(result).toEqual({ ok: false, error: { code: 'NOT_FOUND' } });
   });
 });

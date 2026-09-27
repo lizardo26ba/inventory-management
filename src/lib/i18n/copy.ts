@@ -57,6 +57,10 @@ export const copyEn = {
     roleNotInOrganization: 'That role belongs to another company. Reload the page.',
     cannotRevokeOwnPlatformAccess:
       'You cannot take platform access away from your own account. Ask another super administrator.',
+    invalidTwoFactorCode:
+      'That code is not valid. Check that your phone shows the right time and try again.',
+    cannotResetOwnTwoFactor:
+      'You cannot reset your own second factor. Ask another super administrator.',
   },
 
   /** Lo que se enseña cuando una operación entera falla. */
@@ -601,6 +605,7 @@ export const copyEn = {
     'user.activated': 'User reactivated',
     'user.deactivated': 'User suspended',
     'user.deleted': 'User deleted',
+    'user.two_factor_reset': 'Second factor reset',
     'membership.granted': 'Company access granted',
     'membership.role_changed': 'Role changed',
     'membership.revoked': 'Company access revoked',
@@ -611,6 +616,8 @@ export const copyEn = {
     'auth.locked_out': 'Locked out after failed attempts',
     'auth.company_entered': 'Entered a company',
     'auth.company_left': 'Left a company',
+    'auth.two_factor_enabled': 'Second factor turned on',
+    'auth.two_factor_verified': 'Second factor verified',
   },
 
   admin: {

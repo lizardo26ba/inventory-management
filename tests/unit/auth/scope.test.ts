@@ -25,6 +25,7 @@ function sessionOf(overrides: Partial<SessionContext> = {}): SessionContext {
     organizationId: null,
     isPlatformAdmin: false,
     actingAsPlatformAdmin: false,
+    twoFactorEnabled: false,
     twoFactorVerifiedAt: null,
     mustChangePassword: false,
     ...overrides,

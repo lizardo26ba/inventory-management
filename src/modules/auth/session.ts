@@ -25,7 +25,7 @@ import {
   NotFoundError,
   TwoFactorRequiredError,
 } from '@/lib/errors';
-import { everyOrganizationPermission, judgeMemberAccess } from '@/modules/auth/company-access';
+import { everyOrganizationPermission } from '@/modules/auth/company-access';
 import {
   deleteSession,
   findEnterableOrganization,
@@ -63,6 +63,7 @@ function toContext(session: ActiveSession): SessionContext {
     organizationId: session.organizationId,
     isPlatformAdmin: session.user.isPlatformAdmin,
     actingAsPlatformAdmin: session.actingAsPlatformAdmin,
+    twoFactorEnabled: session.user.twoFactorEnabled,
     twoFactorVerifiedAt: session.twoFactorVerifiedAt,
     mustChangePassword: session.user.mustChangePassword,
   };
@@ -250,6 +251,23 @@ async function companyAccessIsLive(session: ActiveSession): Promise<boolean> {
   return (await findLiveMembershipCompany(session.userId, session.organizationId)) !== null;
 }
 
+/**
+ * La sesión que pueden usar las pantallas del segundo factor: la de un super
+ * administrador. RN-005, ADR 0014.
+ *
+ * No pide el factor superado, porque es justo donde se supera. Tampoco lo
+ * rechaza: volver a verificar no da nada que la sesión no tuviera.
+ */
+export async function requireTwoFactorChallenge(): Promise<SessionContext> {
+  const session = await requireSession();
+
+  if (!session.isPlatformAdmin) {
+    throw new AuthorizationError('El segundo factor es solo del super administrador.');
+  }
+
+  return session;
+}
+
 /** Traduce el veredicto de la plataforma a la excepción que cierra el paso. */
 function assertPlatformVerdict(session: SessionContext): void {
   const verdict = judgePlatformAdmin(session);
@@ -274,8 +292,8 @@ export type CompanySession = SessionContext & {
  *
  * Exige empresa activa. Un super administrador dentro de ella tiene cualquier
  * permiso de empresa, pero solo mientras su puerta de plataforma siga abierta,
- * con el segundo factor incluido. Un miembro tiene los de sus roles, y si esos lo
- * hacen administrador de la empresa, también le toca el segundo factor. RN-005.
+ * con el segundo factor incluido. Un miembro tiene los de sus roles, sin segundo
+ * factor: RN-005 solo lo pide al super administrador. ADR 0014.
  */
 export async function requireCompanySession(): Promise<CompanySession> {
   const session = await requireSession();
@@ -291,10 +309,6 @@ export async function requireCompanySession(): Promise<CompanySession> {
   }
 
   const permissions = new Set(await listCompanyPermissions(session.userId, organizationId));
-
-  if (judgeMemberAccess(session, permissions, requiresPlatformAdminTwoFactor) !== 'GRANTED') {
-    throw new TwoFactorRequiredError('Falta superar el segundo factor en esta sesión.');
-  }
 
   return { ...session, organizationId, permissions };
 }
@@ -346,16 +360,11 @@ export type CompanyEntry = {
  * mismo: no encontrada. Distinguirlas diría qué empresas existen.
  */
 export async function authorizeMemberEntry(
-  member: Pick<SessionContext, 'userId' | 'twoFactorVerifiedAt'>,
+  member: Pick<SessionContext, 'userId'>,
   organizationId: string,
 ): Promise<CompanyEntry> {
   const company = await findLiveMembershipCompany(member.userId, organizationId);
   if (company === null) throw new NotFoundError('No hay acceso a esa empresa.');
-
-  const permissions = new Set(await listCompanyPermissions(member.userId, organizationId));
-  if (judgeMemberAccess(member, permissions, requiresPlatformAdminTwoFactor) !== 'GRANTED') {
-    throw new TwoFactorRequiredError('Falta superar el segundo factor en esta sesión.');
-  }
 
   return { company, actingAsPlatformAdmin: false, permissionCode: null };
 }
@@ -388,24 +397,16 @@ export async function authorizeCompanyEntry(
  * La empresa en la que entra sola una persona al iniciar sesión, si la hay.
  *
  * Solo quien pertenece a una única empresa: con varias hay que elegir, y la
- * plataforma empieza en su lista. Si esa única entrada le pediría un segundo
- * factor que no ha superado, no se entra y la persona llega al selector, que le
- * dirá por qué no puede. ADR 0013.
+ * plataforma empieza en su lista. ADR 0013.
  */
 export async function authorizeAutomaticEntry(user: {
   readonly userId: string;
   readonly isPlatformAdmin: boolean;
-  readonly twoFactorVerifiedAt: Date | null;
 }): Promise<CompanyEntry | null> {
   if (user.isPlatformAdmin) return null;
 
   const [only, ...others] = await listCompanyChoices(user.userId);
   if (only === undefined || others.length > 0) return null;
 
-  try {
-    return await authorizeMemberEntry(user, only.organizationId);
-  } catch (error) {
-    if (error instanceof TwoFactorRequiredError) return null;
-    throw error;
-  }
+  return authorizeMemberEntry(user, only.organizationId);
 }

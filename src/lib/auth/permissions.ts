@@ -56,6 +56,9 @@ export const PERMISSIONS = [
   platform('delete', 'user', 'Eliminar una cuenta de usuario'),
   platform('grant', 'admin', 'Conceder el privilegio de super administrador'),
   platform('revoke', 'admin', 'Revocar el privilegio de super administrador'),
+  // Nadie se restablece el suyo: la acción lo rechaza aunque se tenga el permiso.
+  // ADR 0014.
+  platform('reset', 'two_factor', 'Restablecer el segundo factor de otro super administrador'),
   platform('read', 'audit', 'Consultar la bitácora de auditoría de toda la plataforma'),
 
   // --- Empresa -------------------------------------------------------------

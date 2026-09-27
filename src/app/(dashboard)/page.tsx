@@ -2,7 +2,14 @@ import { redirect } from 'next/navigation';
 
 import { resolveLanding } from '@/modules/auth/landing';
 import { findCompanySummary } from '@/modules/auth/repository';
-import { CHANGE_PASSWORD_PATH, SELECT_COMPANY_PATH, SIGN_IN_PATH } from '@/modules/auth/routes';
+import { requiresPlatformAdminTwoFactor } from '@/lib/config/env.server';
+import {
+  CHANGE_PASSWORD_PATH,
+  SELECT_COMPANY_PATH,
+  SIGN_IN_PATH,
+  TWO_FACTOR_PATH,
+  TWO_FACTOR_SETUP_PATH,
+} from '@/modules/auth/routes';
 import { getSession, requireCompanySession } from '@/modules/auth/session';
 import { ORGANIZATIONS_PATH } from '@/modules/organizations/routes';
 
@@ -19,11 +26,17 @@ export default async function RootPage(): Promise<React.ReactElement> {
   const session = await getSession();
   if (session === null) redirect(SIGN_IN_PATH);
 
-  const landing = resolveLanding(session);
+  const landing = resolveLanding(session, {
+    twoFactorRequired: requiresPlatformAdminTwoFactor,
+  });
 
   switch (landing.kind) {
     case 'changePassword':
       redirect(CHANGE_PASSWORD_PATH);
+    case 'twoFactorSetup':
+      redirect(TWO_FACTOR_SETUP_PATH);
+    case 'twoFactorVerify':
+      redirect(TWO_FACTOR_PATH);
     case 'organizations':
       redirect(ORGANIZATIONS_PATH);
     case 'company': {

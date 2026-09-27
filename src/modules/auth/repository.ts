@@ -175,6 +175,8 @@ export type ActiveSession = {
     readonly status: 'INVITED' | 'ACTIVE' | 'SUSPENDED';
     readonly mustChangePassword: boolean;
     readonly isPlatformAdmin: boolean;
+    /** Si tiene un segundo factor activo. Pendiente no cuenta. */
+    readonly twoFactorEnabled: boolean;
   };
 };
 
@@ -197,6 +199,7 @@ export async function findSessionByHash(tokenHash: string): Promise<ActiveSessio
           locale: true,
           status: true,
           mustChangePassword: true,
+          twoFactorEnabledAt: true,
           deletedAt: true,
           platformAdmin: { select: { revokedAt: true } },
         },
@@ -222,6 +225,7 @@ export async function findSessionByHash(tokenHash: string): Promise<ActiveSessio
       status: user.status,
       mustChangePassword: user.mustChangePassword,
       isPlatformAdmin: user.platformAdmin !== null && user.platformAdmin.revokedAt === null,
+      twoFactorEnabled: user.twoFactorEnabledAt !== null,
     },
   };
 }
@@ -559,4 +563,158 @@ export async function findCompanySummary(
       select: { name: true, countryCode: true, baseCurrencyCode: true },
     }),
   );
+}
+
+// ---------------------------------------------------------------------------
+// El segundo factor del super administrador. ADR 0014.
+//
+// El secreto sale de aquí cifrado, tal como está en la base. Descifrarlo es
+// asunto de quien lo necesita, que es el único que tiene la clave.
+// ---------------------------------------------------------------------------
+
+export type TwoFactorState = {
+  readonly email: string;
+  /** El secreto cifrado, o nulo si no hay alta. */
+  readonly sealedSecret: string | null;
+  /** Cuándo se activó, o nulo si está pendiente o sin alta. */
+  readonly enabledAt: Date | null;
+  readonly lastUsedStep: bigint | null;
+  readonly failedLoginAttempts: number;
+  readonly lockedUntil: Date | null;
+};
+
+export async function findTwoFactorState(userId: string): Promise<TwoFactorState | null> {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, deletedAt: null },
+    select: {
+      email: true,
+      twoFactorSecret: true,
+      twoFactorEnabledAt: true,
+      twoFactorLastUsedStep: true,
+      failedLoginAttempts: true,
+      lockedUntil: true,
+    },
+  });
+
+  if (user === null) return null;
+
+  return {
+    email: user.email,
+    sealedSecret: user.twoFactorSecret,
+    enabledAt: user.twoFactorEnabledAt,
+    lastUsedStep: user.twoFactorLastUsedStep,
+    failedLoginAttempts: user.failedLoginAttempts,
+    lockedUntil: user.lockedUntil,
+  };
+}
+
+/**
+ * Guarda el secreto de un alta pendiente, solo si la cuenta no tiene ninguno.
+ *
+ * La condición va en la escritura y no en una consulta previa: dos pestañas que
+ * abren el alta a la vez no se pisan, y la segunda se queda con el secreto de la
+ * primera, que es el que su QR ya enseña. Devuelve si escribió.
+ */
+export async function savePendingTwoFactorSecret(
+  userId: string,
+  sealedSecret: string,
+): Promise<boolean> {
+  const result = await prisma.user.updateMany({
+    where: { id: userId, deletedAt: null, twoFactorSecret: null, twoFactorEnabledAt: null },
+    data: { twoFactorSecret: sealedSecret },
+  });
+
+  return result.count > 0;
+}
+
+/**
+ * Da por bueno un código: guarda su paso, activa el factor si estaba pendiente,
+ * y deja la sesión verificada rotando su testigo. Todo en una transacción.
+ *
+ * El paso se escribe con la condición de ser posterior al último usado. Si otra
+ * petición aceptó el mismo código un instante antes, la condición falla y aquí
+ * no se verifica nada: es el rechazo de un código repetido, dicho por la base y
+ * no por una consulta que llegó tarde.
+ *
+ * Rotar el testigo es lo que se hace en todo cambio de privilegio (ADR 0007). La
+ * sesión nueva hereda la caducidad: verificar no alarga la vida de la sesión.
+ *
+ * Devuelve falso si el código ya se había usado, y lanza si la sesión ya no existe.
+ */
+export async function acceptTwoFactorCode(
+  input: {
+    readonly userId: string;
+    readonly email: string;
+    readonly step: bigint;
+    /** Cierto si esto confirma un alta pendiente. */
+    readonly activates: boolean;
+    readonly verifiedAt: Date;
+    readonly currentTokenHash: string;
+    readonly nextTokenHash: string;
+  },
+  audit: AuditContext,
+): Promise<boolean> {
+  return withScope(ANONYMOUS_SCOPE, async (tx) => {
+    const accepted = await tx.user.updateMany({
+      where: {
+        id: input.userId,
+        deletedAt: null,
+        twoFactorSecret: { not: null },
+        // Confirmar exige un alta pendiente; verificar, un factor activo.
+        twoFactorEnabledAt: input.activates ? null : { not: null },
+        OR: [{ twoFactorLastUsedStep: null }, { twoFactorLastUsedStep: { lt: input.step } }],
+      },
+      data: {
+        twoFactorLastUsedStep: input.step,
+        ...(input.activates ? { twoFactorEnabledAt: input.verifiedAt } : {}),
+        // El segundo paso comparte contador con la contraseña: acertar lo limpia.
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
+
+    if (accepted.count === 0) return false;
+
+    const current = await tx.session.findUnique({
+      where: { tokenHash: input.currentTokenHash },
+      select: {
+        userId: true,
+        organizationId: true,
+        actingAsPlatformAdmin: true,
+        expiresAt: true,
+        ipAddress: true,
+        userAgent: true,
+      },
+    });
+
+    if (current === null || current.userId !== input.userId) {
+      throw new AuthenticationError('La sesión ya no existe.');
+    }
+
+    await tx.session.create({
+      data: {
+        tokenHash: input.nextTokenHash,
+        userId: current.userId,
+        organizationId: current.organizationId,
+        actingAsPlatformAdmin: current.actingAsPlatformAdmin,
+        twoFactorVerifiedAt: input.verifiedAt,
+        expiresAt: current.expiresAt,
+        ipAddress: current.ipAddress,
+        userAgent: current.userAgent,
+      },
+    });
+    await tx.session.delete({ where: { tokenHash: input.currentTokenHash } });
+
+    await recordAuditEntries(tx, audit, [
+      {
+        action: input.activates ? 'auth.two_factor_enabled' : 'auth.two_factor_verified',
+        entityType: 'User',
+        entityId: input.userId,
+        entityLabel: input.email,
+        organizationId: null,
+      },
+    ]);
+
+    return true;
+  });
 }
