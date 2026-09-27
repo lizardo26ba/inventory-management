@@ -2,5 +2,3 @@
 node_modules
 package-lock.json
 prisma/migrations
-# Lo genera Next con su propio formato; si Prettier lo reescribe, Next lo vuelve a cambiar.
-next-env.d.ts

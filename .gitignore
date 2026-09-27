@@ -65,6 +65,9 @@ out/
 dist/
 build/
 *.tsbuildinfo
+# Lo genera Next, y su contenido cambia entre next dev y next build. La comprobación
+# de tipos lo crea con next typegen antes de ejecutar tsc.
+next-env.d.ts
 
 # Pruebas y cobertura
 coverage/
