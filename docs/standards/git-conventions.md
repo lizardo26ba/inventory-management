@@ -21,9 +21,9 @@ La regla no alcanza al contenido del repositorio, que sigue su propia norma: la
 documentación y los comentarios del código se escriben en español, según
 `.claude/agents/docs-writer.md`, y los textos de la interfaz, en el idioma de cada usuario.
 
-Lo que ya está escrito no se reescribe. Una rama abierta antes de esta regla puede
-conservar sus confirmaciones, pero su propuesta de cambio, y con ella la confirmación
-aplastada que llega a la rama principal, ya va en inglés.
+Como se fusiona con combinación normal, cada confirmación de una rama llega a la rama
+principal tal cual, así que la regla alcanza a todas, no solo al título de la propuesta.
+Lo escrito antes de esta regla no se reescribe.
 
 ## 2. Ramas
 
@@ -92,11 +92,14 @@ tales para distinguirlas de lo bloqueante.
 
 ## 6. Fusión y versiones
 
-- Se fusiona con confirmación de combinación aplastada, para que la rama principal tenga
-  un historial de una entrada por unidad de trabajo.
+- Se fusiona con combinación normal: las confirmaciones de la rama llegan a la rama
+  principal tal cual, y la confirmación de combinación lleva el título y la descripción de
+  la propuesta. Ver
+  [ADR 0012](../adr/0012-fusion-con-combinacion-normal-y-sin-aprobacion-obligatoria.md).
 - Requisitos para fusionar: integración continua en verde, al menos una aprobación, y
   para cambios en autenticación, permisos o cálculo de existencias, aprobación adicional
-  de una persona con responsabilidad de arquitectura.
+  de una persona con responsabilidad de arquitectura. Los dos requisitos de aprobación
+  están suspendidos mientras el equipo sea de una sola persona, según el ADR 0012.
 - Versionado semántico. Las etiquetas se generan desde el historial de confirmaciones
   convencionales.
 - Toda versión desplegada tiene su entrada en el historial de cambios y un plan de
