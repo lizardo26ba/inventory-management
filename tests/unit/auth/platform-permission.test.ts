@@ -15,7 +15,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { type SessionContext } from '@/modules/auth/session-context';
+import type { SessionContext } from '@/modules/auth/session-context';
 
 /**
  * Si el segundo factor se exige es configuración, y la configuración se lee una

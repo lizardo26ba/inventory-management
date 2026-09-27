@@ -5,7 +5,7 @@
  * petición, para que el servicio se pueda probar sin levantar nada.
  */
 
-import { type PermissionCode } from '@/lib/auth/permissions';
+import type { PermissionCode } from '@/lib/auth/permissions';
 
 /**
  * Lo que puede aparecer en la bitácora.

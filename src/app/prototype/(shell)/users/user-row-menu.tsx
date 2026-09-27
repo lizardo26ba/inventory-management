@@ -18,7 +18,7 @@ import { useCopy } from '@/lib/i18n';
 import { IconPencil, IconTrash } from '../../ui/icons';
 import { RowMenu } from '../../ui/row-menu';
 import { useUserStore } from '../../user-store';
-import { type User } from '../../users-data';
+import type { User } from '../../users-data';
 
 export function UserRowMenu({ user }: { readonly user: User }): React.ReactElement {
   const copy = useCopy();

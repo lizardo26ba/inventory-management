@@ -178,13 +178,16 @@ export function TextFilter({
 
   const valueFromUrl = searchParams.get(param) ?? '';
   const [value, setValue] = useState(valueFromUrl);
+  const [followedValue, setFollowedValue] = useState(valueFromUrl);
   const isFirstRender = useRef(true);
 
   // Si la dirección cambia por otra vía, como el botón de atrás o el enlace de
-  // limpiar, el campo tiene que seguirla.
-  useEffect(() => {
+  // limpiar, el campo tiene que seguirla. Se ajusta durante el render y no en
+  // un efecto: así no llega a pintarse un render con el texto viejo.
+  if (valueFromUrl !== followedValue) {
+    setFollowedValue(valueFromUrl);
     setValue(valueFromUrl);
-  }, [valueFromUrl]);
+  }
 
   useEffect(() => {
     if (isFirstRender.current) {

@@ -39,12 +39,6 @@ const nextConfig: NextConfig = {
   // La cabecera delata la versión del servidor sin dar nada a cambio.
   poweredByHeader: false,
 
-  eslint: {
-    // El linter corre como paso propio de la verificación. Repetirlo en cada
-    // compilación solo la hace más lenta.
-    ignoreDuringBuilds: true,
-  },
-
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

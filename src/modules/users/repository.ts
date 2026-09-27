@@ -17,7 +17,7 @@ import 'server-only';
  * del segundo factor. No se dibujan, así que no se leen.
  */
 
-import { type Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 import { withScope, type DataScope } from '@/lib/db/scope';
 import {
@@ -28,14 +28,14 @@ import {
   type AuditEntry,
 } from '@/modules/audit';
 
-import {
-  type OrganizationChoice,
-  type UserDetail,
-  type UserListItem,
-  type UserPage,
-  type UsersSummary,
+import type {
+  OrganizationChoice,
+  UserDetail,
+  UserListItem,
+  UserPage,
+  UsersSummary,
 } from './types';
-import { type UserListQuery, type UserSortKey } from './schema';
+import type { UserListQuery, UserSortKey } from './schema';
 import { diffAccesses } from './service';
 
 /** Lo vivo. Se repite en cada consulta a propósito, para que no se olvide. */

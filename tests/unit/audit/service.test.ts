@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import { InternalError } from '@/lib/errors';
 import { diffFields, isElevated, toAuditRow } from '@/modules/audit/service';
-import { type AuditContext, type AuditEntry } from '@/modules/audit/types';
+import type { AuditContext, AuditEntry } from '@/modules/audit/types';
 
 /** Dirección del rango reservado para documentación. No es de nadie. */
 const CONTEXT: AuditContext = {

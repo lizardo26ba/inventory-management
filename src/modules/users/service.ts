@@ -9,7 +9,7 @@ import { randomInt } from 'node:crypto';
 
 import { MINIMUM_PASSWORD_LENGTH } from '@/modules/auth/schema';
 
-import { type AccessInput } from './schema';
+import type { AccessInput } from './schema';
 
 /**
  * El alfabeto de las contraseñas temporales.

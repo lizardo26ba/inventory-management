@@ -40,7 +40,7 @@ import { getCopy } from '@/lib/i18n/server';
 
 import { USERS_PATH, userEditPath } from '../routes';
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, type UserListQuery } from '../schema';
-import { type UserListItem, type UsersSummary } from '../types';
+import type { UserListItem, UsersSummary } from '../types';
 import { roleName } from './role-name';
 import { UserRowMenu, UserStatusToggle } from './user-row-actions';
 

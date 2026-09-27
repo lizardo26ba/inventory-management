@@ -14,7 +14,7 @@
  * estaban se omiten en lugar de fallar.
  */
 
-import { type Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 import { ROLE_TEMPLATES, permissionsForRoleTemplate } from '@/lib/auth/permissions';
 

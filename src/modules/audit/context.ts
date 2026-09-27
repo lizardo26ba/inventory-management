@@ -11,10 +11,10 @@ import 'server-only';
 
 import { randomUUID } from 'node:crypto';
 
-import { type PermissionCode } from '@/lib/auth/permissions';
+import type { PermissionCode } from '@/lib/auth/permissions';
 import { requestFingerprint } from '@/lib/observability/request';
 
-import { type AuditContext } from './types';
+import type { AuditContext } from './types';
 
 /** Lo que la auditoría necesita saber de quien opera. La sesión ya lo cumple. */
 export type AuditActor = {

@@ -37,14 +37,14 @@ function HorizontalBands({
   readonly bands: readonly (readonly [color: string, weight: number])[];
 }): React.ReactElement {
   const total = bands.reduce((sum, [, weight]) => sum + weight, 0);
-  let offset = 0;
 
   return (
     <>
       {bands.map(([color, weight], index) => {
         const height = (weight / total) * 3;
-        const y = offset;
-        offset += height;
+        // Cada franja empieza donde terminan las anteriores.
+        const above = bands.slice(0, index).reduce((sum, [, earlier]) => sum + earlier, 0);
+        const y = (above / total) * 3;
         return (
           <rect
             key={color + String(index)}

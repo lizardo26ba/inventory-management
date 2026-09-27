@@ -17,7 +17,7 @@ import { useState } from 'react';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { useCompanyStore } from '../../company-store';
 import { useCopy } from '@/lib/i18n';
-import { type Company } from '../../fake-data';
+import type { Company } from '../../fake-data';
 import { IconEye, IconPencil, IconTrash } from '../../ui/icons';
 import { RowMenu } from '../../ui/row-menu';
 

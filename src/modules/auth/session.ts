@@ -25,7 +25,7 @@ import {
   findSessionByHash,
   type ActiveSession,
 } from '@/modules/auth/repository';
-import { type SessionContext } from '@/modules/auth/session-context';
+import type { SessionContext } from '@/modules/auth/session-context';
 import {
   hashSessionToken,
   isSessionExpired,

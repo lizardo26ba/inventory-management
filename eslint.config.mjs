@@ -1,18 +1,13 @@
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-import { FlatCompat } from '@eslint/eslintrc';
+import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
-
-const compat = new FlatCompat({ baseDirectory: dirname(fileURLToPath(import.meta.url)) });
 
 export default tseslint.config(
   {
     ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts', 'prisma/migrations/**'],
   },
 
-  ...compat.extends('next/core-web-vitals'),
+  ...nextCoreWebVitals,
   ...tseslint.configs.recommended,
 
   {
@@ -24,6 +19,10 @@ export default tseslint.config(
         'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
+      // Un import que solo trae tipos, escrito como import { type X }, conserva
+      // el módulo en el paquete. Si ese módulo es de servidor, un componente de
+      // cliente lo arrastra al navegador y la compilación falla.
+      '@typescript-eslint/no-import-type-side-effects': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },

@@ -41,13 +41,16 @@ export function SearchInput({
 
   const queryFromUrl = searchParams.get('q') ?? '';
   const [value, setValue] = useState(queryFromUrl);
+  const [followedQuery, setFollowedQuery] = useState(queryFromUrl);
   const isFirstRender = useRef(true);
 
   // Si la dirección cambia por otra vía, por ejemplo el botón de atrás, el
-  // campo tiene que seguirla.
-  useEffect(() => {
+  // campo tiene que seguirla. Se ajusta durante el render y no en un efecto:
+  // así no llega a pintarse un render con el texto viejo.
+  if (queryFromUrl !== followedQuery) {
+    setFollowedQuery(queryFromUrl);
     setValue(queryFromUrl);
-  }, [queryFromUrl]);
+  }
 
   useEffect(() => {
     if (isFirstRender.current) {

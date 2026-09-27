@@ -36,8 +36,8 @@ import {
 } from '@/lib/auth/permissions';
 import { useCopy, type Copy } from '@/lib/i18n';
 
-import { type AccessInput } from '../schema';
-import { type OrganizationChoice } from '../types';
+import type { AccessInput } from '../schema';
+import type { OrganizationChoice } from '../types';
 
 /** Los permisos de empresa, agrupados por el recurso al que alcanzan. */
 const GROUPS = ORGANIZATION_PERMISSIONS.reduce<Map<string, string[]>>((groups, permission) => {

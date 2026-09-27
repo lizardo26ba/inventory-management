@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { resolveLanding } from '@/modules/auth/landing';
-import { type SessionContext } from '@/modules/auth/session-context';
+import type { SessionContext } from '@/modules/auth/session-context';
 
 function sessionOf(overrides: Partial<SessionContext> = {}): SessionContext {
   return {

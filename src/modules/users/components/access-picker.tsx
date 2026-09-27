@@ -23,8 +23,8 @@ import { CountryFlag } from '@/components/ui/flag';
 import { Select } from '@/components/ui/form';
 import { useCopy } from '@/lib/i18n';
 
-import { type AccessInput } from '../schema';
-import { type OrganizationChoice } from '../types';
+import type { AccessInput } from '../schema';
+import type { OrganizationChoice } from '../types';
 import { roleName } from './role-name';
 
 export function AccessPicker({

@@ -9,13 +9,13 @@ import { z } from 'zod';
 import { PERMISSIONS, type PermissionCode } from '@/lib/auth/permissions';
 import { InternalError } from '@/lib/errors';
 
-import {
-  type AuditContext,
-  type AuditEntry,
-  type AuditFields,
-  type AuditRow,
-  type AuditValue,
-  type FieldChanges,
+import type {
+  AuditContext,
+  AuditEntry,
+  AuditFields,
+  AuditRow,
+  AuditValue,
+  FieldChanges,
 } from './types';
 
 /**
