@@ -77,5 +77,9 @@
       "prettier --write"
     ],
     "*.{json,md,css,yml,yaml}": "prettier --write"
+  },
+  "//": "overrides.deepmerge-ts: prisma 6 y 7 fijan deepmerge-ts 7.1.5, afectada por GHSA-ggr8-5vv4-36mx; la 8 la corrige y solo llega con prisma 8. Prisma la usa para combinar archivos de configuración, y este proyecto no tiene ninguno. Se retira al subir a prisma 8.",
+  "overrides": {
+    "deepmerge-ts": "^8.0.2"
   }
 }
