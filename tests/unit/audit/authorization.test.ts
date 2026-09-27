@@ -26,7 +26,7 @@ vi.mock('@/modules/auth/session', () => ({
 // Traduce la sesión al alcance que lee la base. Aquí no llega a usarse: la puerta
 // rechaza antes. Se simula porque toca el cliente de la base al importarse.
 vi.mock('@/modules/auth/scope', () => ({
-  scopeOf: () => ({ organizationId: null, actingAsPlatformAdmin: true }),
+  platformScopeOf: () => ({ organizationId: null, userId: null, actingAsPlatformAdmin: true }),
 }));
 
 vi.mock('@/modules/audit', () => ({

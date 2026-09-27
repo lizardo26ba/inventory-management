@@ -31,7 +31,7 @@ const PAGE_SIZE = 2;
  * El alcance con el que consulta la pantalla de plataforma: sin empresa elegida y
  * con la excepción del super administrador encendida. ADR 0005 y ADR 0010.
  */
-const PLATFORM: DataScope = { organizationId: null, actingAsPlatformAdmin: true };
+const PLATFORM: DataScope = { organizationId: null, userId: null, actingAsPlatformAdmin: true };
 
 /** Dirección del rango reservado para documentación. No es de nadie. */
 function contextFor(correlationId: string): AuditContext {

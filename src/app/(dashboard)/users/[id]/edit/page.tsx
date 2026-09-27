@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 
 import { PageHeader } from '@/components/ui/page-header';
 import { getCopy } from '@/lib/i18n/server';
-import { requirePlatformPermission, scopeOf } from '@/modules/auth';
+import { requirePlatformPermission, platformScopeOf } from '@/modules/auth';
 import { UserForm } from '@/modules/users/components/user-form';
 import {
   findUserById,
@@ -27,7 +27,7 @@ export default async function EditUserPage({
   readonly params: Promise<{ readonly id: string }>;
 }): Promise<React.ReactElement> {
   const session = await requirePlatformPermission('platform.user:update');
-  const scope = scopeOf(session);
+  const scope = platformScopeOf(session);
 
   const { id } = await params;
   const user = await findUserById(scope, id);

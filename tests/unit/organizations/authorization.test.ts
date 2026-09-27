@@ -25,7 +25,7 @@ vi.mock('@/modules/auth/session', () => ({
 }));
 
 vi.mock('@/modules/auth/scope', () => ({
-  scopeOf: () => ({ organizationId: null, actingAsPlatformAdmin: true }),
+  platformScopeOf: () => ({ organizationId: null, userId: null, actingAsPlatformAdmin: true }),
 }));
 
 vi.mock('@/modules/audit', () => ({

@@ -8,7 +8,7 @@ import { IconPencil } from '@/components/ui/icons';
 import { PageHeader } from '@/components/ui/page-header';
 import { formatDate, formatQuantity } from '@/lib/format';
 import { getCopy } from '@/lib/i18n/server';
-import { scopeOf } from '@/modules/auth/scope';
+import { platformScopeOf } from '@/modules/auth/scope';
 import { requirePlatformPermission } from '@/modules/auth/session';
 import { findOrganizationBySlug } from '@/modules/organizations/repository';
 import { ORGANIZATIONS_PATH, organizationPath } from '@/modules/organizations/routes';
@@ -34,7 +34,7 @@ export default async function OrganizationDetailPage({
   const session = await requirePlatformPermission('platform.organization:read');
 
   const { slug } = await params;
-  const organization = await findOrganizationBySlug(scopeOf(session), slug);
+  const organization = await findOrganizationBySlug(platformScopeOf(session), slug);
 
   // Una empresa borrada no existe para nadie. Da la misma respuesta que una que
   // nunca existió, para no delatar cuáles hubo.

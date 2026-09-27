@@ -22,7 +22,7 @@ vi.mock('@/modules/auth/session', () => ({
 }));
 
 vi.mock('@/modules/auth/scope', () => ({
-  scopeOf: () => PLATFORM_SCOPE,
+  platformScopeOf: () => PLATFORM_SCOPE,
 }));
 
 vi.mock('@/modules/audit', () => ({
@@ -44,7 +44,7 @@ function withoutScope(fn: (...args: readonly unknown[]) => unknown) {
 }
 
 /** El alcance que construye una sesión de super administrador sin empresa elegida. */
-const PLATFORM_SCOPE = { organizationId: null, actingAsPlatformAdmin: true };
+const PLATFORM_SCOPE = { organizationId: null, userId: null, actingAsPlatformAdmin: true };
 
 vi.mock('@/modules/organizations/repository', () => ({
   createOrganization: vi.fn(),

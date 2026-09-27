@@ -14,6 +14,9 @@
  * - Escribir en la empresa ajena se rechaza, aunque el identificador sea válido.
  * - La excepción del super administrador deja ver por encima de todas. ADR 0005.
  * - El rol de la aplicación no puede saltarse las políticas.
+ * - Sin empresa, la persona ve sus membresías activas, sus empresas y sus roles,
+ *   y nada de nadie más. Lo revocado deja de verse. Leer lo propio no permite
+ *   escribir. ADR 0013.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -30,6 +33,16 @@ const ORGANIZATION_A = randomUUID();
 const ORGANIZATION_B = randomUUID();
 const AUTHOR = randomUUID();
 
+/** Miembro de A, con una membresía revocada en B. */
+const MEMBER = randomUUID();
+/** Miembro de B, para comprobar que lo ajeno no se ve. */
+const OTHER = randomUUID();
+const MEMBERSHIP_MEMBER_A = randomUUID();
+const MEMBERSHIP_MEMBER_B_REVOKED = randomUUID();
+const MEMBERSHIP_OTHER_B = randomUUID();
+const ROLE_A = randomUUID();
+const ROLE_B = randomUUID();
+
 let app: PrismaClient;
 
 /** Lo que la aplicación declara al abrir una transacción. Aquí se hace a mano. */
@@ -37,16 +50,23 @@ async function asOrganization<T>(
   organizationId: string | null,
   platform: boolean,
   run: (tx: PrismaClient) => Promise<T>,
+  userId: string | null = null,
 ): Promise<T> {
   return app.$transaction(async (tx) => {
     await tx.$queryRaw`
       SELECT
         set_config('app.organization_id', ${organizationId ?? ''}, true),
+        set_config('app.user_id', ${userId ?? ''}, true),
         set_config('app.platform_admin', ${platform ? 'on' : 'off'}, true)
     `;
 
     return run(tx as unknown as PrismaClient);
   });
+}
+
+/** Sin empresa ni excepción: solo la persona en el contexto. */
+async function asPerson<T>(userId: string, run: (tx: PrismaClient) => Promise<T>): Promise<T> {
+  return asOrganization(null, false, run, userId);
 }
 
 async function countOrganizations(tx: PrismaClient, id: string): Promise<number> {
@@ -117,6 +137,48 @@ beforeAll(async () => {
         time_zone, locale, is_active, version, created_by_id, updated_by_id, created_at, updated_at)
       VALUES (${id}, ${`aisl-${id.slice(0, 8)}`}, ${name}, ${name}, 'GT', 'GTQ',
         'America/Guatemala', 'es', true, 0, ${AUTHOR}, ${AUTHOR}, now(), now())
+    `;
+  }
+
+  for (const [id, name] of [
+    [MEMBER, 'Miembro'],
+    [OTHER, 'Ajeno'],
+  ] as const) {
+    await prisma.$executeRaw`
+      INSERT INTO users (id, email, password_hash, first_name, last_name, status, locale,
+        must_change_password, failed_login_attempts, version, created_by_id, updated_by_id,
+        created_at, updated_at)
+      VALUES (${id}, ${`aislamiento-${id}@example.test`}, 'sin-uso', ${name}, 'Prueba',
+        'ACTIVE', 'es', false, 0, 0, ${AUTHOR}, ${AUTHOR}, now(), now())
+    `;
+  }
+
+  for (const [id, organizationId, name] of [
+    [ROLE_A, ORGANIZATION_A, 'Ventas A'],
+    [ROLE_B, ORGANIZATION_B, 'Ventas B'],
+  ] as const) {
+    await prisma.$executeRaw`
+      INSERT INTO roles (id, organization_id, name, is_system, version, created_at, updated_at)
+      VALUES (${id}, ${organizationId}, ${name}, false, 0, now(), now())
+    `;
+  }
+
+  const memberships = [
+    [MEMBERSHIP_MEMBER_A, MEMBER, ORGANIZATION_A, null, ROLE_A],
+    [MEMBERSHIP_MEMBER_B_REVOKED, MEMBER, ORGANIZATION_B, new Date(), ROLE_B],
+    [MEMBERSHIP_OTHER_B, OTHER, ORGANIZATION_B, null, ROLE_B],
+  ] as const;
+
+  for (const [id, userId, organizationId, revokedAt, roleId] of memberships) {
+    await prisma.$executeRaw`
+      INSERT INTO memberships (id, user_id, organization_id, is_active, version,
+        created_by_id, updated_by_id, created_at, updated_at, revoked_at)
+      VALUES (${id}, ${userId}, ${organizationId}, true, 0, ${AUTHOR}, ${AUTHOR}, now(), now(),
+        ${revokedAt})
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO membership_roles (membership_id, role_id, assigned_at)
+      VALUES (${id}, ${roleId}, now())
     `;
   }
 });
@@ -191,5 +253,75 @@ describe('aislamiento entre empresas', () => {
     }));
 
     expect(visible).toEqual({ a: 1, b: 1 });
+  });
+});
+
+describe('lo propio de la persona, sin empresa elegida', () => {
+  it('ve sus membresías activas y no las revocadas ni las ajenas', async () => {
+    const rows = await asPerson(MEMBER, (tx) =>
+      tx.membership.findMany({ select: { id: true } }),
+    );
+
+    expect(rows.map((row) => row.id)).toEqual([MEMBERSHIP_MEMBER_A]);
+  });
+
+  it('ve las empresas a las que pertenece y ninguna más', async () => {
+    const rows = await asPerson(MEMBER, (tx) =>
+      tx.organization.findMany({ select: { id: true } }),
+    );
+
+    expect(rows.map((row) => row.id)).toEqual([ORGANIZATION_A]);
+  });
+
+  it('ve sus roles en esas empresas', async () => {
+    const visible = await asPerson(MEMBER, async (tx) => ({
+      roles: (await tx.role.findMany({ select: { id: true } })).map((row) => row.id),
+      assignments: await tx.membershipRole.count(),
+    }));
+
+    expect(visible).toEqual({ roles: [ROLE_A], assignments: 1 });
+  });
+
+  it('sin persona en el contexto sigue sin verse nada', async () => {
+    const visible = await asOrganization(null, false, (tx) => tx.membership.count());
+
+    expect(visible).toBe(0);
+  });
+
+  it('leer lo propio no permite modificarlo', async () => {
+    const changed = await asPerson(MEMBER, (tx) =>
+      tx.membership.updateMany({
+        where: { id: MEMBERSHIP_MEMBER_A },
+        data: { isActive: false },
+      }),
+    );
+
+    expect(changed.count).toBe(0);
+  });
+
+  it('ni darse acceso a otra empresa', async () => {
+    await expect(
+      asPerson(MEMBER, (tx) =>
+        tx.membership.create({
+          data: {
+            userId: MEMBER,
+            organizationId: ORGANIZATION_B,
+            createdById: MEMBER,
+            updatedById: MEMBER,
+          },
+        }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('con empresa elegida se ve esa empresa y no lo que la persona tiene en otras', async () => {
+    // Es el alcance de la operación: empresa sin persona. Ver companyScopeOf.
+    const rows = await asOrganization(ORGANIZATION_B, false, (tx) =>
+      tx.membership.findMany({ select: { id: true } }),
+    );
+
+    expect(rows.map((row) => row.id).sort()).toEqual(
+      [MEMBERSHIP_MEMBER_B_REVOKED, MEMBERSHIP_OTHER_B].sort(),
+    );
   });
 });

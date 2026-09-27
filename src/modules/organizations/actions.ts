@@ -23,7 +23,7 @@ import { ConflictError, NotFoundError, toErrorPayload, type ErrorPayload } from 
 import { logger } from '@/lib/observability/logger';
 import { isPhoneComplete } from '@/lib/phone';
 import { buildAuditContext } from '@/modules/audit';
-import { scopeOf } from '@/modules/auth/scope';
+import { platformScopeOf } from '@/modules/auth/scope';
 import { requirePlatformPermission } from '@/modules/auth/session';
 
 import {
@@ -144,7 +144,7 @@ export async function createOrganization(input: unknown): Promise<OrganizationAc
 
   try {
     const session = await requirePlatformPermission(permission);
-    const scope = scopeOf(session);
+    const scope = platformScopeOf(session);
 
     const parsed = createOrganizationSchema.safeParse(input);
     if (!parsed.success) {
@@ -216,7 +216,7 @@ export async function updateOrganization(input: unknown): Promise<OrganizationAc
 
   try {
     const session = await requirePlatformPermission(permission);
-    const scope = scopeOf(session);
+    const scope = platformScopeOf(session);
 
     const parsed = updateOrganizationSchema.safeParse(input);
     if (!parsed.success) {
@@ -292,7 +292,7 @@ export async function setOrganizationActive(input: unknown): Promise<Organizatio
 
   try {
     const session = await requirePlatformPermission(permission);
-    const scope = scopeOf(session);
+    const scope = platformScopeOf(session);
 
     const parsed = setOrganizationActiveSchema.safeParse(input);
     if (!parsed.success) {
@@ -332,7 +332,7 @@ export async function deleteOrganization(input: unknown): Promise<OrganizationAc
 
   try {
     const session = await requirePlatformPermission(permission);
-    const scope = scopeOf(session);
+    const scope = platformScopeOf(session);
 
     const parsed = organizationIdSchema.safeParse(input);
     if (!parsed.success) {
