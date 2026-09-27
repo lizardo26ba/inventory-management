@@ -12,7 +12,7 @@
  * permiso. El rótulo y el icono son dibujo, y se quedan en el marco.
  */
 
-import { type PermissionCode } from '@/lib/auth/permissions';
+import type { PermissionCode } from '@/lib/auth/permissions';
 
 /** Cómo se nombra una sección entre el servidor y el marco. */
 export type NavSectionKey = 'organizations' | 'users' | 'audit';

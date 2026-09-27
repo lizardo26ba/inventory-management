@@ -21,8 +21,8 @@
  * mismo. RN-070 a RN-073.
  */
 
-import { type PermissionCode } from '@/lib/auth/permissions';
-import { type Copy } from '@/lib/i18n';
+import type { PermissionCode } from '@/lib/auth/permissions';
+import type { Copy } from '@/lib/i18n';
 
 export type AuditActionCode = keyof Copy['auditActions'];
 

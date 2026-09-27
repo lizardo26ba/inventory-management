@@ -19,7 +19,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { IconPencil, IconTrash } from '@/components/ui/icons';
 import { RowMenu, type RowMenuAction } from '@/components/ui/row-menu';
 import { Toggle } from '@/components/ui/toggle';
-import { type ErrorPayload } from '@/lib/errors';
+import type { ErrorPayload } from '@/lib/errors';
 import { useCopy, type Copy } from '@/lib/i18n';
 
 import { deleteUser, setUserActive } from '../actions';

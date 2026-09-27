@@ -21,7 +21,7 @@
  *    una pantalla vacía.
  */
 
-import { type SessionContext } from './session-context';
+import type { SessionContext } from './session-context';
 
 export type Landing =
   | { readonly kind: 'changePassword' }

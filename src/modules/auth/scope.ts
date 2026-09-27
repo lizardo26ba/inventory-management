@@ -13,9 +13,9 @@ import 'server-only';
  * decide si se puede, solo dice en qué alcance se trabaja.
  */
 
-import { type DataScope } from '@/lib/db/scope';
+import type { DataScope } from '@/lib/db/scope';
 
-import { type SessionContext } from './session-context';
+import type { SessionContext } from './session-context';
 
 /**
  * El alcance de datos de una sesión.

@@ -21,7 +21,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { type PermissionCode } from '@/lib/auth/permissions';
+import type { PermissionCode } from '@/lib/auth/permissions';
 import type { DataScope } from '@/lib/db/scope';
 import { ConflictError, NotFoundError, toErrorPayload, type ErrorPayload } from '@/lib/errors';
 import { logger } from '@/lib/observability/logger';

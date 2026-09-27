@@ -20,9 +20,9 @@ import { IconShield } from '@/components/ui/icons';
 import { SidePanel } from '@/components/ui/side-panel';
 import { formatDateTime } from '@/lib/format';
 import { getCopy } from '@/lib/i18n/server';
-import { type Copy } from '@/lib/i18n';
+import type { Copy } from '@/lib/i18n';
 
-import { type AuditFields, type AuditLogDetail, type AuditValue } from '../types';
+import type { AuditFields, AuditLogDetail, AuditValue } from '../types';
 import { auditActionName } from './action-name';
 
 /** Un instante tal como lo escribe la bitácora: ISO 8601 en tiempo universal. */

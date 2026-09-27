@@ -17,18 +17,18 @@ import 'server-only';
  * quien tiene `platform.audit:read`, que se comprueba antes, en la pantalla.
  */
 
-import { type Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 import { withScope, type DataScope } from '@/lib/db/scope';
 
 import { PLATFORM_SCOPE, type AuditListQuery } from './schema';
 import { startOfNextUtcDay, startOfUtcDay, toAuditFields, toAuditRow } from './service';
-import {
-  type AuditContext,
-  type AuditEntry,
-  type AuditLogDetail,
-  type AuditLogListItem,
-  type AuditLogPage,
+import type {
+  AuditContext,
+  AuditEntry,
+  AuditLogDetail,
+  AuditLogListItem,
+  AuditLogPage,
 } from './types';
 
 export async function recordAuditEntries(

@@ -52,7 +52,7 @@ import { createOrganization, updateOrganization } from '../actions';
 import { ORGANIZATIONS_PATH } from '../routes';
 import { createOrganizationSchema, updateOrganizationSchema } from '../schema';
 import { buildOrganizationSlug } from '../service';
-import { type CountryOption, type CurrencyOption } from '../repository';
+import type { CountryOption, CurrencyOption } from '../repository';
 
 type FieldErrors = Readonly<Record<string, string>>;
 

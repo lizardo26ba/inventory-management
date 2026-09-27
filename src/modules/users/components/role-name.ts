@@ -10,7 +10,7 @@
  * que solo aceptan texto, como la etiqueta anunciada de un desplegable.
  */
 
-import { type Copy } from '@/lib/i18n';
+import type { Copy } from '@/lib/i18n';
 
 export function roleName(
   role: { readonly code: string | null; readonly name: string },

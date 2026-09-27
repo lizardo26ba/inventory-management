@@ -2,7 +2,7 @@
 
 import { buttonClass } from '../../ui/button';
 import { useCompanyStore } from '../../company-store';
-import { type Copy } from '@/lib/i18n';
+import type { Copy } from '@/lib/i18n';
 import { useCopy } from '@/lib/i18n';
 import {
   products,

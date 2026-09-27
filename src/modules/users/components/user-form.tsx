@@ -37,7 +37,7 @@ import { useCopy } from '@/lib/i18n';
 import { createUser, updateUser } from '../actions';
 import { USERS_PATH } from '../routes';
 import { createUserSchema, updateUserSchema, type AccessInput } from '../schema';
-import { type OrganizationChoice } from '../types';
+import type { OrganizationChoice } from '../types';
 import { AccessPicker } from './access-picker';
 import { PermissionPreview } from './permission-preview';
 

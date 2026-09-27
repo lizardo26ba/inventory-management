@@ -1,4 +1,4 @@
-import { type Copy } from '@/lib/i18n';
+import type { Copy } from '@/lib/i18n';
 
 /**
  * El nombre de una acción en el idioma de quien mira.

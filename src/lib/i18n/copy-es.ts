@@ -8,7 +8,7 @@
  * dice "Alta", que es como se llama esa columna en una lista de empresas.
  */
 
-import { type Copy } from './copy';
+import type { Copy } from './copy';
 
 export const copyEs: Copy = {
   app: {

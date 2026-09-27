@@ -24,7 +24,7 @@ import { useSearchParams } from 'next/navigation';
 
 import { useCompanyStore } from '../../company-store';
 import { useCopy } from '@/lib/i18n';
-import { type Company } from '../../fake-data';
+import type { Company } from '../../fake-data';
 import { CountryFlag } from '../../ui/flag';
 import { formatDate, formatQuantity } from '@/lib/format';
 import { IconPlus } from '../../ui/icons';

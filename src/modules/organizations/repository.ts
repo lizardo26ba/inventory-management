@@ -19,19 +19,19 @@ import 'server-only';
  * todas las consultas de este archivo, sin excepción.
  */
 
-import { type Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 
 import { withScope, type DataScope } from '@/lib/db/scope';
 import { createSystemRoles } from '@/lib/db/system-roles';
 import { diffFields, recordAuditEntries, type AuditContext } from '@/modules/audit';
 
-import {
-  type OrganizationDetail,
-  type OrganizationListItem,
-  type OrganizationPage,
-  type OrganizationsSummary,
+import type {
+  OrganizationDetail,
+  OrganizationListItem,
+  OrganizationPage,
+  OrganizationsSummary,
 } from './types';
-import { type OrganizationListQuery, type OrganizationSortKey } from './schema';
+import type { OrganizationListQuery, OrganizationSortKey } from './schema';
 
 /** Lo vivo. Se repite en cada consulta a propósito, para que no se olvide. */
 const NOT_DELETED = { deletedAt: null } satisfies Prisma.OrganizationWhereInput;

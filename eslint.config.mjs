@@ -19,6 +19,10 @@ export default tseslint.config(
         'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
+      // Un import que solo trae tipos, escrito como import { type X }, conserva
+      // el módulo en el paquete. Si ese módulo es de servidor, un componente de
+      // cliente lo arrastra al navegador y la compilación falla.
+      '@typescript-eslint/no-import-type-side-effects': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },

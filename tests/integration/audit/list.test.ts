@@ -16,14 +16,14 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { prisma } from '@/lib/db/client';
-import { type DataScope } from '@/lib/db/scope';
+import type { DataScope } from '@/lib/db/scope';
 import {
   findPlatformAuditEntry,
   listPlatformAuditEntries,
   recordAuditEntries,
   type AuditListQuery,
 } from '@/modules/audit';
-import { type AuditContext, type AuditEntry } from '@/modules/audit/types';
+import type { AuditContext, AuditEntry } from '@/modules/audit/types';
 
 const PAGE_SIZE = 2;
 

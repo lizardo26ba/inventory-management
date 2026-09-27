@@ -37,7 +37,7 @@ import { getCopy } from '@/lib/i18n/server';
 
 import { ORGANIZATIONS_PATH, organizationPath } from '../routes';
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS, type OrganizationListQuery } from '../schema';
-import { type OrganizationListItem, type OrganizationsSummary } from '../types';
+import type { OrganizationListItem, OrganizationsSummary } from '../types';
 import { OrganizationRowMenu, OrganizationStatusToggle } from './organization-row-actions';
 
 export async function OrganizationsView({
