@@ -106,11 +106,6 @@ export const copyEn = {
     back: 'Back to the start',
   },
 
-  noAccess: {
-    title: 'No company yet',
-    body: 'Your account works, but nobody has granted it access to a company. Ask whoever administers the platform.',
-  },
-
   companyPicker: {
     title: 'Choose a company',
     subtitle:
@@ -161,6 +156,8 @@ export const copyEn = {
     lowStockEmpty: 'Every product is above its minimum level.',
     recentTitle: 'Recent movements',
     viewAll: 'View all',
+    notReady:
+      'The operation of this company starts here. Its screens are on their way, beginning with products and warehouses.',
   },
 
   products: {

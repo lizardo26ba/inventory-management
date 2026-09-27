@@ -15,13 +15,16 @@
 import type { PermissionCode } from '@/lib/auth/permissions';
 
 /** Cómo se nombra una sección entre el servidor y el marco. */
-export type NavSectionKey = 'organizations' | 'users' | 'audit';
+export type NavSectionKey = 'overview' | 'organizations' | 'users' | 'audit';
 
 export type NavSection = {
   readonly key: NavSectionKey;
   readonly href: string;
-  /** El permiso sin el cual la sección no se dibuja. */
-  readonly permission: PermissionCode;
+  /**
+   * El permiso sin el cual la sección no se dibuja. Nulo solo en lo que alcanza
+   * todo el que está dentro de la empresa, como su portada.
+   */
+  readonly permission: PermissionCode | null;
 };
 
 /**
@@ -39,4 +42,13 @@ export const ADMINISTRATION_SECTIONS = [
   { key: 'organizations', href: '/organizations', permission: 'platform.organization:read' },
   { key: 'users', href: '/users', permission: 'platform.user:read' },
   { key: 'audit', href: '/audit', permission: 'platform.audit:read' },
+] as const satisfies readonly NavSection[];
+
+/**
+ * Lo que hay construido de la operación de una empresa. Solo se dibuja con una
+ * empresa activa, y cada sección se sumará aquí con su permiso a medida que
+ * exista. ADR 0013.
+ */
+export const OPERATION_SECTIONS = [
+  { key: 'overview', href: '/', permission: null },
 ] as const satisfies readonly NavSection[];

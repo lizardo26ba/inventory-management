@@ -296,8 +296,13 @@ export async function enterCompany(input: unknown): Promise<ActionResult> {
 /**
  * Salir de la empresa: la plataforma vuelve a su lista y un miembro a su
  * selector. No pide permiso, porque dejar de ver algo nunca es un riesgo.
+ *
+ * Es la acción de un formulario del marco, así que no devuelve un resultado:
+ * si falla, el fallo queda en el registro y sube hasta la pantalla de error, que
+ * es donde se le explica a la persona. Callarlo la dejaría dentro de una empresa
+ * creyendo que salió.
  */
-export async function leaveCompany(): Promise<ActionResult> {
+export async function leaveCompany(): Promise<void> {
   try {
     const session = await requireSession();
 
@@ -314,7 +319,8 @@ export async function leaveCompany(): Promise<ActionResult> {
       await writeSessionCookie(next.token);
     }
   } catch (error) {
-    return failed('leaveCompany', error);
+    logger.failure('auth.leaveCompany', error);
+    throw error;
   }
 
   redirect(SIGNED_IN_PATH);

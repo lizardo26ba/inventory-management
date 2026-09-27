@@ -10,3 +10,6 @@
 export const SIGN_IN_PATH = '/login';
 export const SIGNED_IN_PATH = '/';
 export const CHANGE_PASSWORD_PATH = '/change-password';
+
+/** Donde elige empresa quien pertenece a varias. ADR 0013. */
+export const SELECT_COMPANY_PATH = '/select-company';

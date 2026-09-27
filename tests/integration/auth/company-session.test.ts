@@ -23,6 +23,7 @@ import { AuthenticationError } from '@/lib/errors';
 import type { AuditContext } from '@/modules/audit';
 import {
   enterCompanySession,
+  findCompanySummary,
   findEnterableOrganization,
   findLiveMembershipCompany,
   leaveCompanySession,
@@ -212,6 +213,20 @@ describe('la empresa a la que entra un super administrador', () => {
 
   it('no una borrada', async () => {
     expect(await findEnterableOrganization(DELETED)).toBeNull();
+  });
+});
+
+describe('lo que el marco enseña de la empresa activa', () => {
+  it('trae su nombre, país y moneda', async () => {
+    expect(await findCompanySummary(LIVE)).toEqual({
+      name: 'Viva',
+      countryCode: 'GT',
+      baseCurrencyCode: 'GTQ',
+    });
+  });
+
+  it('no trae una empresa borrada', async () => {
+    expect(await findCompanySummary(DELETED)).toBeNull();
   });
 });
 
