@@ -232,7 +232,46 @@ export const copyEn = {
     passwordRequired: 'Enter your password.',
     demoHintTitle: 'Prototype credentials',
     demoHintBody:
-      'Each account follows a different path: the platform, a member of several companies, and a member of just one.',
+      'Each account follows a different path: the platform with its second factor, a platform account that still has to set it up, a member of several companies, and a member of just one. Authenticator code: 123456. Recovery code: 7K3M-9QXT.',
+  },
+
+  twoFactor: {
+    verifyTitle: 'Confirm it is you',
+    verifySubtitle: 'Open your authenticator app and enter the 6-digit code for this account.',
+    verifyRecoverySubtitle:
+      'Enter one of the recovery codes you saved when you set up the second factor.',
+    codeLabel: 'Authentication code',
+    codeHelp: 'The code changes every 30 seconds.',
+    verify: 'Verify',
+    verifying: 'Verifying',
+    codeRequired: 'Enter the 6 digits from your app.',
+    invalidCode:
+      'That code is not valid. Check that your phone shows the right time and try again.',
+    useRecovery: 'Use a recovery code instead',
+    useApp: 'Use the authenticator app',
+    recoveryLabel: 'Recovery code',
+    recoveryHelp: 'Each recovery code works only once.',
+    recoveryRequired: 'Enter one of your recovery codes.',
+    invalidRecovery: 'That recovery code is not valid or was already used.',
+    setupTitle: 'Protect your platform account',
+    setupSubtitle:
+      'Platform administrators reach every company, so their account needs a second factor. It takes two minutes.',
+    stepScan: '1. Scan this code with your authenticator app',
+    stepScanHelp:
+      'Google Authenticator, Microsoft Authenticator, 1Password or any app that supports TOTP.',
+    qrLabel: 'QR code to add this account to an authenticator app',
+    manualKey: 'Cannot scan it? Enter this key by hand:',
+    stepConfirm: '2. Enter the code the app shows',
+    activate: 'Activate',
+    activating: 'Activating',
+    codesTitle: 'Save your recovery codes',
+    codesSubtitle:
+      'If you lose your phone, these codes are the only way back in. Each one works once. They will not be shown again.',
+    codesLabel: 'Recovery codes',
+    copyCodes: 'Copy codes',
+    codesCopied: 'Copied',
+    codesSaved: 'I saved these codes somewhere safe',
+    finish: 'Continue',
   },
 
   organizations: {

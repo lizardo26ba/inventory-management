@@ -25,6 +25,15 @@ type SessionStore = {
    * enciende el distintivo permanente del ADR 0005.
    */
   readonly isElevated: boolean;
+  /**
+   * Si la cuenta ya activó el segundo factor. Empieza como dice la cuenta de
+   * demostración y cambia al terminar el alta.
+   */
+  readonly hasTwoFactor: boolean;
+  /** Si esta sesión ya superó el segundo factor. Solo cuenta en la plataforma. */
+  readonly twoFactorPassed: boolean;
+  readonly passTwoFactor: () => void;
+  readonly completeTwoFactorSetup: () => void;
   readonly signIn: (account: DemoAccount) => void;
   readonly signOut: () => void;
   readonly enterCompany: (companyId: string) => void;
@@ -40,10 +49,27 @@ export function SessionStoreProvider({
 }): React.ReactElement {
   const [account, setAccount] = useState<DemoAccount>(DEFAULT_DEMO_ACCOUNT);
   const [activeCompanyId, setActiveCompanyId] = useState<string | null>(null);
+  const [hasTwoFactor, setHasTwoFactor] = useState(DEFAULT_DEMO_ACCOUNT.hasTwoFactor);
+  // La maqueta abierta sin pasar por el acceso ya está dentro, así que arranca
+  // con el segundo factor superado. Entrar de verdad lo vuelve a pedir.
+  const [twoFactorPassed, setTwoFactorPassed] = useState(true);
 
   const signIn = useCallback((next: DemoAccount) => {
     setAccount(next);
     setActiveCompanyId(null);
+    setHasTwoFactor(next.hasTwoFactor);
+    setTwoFactorPassed(false);
+  }, []);
+
+  const passTwoFactor = useCallback(() => {
+    setTwoFactorPassed(true);
+  }, []);
+
+  // Activar cuenta también como superarlo: quien acaba de escribir un código
+  // válido de su app ya demostró que la tiene.
+  const completeTwoFactorSetup = useCallback(() => {
+    setHasTwoFactor(true);
+    setTwoFactorPassed(true);
   }, []);
 
   const signOut = useCallback(() => {
@@ -67,12 +93,27 @@ export function SessionStoreProvider({
       // miembro de la empresa: es la decisión del ADR 0013. Así el distintivo y
       // la auditoría elevada no dependen de si alguna vez le dieron un rol.
       isElevated: account.isPlatformAdmin && activeCompanyId !== null,
+      hasTwoFactor,
+      twoFactorPassed,
+      passTwoFactor,
+      completeTwoFactorSetup,
       signIn,
       signOut,
       enterCompany,
       leaveCompany,
     }),
-    [account, activeCompanyId, signIn, signOut, enterCompany, leaveCompany],
+    [
+      account,
+      activeCompanyId,
+      hasTwoFactor,
+      twoFactorPassed,
+      signIn,
+      signOut,
+      enterCompany,
+      leaveCompany,
+      passTwoFactor,
+      completeTwoFactorSetup,
+    ],
   );
 
   return <SessionStoreContext.Provider value={value}>{children}</SessionStoreContext.Provider>;
@@ -84,6 +125,19 @@ export function useSessionStore(): SessionStore {
     throw new Error('useSessionStore necesita SessionStoreProvider por encima.');
   }
   return store;
+}
+
+export const TWO_FACTOR_PATH = '/prototype/two-factor';
+export const TWO_FACTOR_SETUP_PATH = '/prototype/two-factor/setup';
+
+/**
+ * Qué se le pide a una cuenta después de la contraseña. Solo la plataforma lleva
+ * segundo factor: si ya lo tiene, se le pide el código; si no, activarlo. El resto
+ * sigue directo. RN-005.
+ */
+export function twoFactorStepFor(account: DemoAccount): string | null {
+  if (!account.isPlatformAdmin) return null;
+  return account.hasTwoFactor ? TWO_FACTOR_PATH : TWO_FACTOR_SETUP_PATH;
 }
 
 /**
