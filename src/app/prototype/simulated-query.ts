@@ -19,10 +19,18 @@ import { SIMULATED_QUERY_MS } from './latency';
  * la tabla se marca como cargando durante lo que tardaría la consulta real.
  */
 export function useSimulatedQuery(signature: string): void {
-  const [pendingSignature, setPendingSignature] = useState<string | null>(null);
+  // Nace cargando, igual que una consulta real al abrir la pantalla.
+  const [pendingSignature, setPendingSignature] = useState<string | null>(signature);
+  const [seenSignature, setSeenSignature] = useState(signature);
+
+  // La carga empieza en el mismo render en que cambia la firma, no en uno
+  // posterior. El efecto solo decide cuándo termina.
+  if (signature !== seenSignature) {
+    setSeenSignature(signature);
+    setPendingSignature(signature);
+  }
 
   useEffect(() => {
-    setPendingSignature(signature);
     const timer = window.setTimeout(() => setPendingSignature(null), SIMULATED_QUERY_MS);
     return () => window.clearTimeout(timer);
   }, [signature]);
