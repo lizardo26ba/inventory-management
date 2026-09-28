@@ -39,7 +39,7 @@ export function PageHeader({
         ) : null}
 
         <h1
-          className={`text-2xl font-semibold tracking-tight${back !== undefined ? 'mt-2' : ''}`}
+          className={`text-2xl font-semibold tracking-tight ${back !== undefined ? 'mt-2' : ''}`}
         >
           {title}
         </h1>
