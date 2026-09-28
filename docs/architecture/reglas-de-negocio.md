@@ -3,7 +3,7 @@
 **Audiencia:** negocio, desarrollo
 **Estado:** vigente
 **Responsable:** equipo de arquitectura
-**Última revisión:** 2026-09-27
+**Última revisión:** 2026-09-28
 
 Catálogo único de las reglas que el sistema hace cumplir. Cada regla está redactada para
 ser verificable: o el sistema la cumple o no la cumple, sin interpretación intermedia.
@@ -98,6 +98,35 @@ Confirmado por negocio. Ver [ADR 0008](../adr/0008-rastreo-por-lote-y-numero-de-
 | RN-087 | Dado un lote, el sistema debe poder listar a qué clientes se despachó, para ejecutar un retiro del mercado.                                        | Confirmada           |
 | RN-088 | En una salida, el sistema propone el lote de caducidad más próxima. El operador puede elegir otro, y queda registrado.                             | Supuesta             |
 | RN-089 | Un lote vencido no puede despacharse a un cliente.                                                                                                 | Pendiente de negocio |
+
+## 4.2 Almacenes
+
+Confirmado por el propietario del producto el 2026-09-28, al revisar el prototipo de
+almacenes.
+
+| Id     | Regla                                                                                                                         | Estado     |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| RN-090 | El código de un almacén lo escribe quien lo crea: de 2 a 10 letras, dígitos o guiones, en mayúsculas y único en su empresa.   | Confirmada |
+| RN-091 | El código de un almacén no cambia una vez creado.                                                                             | Confirmada |
+| RN-092 | Un almacén con existencias distintas de cero no se puede archivar.                                                            | Confirmada |
+| RN-093 | Un almacén no se elimina: se archiva. Archivado deja de aceptar movimientos, conserva su historial y se puede reactivar.      | Confirmada |
+| RN-094 | Quien tiene el rol de compras o de ventas puede ver los almacenes de su empresa, porque sus documentos van a un almacén dado. | Confirmada |
+
+El código lo escribe una persona, a diferencia del de la empresa, que lo asigna el sistema:
+es el que se lee en etiquetas y documentos, y tiene que ser reconocible para quien trabaja
+en ese almacén. Por eso tampoco cambia: una etiqueta impresa con el código anterior dejaría
+de corresponder a su almacén.
+
+RN-092 evita mercancía contada en un sitio donde ya no se puede mover. Para archivar, las
+existencias se trasladan o se les da salida antes. Por el principio 4 de las reglas de
+arquitectura, la regla se defenderá también en la base de datos, no solo en el servicio.
+
+RN-093 se sigue del [ADR 0002](../adr/0002-existencias-como-libro-de-movimientos.md): los
+movimientos de un almacén son parte del libro, y el libro no se reescribe.
+
+RN-094 corrige la matriz de permisos, que no daba `warehouse:read` a esos dos roles aunque
+sí les dejaba crear órdenes de compra, recepciones y pedidos de venta, todos sobre un
+almacén concreto. Ver [seguridad](security.md).
 
 ## 5. Compras
 

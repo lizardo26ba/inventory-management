@@ -193,6 +193,9 @@ export const ROLE_TEMPLATES = [
       'supplier:read',
       'supplier:create',
       'supplier:update',
+      // Una orden de compra y su recepción van a un almacén concreto, y hay que
+      // poder elegirlo. RN-094.
+      'warehouse:read',
       'inventory:read',
       'inventory:receive',
       'purchase_order:read',
@@ -213,6 +216,9 @@ export const ROLE_TEMPLATES = [
       'customer:read',
       'customer:create',
       'customer:update',
+      // Un pedido de venta sale de un almacén concreto, y hay que poder
+      // elegirlo. RN-094.
+      'warehouse:read',
       'inventory:read',
       'sales_order:read',
       'sales_order:create',

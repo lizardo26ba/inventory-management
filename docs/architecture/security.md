@@ -3,7 +3,7 @@
 **Audiencia:** desarrollo
 **Estado:** vigente
 **Responsable:** equipo de arquitectura
-**Última revisión:** 2026-09-27
+**Última revisión:** 2026-09-28
 
 Quién puede hacer qué dentro del sistema. Al terminar sabes qué permisos existen, qué
 lleva cada rol del sistema, qué se comprueba hoy en el servidor y qué reglas de acceso no
@@ -97,7 +97,7 @@ Leyenda: `✓` lo concede, `·` no lo concede.
 | `role:create`             | ✓   | ·   | ·   | ·   | ·   |
 | `role:update`             | ✓   | ·   | ·   | ·   | ·   |
 | `role:delete`             | ✓   | ·   | ·   | ·   | ·   |
-| `warehouse:read`          | ✓   | ·   | ·   | ✓   | ✓   |
+| `warehouse:read`          | ✓   | ✓   | ✓   | ✓   | ✓   |
 | `warehouse:create`        | ✓   | ·   | ·   | ·   | ·   |
 | `warehouse:update`        | ✓   | ·   | ·   | ·   | ·   |
 | `warehouse:archive`       | ✓   | ·   | ·   | ·   | ·   |

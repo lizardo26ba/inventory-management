@@ -9,6 +9,10 @@
  * - Reactivar la cuenta de Jorge Lopez choca con un cambio de otra persona:
  *   advertencia.
  * - Suspender o reactivar la empresa Farmacia Los Altos falla: error.
+ * - Archivar un almacén que guarda existencias falla con su motivo. En
+ *   Distribuidora Central son Main warehouse y Branch north; en las demás, el
+ *   primero de la lista. No es un fallo fingido sino la regla RN-092, y vive
+ *   en `warehouse-store.tsx`.
  *
  * Todo lo demás sale bien.
  */

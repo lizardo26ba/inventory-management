@@ -32,7 +32,9 @@ export const permissionGroups: readonly PermissionGroup[] = [
       { code: 'product.read', label: 'View products' },
       { code: 'product.write', label: 'Create and edit products' },
       { code: 'warehouse.read', label: 'View warehouses' },
-      { code: 'warehouse.write', label: 'Create and edit warehouses' },
+      { code: 'warehouse.create', label: 'Create warehouses' },
+      { code: 'warehouse.update', label: 'Edit warehouses' },
+      { code: 'warehouse.archive', label: 'Archive warehouses' },
     ],
   },
   {
@@ -127,7 +129,6 @@ export const roles: readonly Role[] = [
     permissions: [
       'product.read',
       'warehouse.read',
-      'warehouse.write',
       'stock.read',
       'stock.entry',
       'stock.exit',

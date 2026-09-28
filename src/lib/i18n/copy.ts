@@ -299,6 +299,14 @@ export const copyEn = {
     twoFactorResetFailed: 'Could not reset the second factor of',
     twoFactorResetConsequence:
       'Their sessions were closed, and they will set it up again next time they sign in.',
+    warehouseArchiveDone: 'Archived the warehouse',
+    warehouseArchiveFailed: 'Could not archive the warehouse',
+    warehouseArchiveConsequence:
+      'It no longer accepts movements. Its history stays, and you can reactivate it.',
+    warehouseActivateDone: 'Reactivated the warehouse',
+    warehouseActivateFailed: 'Could not reactivate the warehouse',
+    warehouseActivateConsequence: 'It accepts movements again.',
+    warehouseHasStock: 'It still holds stock. Move or issue it first, then archive it.',
   },
 
   organizations: {
@@ -370,6 +378,57 @@ export const copyEn = {
     duplicateTaxId: 'Another company in this country already uses this tax number.',
     duplicateTaxIdHelp:
       'Two companies of the same country cannot share it. Check the number, or open the company that already has it.',
+  },
+
+  warehouses: {
+    title: 'Warehouses',
+    subtitle: 'Where this company keeps its goods. Every movement happens in one of them.',
+    create: 'New warehouse',
+    searchPlaceholder: 'Search by name or code',
+    columnName: 'Warehouse',
+    columnCode: 'Code',
+    columnCountry: 'Country',
+    columnTimeZone: 'Time zone',
+    columnStatus: 'Status',
+    resultCount: 'warehouses',
+    toggleActive: 'Activate or archive',
+    archived: 'Archived',
+    empty: 'No warehouse matches this search.',
+    noneTitle: 'No warehouses yet',
+    none: 'Stock always lives in a warehouse, so this is the first thing to set up. Create one to start recording movements.',
+    noneReadOnly:
+      'Stock always lives in a warehouse. Ask an administrator of this company to create the first one.',
+    backToOverview: 'Back to the overview',
+  },
+
+  warehouseForm: {
+    title: 'New warehouse',
+    subtitle: 'A place where this company keeps goods. It can be in another country.',
+    editTitle: 'Edit warehouse',
+    editSubtitle:
+      'Changes apply from now on. Past movements keep the time they were shown with.',
+    sectionIdentity: 'Identity',
+    sectionLocation: 'Location',
+    code: 'Code',
+    codeHelp:
+      'Short and unique within this company, like MAIN or NORTH. It appears on documents and labels, and cannot be changed later.',
+    codeFixed: 'It cannot be changed once the warehouse exists.',
+    codeInvalid: 'Use 2 to 10 letters, digits or dashes, with no spaces.',
+    duplicateCode: 'Another warehouse of this company already uses this code.',
+    name: 'Name',
+    namePlaceholder: 'How people call it, like Main warehouse',
+    address: 'Address',
+    country: 'Country',
+    countryHelp: 'It can differ from the company country.',
+    timeZone: 'Time zone',
+    timeZoneHelp:
+      'Movement times and the daily stock cut of this warehouse are shown in this zone.',
+    submit: 'Create warehouse',
+    save: 'Save changes',
+    cancel: 'Cancel',
+    back: 'Back to warehouses',
+    notFound: 'That warehouse does not exist in this company.',
+    requiredField: 'This field is required.',
   },
 
   users: {

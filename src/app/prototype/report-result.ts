@@ -11,7 +11,9 @@ export type ResultAction =
   | 'companySuspend'
   | 'companyActivate'
   | 'companyDelete'
-  | 'twoFactorReset';
+  | 'twoFactorReset'
+  | 'warehouseArchive'
+  | 'warehouseActivate';
 
 /**
  * Ejecuta una acción y dice cómo terminó, con el diálogo de resultado.
@@ -19,6 +21,11 @@ export type ResultAction =
  * El texto nombra la acción y el registro: "Se suspendió la cuenta de Ana
  * Morales." Si salió bien añade la consecuencia; si no, el motivo. En la
  * aplicación real el motivo sale del código de error que devuelve la acción.
+ *
+ * `reasonOf` es para los rechazos que tienen explicación propia, como archivar
+ * un almacén con existencias. Si no reconoce el error, se dice el motivo
+ * genérico: un rechazo por regla de negocio que se explica como "algo salió
+ * mal" deja a la persona sin saber qué corregir.
  */
 export async function reportResult(
   show: (result: ResultMessage) => void,
@@ -26,6 +33,7 @@ export async function reportResult(
   action: ResultAction,
   name: string,
   operation: () => Promise<void>,
+  reasonOf?: (error: unknown) => string | undefined,
 ): Promise<void> {
   try {
     await operation();
@@ -35,9 +43,11 @@ export async function reportResult(
     });
   } catch (error) {
     const isWarning = error instanceof DemoOutcomeError && error.tone === 'warning';
+    const reason =
+      reasonOf?.(error) ?? (isWarning ? copy.result.changedMeanwhile : copy.errors.generic);
     show({
       tone: isWarning ? 'warning' : 'error',
-      message: `${copy.result[`${action}Failed`]} ${name}. ${isWarning ? copy.result.changedMeanwhile : copy.errors.generic}`,
+      message: `${copy.result[`${action}Failed`]} ${name}. ${reason}`,
     });
   }
 }
