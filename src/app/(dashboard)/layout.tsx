@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 
 import { AppShell, type ShellContext } from '@/components/layout/app-shell';
+import { ResultDialogProvider } from '@/components/ui/result-dialog';
 import {
   ADMINISTRATION_SECTIONS,
   OPERATION_SECTIONS,
@@ -59,7 +60,7 @@ export default async function DashboardLayout({
       signOut={signOut}
       leaveCompany={leaveCompany}
     >
-      {children}
+      <ResultDialogProvider>{children}</ResultDialogProvider>
     </AppShell>
   );
 }

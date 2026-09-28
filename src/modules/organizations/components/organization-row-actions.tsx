@@ -19,40 +19,11 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { IconEye, IconPencil, IconTrash } from '@/components/ui/icons';
 import { RowMenu, type RowMenuAction } from '@/components/ui/row-menu';
 import { Toggle } from '@/components/ui/toggle';
-import type { ErrorPayload } from '@/lib/errors';
-import { useCopy, type Copy } from '@/lib/i18n';
+import { resultMessageFor, useResultDialog } from '@/components/ui/result-dialog';
+import { useCopy } from '@/lib/i18n';
 
 import { deleteOrganization, setOrganizationActive } from '../actions';
 import { organizationPath } from '../routes';
-
-/**
- * El aviso cuando la escritura falla. Un fallo se ve, nunca se traga.
- *
- * La celda del estado no permite salto de línea, para que el interruptor y su
- * palabra no se separen. Aquí hay que devolverlo: un mensaje de una sola línea
- * ensancharía la columna y empujaría la tabla a desplazarse en horizontal.
- */
-function RowError({ message }: { readonly message: string }): React.ReactElement {
-  return (
-    <p role="alert" className="text-danger mt-1 max-w-[14rem] text-xs whitespace-normal">
-      {message}
-    </p>
-  );
-}
-
-function messageFor(error: ErrorPayload, copy: Copy): string {
-  switch (error.code) {
-    case 'NOT_AUTHORIZED':
-    case 'TWO_FACTOR_REQUIRED':
-      return copy.errors.notAuthorized;
-    case 'NOT_AUTHENTICATED':
-      return copy.errors.sessionExpired;
-    case 'NOT_FOUND':
-      return copy.errors.notFound;
-    default:
-      return copy.errors.generic;
-  }
-}
 
 export function OrganizationStatusToggle({
   id,
@@ -64,7 +35,7 @@ export function OrganizationStatusToggle({
   readonly isActive: boolean;
 }): React.ReactElement {
   const copy = useCopy();
-  const [error, setError] = useState<string | null>(null);
+  const showResult = useResultDialog();
 
   return (
     <div>
@@ -73,18 +44,19 @@ export function OrganizationStatusToggle({
           checked={isActive}
           label={`${copy.organizations.toggleActive} · ${name}`}
           onChange={async (next) => {
-            setError(null);
             const result = await setOrganizationActive({ id, isActive: next });
             // La fila la vuelve a pintar el servidor al revalidar. Si falló, se
-            // queda como estaba y lo dice, en lugar de mentir con el color.
-            if (!result.ok) setError(messageFor(result.error, copy));
+            // queda como estaba y el diálogo dice por qué, en lugar de mentir
+            // con el color.
+            showResult(
+              resultMessageFor(copy, next ? 'companyActivate' : 'companySuspend', name, result),
+            );
           }}
         />
         <span className={`text-xs ${isActive ? 'text-success' : 'text-text-muted'}`}>
           {isActive ? copy.status.active : copy.status.inactive}
         </span>
       </span>
-      {error !== null ? <RowError message={error} /> : null}
     </div>
   );
 }
@@ -101,7 +73,7 @@ export function OrganizationRowMenu({
   const copy = useCopy();
   const router = useRouter();
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const showResult = useResultDialog();
 
   const detailPath = organizationPath(slug);
 
@@ -128,8 +100,6 @@ export function OrganizationRowMenu({
     <div className="flex flex-col items-end">
       <RowMenu label={`${copy.organizations.rowMenu} · ${name}`} actions={actions} />
 
-      {error !== null ? <RowError message={error} /> : null}
-
       {isConfirmingDelete ? (
         <ConfirmDialog
           title={copy.organizations.deleteTitle}
@@ -142,10 +112,9 @@ export function OrganizationRowMenu({
           // termina. Cerrarlo antes dejaría la fila a la vista como si no
           // hubiera pasado nada.
           onConfirm={async () => {
-            setError(null);
             const result = await deleteOrganization({ id });
             setIsConfirmingDelete(false);
-            if (!result.ok) setError(messageFor(result.error, copy));
+            showResult(resultMessageFor(copy, 'companyDelete', name, result));
           }}
         />
       ) : null}

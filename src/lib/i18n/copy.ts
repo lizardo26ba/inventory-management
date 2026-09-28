@@ -443,7 +443,6 @@ export const copyEn = {
       'All their sessions close, and next time they sign in they will have to set it up again with their phone. Do it only after confirming with this person that they lost or changed their phone. It is recorded in the audit log.',
     twoFactorResetConfirm: 'Reset',
     twoFactorResetCancel: 'Cancel',
-    twoFactorResetDone: 'Second factor reset. Their sessions were closed.',
     platformBadge: 'Super admin',
     sectionAccess: 'Company access',
     sectionPermissions: 'Resulting permissions',
