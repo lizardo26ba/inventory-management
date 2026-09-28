@@ -18,7 +18,7 @@
  *
  * Los valores son los que escriben los repositorios reales. Las fechas son
  * fijas, no relativas a hoy, para que dos personas mirando el prototipo vean lo
- * mismo. RN-070 a RN-073.
+ * mismo. RN-070 a RN-072.
  */
 
 import type { PermissionCode } from '@/lib/auth/permissions';

@@ -9,20 +9,20 @@ viven en `docs/standards/`.
 Sistema de inventario web y responsive, **multiempresa desde el inicio**. La primera
 versión funcional cubre existencias, compras y ventas.
 
-| Decisión             | Resultado                                                                           | Registro                                                                                                                                      |
-| -------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Stack                | Next.js, PostgreSQL, Prisma, TypeScript                                             | [ADR 0001](docs/adr/0001-stack-tecnologico.md)                                                                                                |
-| Existencias          | Libro de movimientos inmutable con saldo materializado                              | [ADR 0002](docs/adr/0002-existencias-como-libro-de-movimientos.md)                                                                            |
-| Multiempresa         | Base compartida con `organization_id` en toda tabla de negocio                      | [ADR 0003](docs/adr/0003-multiempresa-con-identificador-de-organizacion.md)                                                                   |
-| Autenticación        | Credenciales propias con Argon2id y sesión en base de datos                         | [ADR 0007](docs/adr/0007-sesion-propia-sin-libreria-de-autenticacion.md)                                                                      |
-| Super administrador  | Acceso transversal, con segundo factor y auditoría obligatorios                     | [ADR 0005](docs/adr/0005-super-administrador-de-plataforma.md)                                                                                |
-| Segundo factor       | App autenticadora, solo para el super administrador, sin códigos de respaldo        | [ADR 0014](docs/adr/0014-segundo-factor-del-super-administrador.md)                                                                           |
-| Bitácora             | Toda consulta de empresa se registra antes de leer, de cualquier usuario. Sin purga | [ADR 0015](docs/adr/0015-auditoria-de-consultas-del-super-administrador.md), [0017](docs/adr/0017-bitacora-de-toda-la-actividad-sin-purga.md) |
-| Multipaís            | Moneda base por organización, tasa congelada en cada documento                      | [ADR 0006](docs/adr/0006-operacion-multipais-y-multimoneda.md)                                                                                |
-| Integración          | Rama de Neon dedicada, recreada en cada ejecución                                   | [ADR 0009](docs/adr/0009-pruebas-de-integracion-en-rama-de-neon.md)                                                                           |
-| Integración continua | GitHub Actions con PostgreSQL en contenedor; auditoría con excepciones que caducan  | [ADR 0011](docs/adr/0011-integracion-continua-en-github-actions.md)                                                                           |
-| Fusión               | Combinación normal; sin aprobación obligatoria mientras haya una sola persona       | [ADR 0012](docs/adr/0012-fusion-con-combinacion-normal-y-sin-aprobacion-obligatoria.md)                                                       |
-| Despliegue           | Vercel con Neon por ahora; migraciones a mano. Contenedor en Azure más adelante     | [ADR 0016](docs/adr/0016-despliegue-en-vercel-hasta-azure.md)                                                                                 |
+| Decisión             | Resultado                                                                          | Registro                                                                                |
+| -------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Stack                | Next.js, PostgreSQL, Prisma, TypeScript                                            | [ADR 0001](docs/adr/0001-stack-tecnologico.md)                                          |
+| Existencias          | Libro de movimientos inmutable con saldo materializado                             | [ADR 0002](docs/adr/0002-existencias-como-libro-de-movimientos.md)                      |
+| Multiempresa         | Base compartida con `organization_id` en toda tabla de negocio                     | [ADR 0003](docs/adr/0003-multiempresa-con-identificador-de-organizacion.md)             |
+| Autenticación        | Credenciales propias con Argon2id y sesión en base de datos                        | [ADR 0007](docs/adr/0007-sesion-propia-sin-libreria-de-autenticacion.md)                |
+| Super administrador  | Acceso transversal, con segundo factor y auditoría obligatorios                    | [ADR 0005](docs/adr/0005-super-administrador-de-plataforma.md)                          |
+| Segundo factor       | App autenticadora, solo para el super administrador, sin códigos de respaldo       | [ADR 0014](docs/adr/0014-segundo-factor-del-super-administrador.md)                     |
+| Bitácora             | Cambios de todos los usuarios, sin consultas. Se conserva sin plazo                | [ADR 0017](docs/adr/0017-bitacora-de-cambios-sin-purga.md)                              |
+| Multipaís            | Moneda base por organización, tasa congelada en cada documento                     | [ADR 0006](docs/adr/0006-operacion-multipais-y-multimoneda.md)                          |
+| Integración          | Rama de Neon dedicada, recreada en cada ejecución                                  | [ADR 0009](docs/adr/0009-pruebas-de-integracion-en-rama-de-neon.md)                     |
+| Integración continua | GitHub Actions con PostgreSQL en contenedor; auditoría con excepciones que caducan | [ADR 0011](docs/adr/0011-integracion-continua-en-github-actions.md)                     |
+| Fusión               | Combinación normal; sin aprobación obligatoria mientras haya una sola persona      | [ADR 0012](docs/adr/0012-fusion-con-combinacion-normal-y-sin-aprobacion-obligatoria.md) |
+| Despliegue           | Vercel con Neon por ahora; migraciones a mano. Contenedor en Azure más adelante    | [ADR 0016](docs/adr/0016-despliegue-en-vercel-hasta-azure.md)                           |
 
 Dominios de la primera versión: organizaciones y usuarios, roles y permisos, catálogo de
 productos, almacenes, movimientos de existencias, proveedores y compras, clientes y
