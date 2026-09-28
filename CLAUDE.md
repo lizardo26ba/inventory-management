@@ -22,7 +22,7 @@ versión funcional cubre existencias, compras y ventas.
 | Integración          | Rama de Neon dedicada, recreada en cada ejecución                                  | [ADR 0009](docs/adr/0009-pruebas-de-integracion-en-rama-de-neon.md)                     |
 | Integración continua | GitHub Actions con PostgreSQL en contenedor; auditoría con excepciones que caducan | [ADR 0011](docs/adr/0011-integracion-continua-en-github-actions.md)                     |
 | Fusión               | Combinación normal; sin aprobación obligatoria mientras haya una sola persona      | [ADR 0012](docs/adr/0012-fusion-con-combinacion-normal-y-sin-aprobacion-obligatoria.md) |
-| Despliegue           | Local por ahora. Contenedor listo para Azure más adelante                          | Pendiente                                                                               |
+| Despliegue           | Vercel con Neon por ahora; migraciones a mano. Contenedor en Azure más adelante    | [ADR 0016](docs/adr/0016-despliegue-en-vercel-hasta-azure.md)                           |
 
 Dominios de la primera versión: organizaciones y usuarios, roles y permisos, catálogo de
 productos, almacenes, movimientos de existencias, proveedores y compras, clientes y

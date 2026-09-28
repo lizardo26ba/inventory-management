@@ -52,6 +52,7 @@ referencia para personas.
 | [0013](adr/0013-empresa-activa-en-la-sesion.md)                                | La empresa activa en la sesión, y lo que la base ve antes y después de elegirla       |
 | [0014](adr/0014-segundo-factor-del-super-administrador.md)                     | Segundo factor del super administrador con app autenticadora, sin códigos de respaldo |
 | [0015](adr/0015-auditoria-de-consultas-del-super-administrador.md)             | Las consultas del super administrador se registran en la puerta de permisos           |
+| [0016](adr/0016-despliegue-en-vercel-hasta-azure.md)                           | Despliegue en Vercel con Neon como etapa temporal hasta Azure                         |
 
 ## Arquitectura
 

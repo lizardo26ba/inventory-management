@@ -97,6 +97,8 @@ paquete del navegador durante la compilación y ya no se puede retirar.
 **Producción**
 
 - Los secretos viven en AWS Secrets Manager o Azure Key Vault, según la nube elegida.
+  Mientras producción esté en Vercel rige una excepción temporal y declarada, con sus
+  condiciones: ver el [ADR 0016](../adr/0016-despliegue-en-vercel-hasta-azure.md).
   Nunca en variables de entorno definidas a mano en la consola, porque quedan visibles
   para cualquiera con acceso de lectura al servicio y no dejan rastro de rotación.
 - La aplicación obtiene los secretos con **identidad administrada**, es decir un rol de
