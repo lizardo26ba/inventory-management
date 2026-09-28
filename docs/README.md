@@ -3,7 +3,7 @@
 **Audiencia:** todas
 **Estado:** vigente
 **Responsable:** equipo de arquitectura
-**Última revisión:** 2026-09-15
+**Última revisión:** 2026-09-28
 
 Punto de entrada a la documentación del sistema de inventario. Todo documento nuevo se
 registra aquí.
@@ -55,6 +55,7 @@ referencia para personas.
 | [0016](adr/0016-despliegue-en-vercel-hasta-azure.md)                           | Despliegue en Vercel con Neon como etapa temporal hasta Azure                         |
 | [0017](adr/0017-bitacora-de-toda-la-actividad-sin-purga.md)                    | La bitácora registra las consultas de todos los usuarios. Sustituida por 0018         |
 | [0018](adr/0018-bitacora-de-cambios-sin-purga.md)                              | La bitácora guarda los cambios de todos los usuarios, no las consultas, y no se purga |
+| [0019](adr/0019-catalogo-de-componentes-fuera-de-produccion.md)                | Catálogo de componentes propio, como ruta que no existe en producción                 |
 
 ## Arquitectura
 

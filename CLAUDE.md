@@ -23,6 +23,7 @@ versión funcional cubre existencias, compras y ventas.
 | Integración continua | GitHub Actions con PostgreSQL en contenedor; auditoría con excepciones que caducan | [ADR 0011](docs/adr/0011-integracion-continua-en-github-actions.md)                     |
 | Fusión               | Combinación normal; sin aprobación obligatoria mientras haya una sola persona      | [ADR 0012](docs/adr/0012-fusion-con-combinacion-normal-y-sin-aprobacion-obligatoria.md) |
 | Despliegue           | Vercel con Neon por ahora; migraciones a mano. Contenedor en Azure más adelante    | [ADR 0016](docs/adr/0016-despliegue-en-vercel-hasta-azure.md)                           |
+| Catálogo             | Ruta propia `/catalog` con los componentes reales; no existe en producción         | [ADR 0019](docs/adr/0019-catalogo-de-componentes-fuera-de-produccion.md)                |
 
 Dominios de la primera versión: organizaciones y usuarios, roles y permisos, catálogo de
 productos, almacenes, movimientos de existencias, proveedores y compras, clientes y
@@ -133,6 +134,8 @@ Un cambio está terminado cuando cumple todo lo siguiente:
 - [ ] Migración reversible y probada sobre una copia con datos representativos.
 - [ ] Toda pieza visual nueva pasó por el prototipo y por `src/components/ui` antes de
       llegar a una pantalla real.
+- [ ] Todo componente nuevo o cambiado en `src/components/ui` tiene su página al día en
+      el catálogo (`/catalog`).
 - [ ] Documentación actualizada según `docs/standards/documentation-rules.md`.
 - [ ] Sin regresión de rendimiento en las consultas afectadas.
 

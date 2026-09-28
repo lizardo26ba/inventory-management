@@ -3,7 +3,7 @@
 **Audiencia:** desarrollo
 **Estado:** vigente
 **Responsable:** equipo de frontend
-**Última revisión:** 2026-09-11
+**Última revisión:** 2026-09-28
 
 Este documento explica por qué el prototipo vive separado de la aplicación real, cómo
 viaja un cambio de diseño desde el boceto hasta las pantallas en uso, y qué reglas impide
@@ -11,11 +11,12 @@ romper el linter.
 
 ## 1. Dos árboles con papeles distintos
 
-| Árbol                               | Qué es                                | Quién lo consume             |
-| ----------------------------------- | ------------------------------------- | ---------------------------- |
-| `src/app/prototype/`                | Boceto navegable con datos falsos     | Nadie. Se borra cuando sobra |
-| `src/components/ui/`                | Piezas visuales sin lógica de negocio | Las pantallas reales         |
-| `src/modules/<dominio>/components/` | Interfaz propia de un dominio         | Las rutas de ese dominio     |
+| Árbol                               | Qué es                                | Quién lo consume                    |
+| ----------------------------------- | ------------------------------------- | ----------------------------------- |
+| `src/app/prototype/`                | Boceto navegable con datos falsos     | Nadie. Se borra cuando sobra        |
+| `src/components/ui/`                | Piezas visuales sin lógica de negocio | Las pantallas reales                |
+| `src/modules/<dominio>/components/` | Interfaz propia de un dominio         | Las rutas de ese dominio            |
+| `src/app/catalog/`                  | Escaparate de `src/components/ui`     | Desarrollo. No existe en producción |
 
 El prototipo existe para decidir el diseño con algo que se puede tocar, no para adelantar
 código. Por eso puede romperse, contradecirse o probar tres versiones de la misma
@@ -112,3 +113,34 @@ que romper la regla falla en la verificación y no en revisión:
 Una pantalla ya construida de verdad no necesita su boceto. Se borra la carpeta del
 prototipo correspondiente y con ella su copia de la interfaz. El prototipo no se
 mantiene al día por respeto: se mantiene mientras sirva para decidir algo.
+
+## 7. El catálogo de componentes
+
+`/catalog` enseña los componentes reales de `src/components/ui`, uno por página, con datos
+inventados y en todos sus estados: normal, con error, deshabilitado, vacío, con texto
+largo. Tiene a mano el conmutador de tema y el de idioma. Responde `404` en producción y
+en las vistas previas de Vercel.
+[ADR 0019](../adr/0019-catalogo-de-componentes-fuera-de-produccion.md).
+
+No es un paso más del orden de la sección 3. El diseño se decide en el prototipo; el
+catálogo solo enseña lo que salió del paso 2. Si una variante se prueba primero en el
+catálogo, se está saltando el prototipo.
+
+Reglas:
+
+- Importa solo de `@/components/ui` y de `@/lib`. Nada de `@/modules`, Prisma, Server
+  Actions ni sesión: si una pieza los necesita para verse, no es un componente compartido.
+- Todo archivo nuevo de `src/components/ui` llega con su página. Una prueba unitaria
+  (`tests/unit/catalog/catalog-coverage.test.ts`) recorre la carpeta y falla si un archivo
+  no está en `src/app/catalog/entries.ts`: en el catálogo, en la lista de pendientes o en
+  la de archivos que no dibujan nada.
+- La lista de pendientes solo encoge. Llevar un componente al catálogo es borrarlo de ella
+  y añadir su entrada y su carpeta.
+- Si cambia la forma de un componente, su página cambia en la misma propuesta de cambio.
+- Los textos del propio catálogo van en español y no pasan por `src/lib/i18n`, porque es
+  una herramienta de desarrollo. Los de los componentes sí, porque el idioma es parte de
+  lo que se revisa.
+
+Para añadir un componente: una entrada en `CATALOG_ENTRIES`, una carpeta
+`src/app/catalog/<slug>/page.tsx` que use `CatalogHeader` y `Specimen`, y, si el
+componente necesita estado, un archivo de cliente junto a la página que lo guarde.
