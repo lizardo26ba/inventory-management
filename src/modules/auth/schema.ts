@@ -8,6 +8,10 @@
  * El mismo esquema vale en las dos orillas. El formulario lo usa para avisar
  * antes de enviar y el servidor para no fiarse de ese aviso, porque una petición
  * puede llegar sin haber pasado por el formulario.
+ *
+ * Los que reciben datos de un formulario son estrictos: un campo que el esquema
+ * no conoce se rechaza en lugar de descartarse. Un campo de más no es un error
+ * de tecleo, es alguien probando qué acepta el servidor.
  */
 
 import { z } from 'zod';
@@ -32,7 +36,7 @@ const email = z
   .email('invalidEmail')
   .max(254, 'tooLong');
 
-export const signInSchema = z.object({
+export const signInSchema = z.strictObject({
   email,
   // No se valida la longitud al entrar. Una contraseña vieja puede ser más
   // corta que el mínimo de hoy, y rechazarla aquí le diría a quien la escribe
@@ -69,7 +73,7 @@ export const twoFactorCodeSchema = z.strictObject({
 export type TwoFactorCodeInput = z.infer<typeof twoFactorCodeSchema>;
 
 export const changePasswordSchema = z
-  .object({
+  .strictObject({
     currentPassword: z.string().min(1, 'required'),
     newPassword: z.string().min(MINIMUM_PASSWORD_LENGTH, 'tooShort'),
     confirmPassword: z.string().min(1, 'required'),

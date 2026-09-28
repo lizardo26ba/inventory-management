@@ -6,7 +6,9 @@
  * lugar de fallar: una dirección mal escrita muestra la primera página.
  *
  * Los formularios sí fallan, y con el nombre del campo. El mensaje que se lee lo
- * pone la pantalla en el idioma de quien mira; aquí solo viaja la clave.
+ * pone la pantalla en el idioma de quien mira; aquí solo viaja la clave. Y son
+ * estrictos: un campo que el esquema no conoce se rechaza en lugar de
+ * descartarse, porque en este formulario se concede el acceso de plataforma.
  *
  * La contraseña no está en ningún esquema de alta. La genera el servidor y se
  * muestra una vez: pedirla en un formulario haría que el administrador eligiera
@@ -82,7 +84,7 @@ export function parseUserListQuery(
  * empresa sin poder hacer nada, y nadie sabría si eso fue a propósito o un
  * descuido.
  */
-export const accessSchema = z.object({
+export const accessSchema = z.strictObject({
   organizationId: z.string().uuid('required'),
   roleId: z.string().uuid('required'),
 });
@@ -130,7 +132,7 @@ function requireReasonWhenGranting(
   }
 }
 
-const userFieldsSchema = z.object({
+const userFieldsSchema = z.strictObject({
   firstName: z.string().trim().min(1, 'required').max(MAX_NAME_LENGTH, 'tooLong'),
   lastName: z.string().trim().min(1, 'required').max(MAX_NAME_LENGTH, 'tooLong'),
   // En minúsculas porque es la credencial de acceso: quien escribe su correo con
@@ -145,7 +147,7 @@ export const createUserSchema = userFieldsSchema.superRefine(requireReasonWhenGr
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
-export const userIdSchema = z.object({
+export const userIdSchema = z.strictObject({
   id: z.string().uuid('required'),
 });
 
