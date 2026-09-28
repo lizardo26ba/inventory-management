@@ -5,8 +5,7 @@ import { useState } from 'react';
 import { buttonClass } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
-/** Lo que tarda la escritura fingida: lo justo para ver el diálogo esperando. */
-const SIMULATED_WRITE_MS = 1500;
+import { waitForSimulatedWrite } from '../simulated-latency';
 
 type Sample = {
   readonly key: string;
@@ -36,10 +35,6 @@ const SAMPLES: readonly Sample[] = [
     isDestructive: false,
   },
 ];
-
-function waitForSimulatedWrite(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, SIMULATED_WRITE_MS));
-}
 
 export function ConfirmDialogTriggers(): React.ReactElement {
   const [openKey, setOpenKey] = useState<string | null>(null);
