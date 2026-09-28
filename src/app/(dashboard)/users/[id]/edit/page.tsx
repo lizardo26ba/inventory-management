@@ -56,6 +56,9 @@ export default async function EditUserPage({
         user={{
           id: user.id,
           version: user.version,
+          fullName: `${user.firstName} ${user.lastName}`,
+          twoFactorStatus: user.twoFactorStatus,
+          isSelf: user.id === session.userId,
           values: {
             firstName: user.firstName,
             lastName: user.lastName,

@@ -37,7 +37,9 @@ import { useCopy } from '@/lib/i18n';
 import { createUser, updateUser } from '../actions';
 import { USERS_PATH } from '../routes';
 import { createUserSchema, updateUserSchema, type AccessInput } from '../schema';
-import type { OrganizationChoice } from '../types';
+import type { OrganizationChoice, TwoFactorStatus } from '../types';
+
+import { TwoFactorStatusPanel } from './two-factor-status';
 import { AccessPicker } from './access-picker';
 import { PermissionPreview } from './permission-preview';
 
@@ -57,6 +59,10 @@ export type UserBeingEdited = {
   readonly id: string;
   readonly version: number;
   readonly values: UserFormValues;
+  readonly fullName: string;
+  readonly twoFactorStatus: TwoFactorStatus;
+  /** Si es la cuenta de quien edita. Nadie restablece su propio segundo factor. */
+  readonly isSelf: boolean;
 };
 
 /** Lo que hay que decir una sola vez cuando la cuenta queda creada. */
@@ -348,6 +354,17 @@ export function UserForm({
               />
             </Field>
           </>
+        ) : null}
+
+        {/* Solo en la edición de quien ya es super administrador: es un estado
+            de la cuenta guardada, no algo que se elige al rellenar el formulario. */}
+        {user?.values.isPlatformAdmin === true ? (
+          <TwoFactorStatusPanel
+            userId={user.id}
+            fullName={user.fullName}
+            status={user.twoFactorStatus}
+            isSelf={user.isSelf}
+          />
         ) : null}
       </Section>
 

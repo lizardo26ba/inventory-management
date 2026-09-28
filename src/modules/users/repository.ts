@@ -216,6 +216,10 @@ const DETAIL_SELECT = {
   version: true,
   mustChangePassword: true,
   lastLoginAt: true,
+  // Solo para saber en qué estado está el segundo factor. El secreto viaja
+  // cifrado y no sale de este archivo: la ficha recibe el estado, no el valor.
+  twoFactorSecret: true,
+  twoFactorEnabledAt: true,
 } satisfies Prisma.UserSelect;
 
 export async function findUserById(scope: DataScope, id: string): Promise<UserDetail | null> {
@@ -237,6 +241,12 @@ export async function findUserById(scope: DataScope, id: string): Promise<UserDe
         : null,
     mustChangePassword: row.mustChangePassword,
     lastLoginAt: row.lastLoginAt,
+    twoFactorStatus:
+      row.twoFactorEnabledAt !== null
+        ? 'ACTIVE'
+        : row.twoFactorSecret !== null
+          ? 'PENDING'
+          : 'NONE',
   };
 }
 
