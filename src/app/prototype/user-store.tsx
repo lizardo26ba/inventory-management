@@ -36,6 +36,7 @@ type UserStore = {
   readonly updateUser: (id: string, input: UserInput) => Promise<void>;
   readonly setUserActive: (id: string, active: boolean) => Promise<void>;
   readonly deleteUser: (id: string) => Promise<void>;
+  readonly resetTwoFactor: (id: string) => Promise<void>;
 };
 
 const UserStoreContext = createContext<UserStore | null>(null);
@@ -92,9 +93,26 @@ export function UserStoreProvider({
     setUsers((current) => current.filter((user) => user.id !== id));
   }, []);
 
+  // En la aplicación real borra el secreto y cierra todas las sesiones de esa
+  // persona. Aquí solo cambia el estado que se enseña.
+  const resetTwoFactor = useCallback(async (id: string) => {
+    await simulateWrite();
+    setUsers((current) =>
+      current.map((user) => (user.id === id ? { ...user, twoFactor: 'none' } : user)),
+    );
+  }, []);
+
   const value = useMemo(
-    () => ({ users, findById, createUser, updateUser, setUserActive, deleteUser }),
-    [users, findById, createUser, updateUser, setUserActive, deleteUser],
+    () => ({
+      users,
+      findById,
+      createUser,
+      updateUser,
+      setUserActive,
+      deleteUser,
+      resetTwoFactor,
+    }),
+    [users, findById, createUser, updateUser, setUserActive, deleteUser, resetTwoFactor],
   );
 
   return <UserStoreContext.Provider value={value}>{children}</UserStoreContext.Provider>;

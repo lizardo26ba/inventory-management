@@ -32,6 +32,7 @@ import { Toggle } from '../../ui/toggle';
 import { Field, INPUT_CLASS, Section, Select } from '../../ui/form';
 import { CountryFlag } from '../../ui/flag';
 import { PhotoField } from '../../photo-field';
+import { TwoFactorStatusPanel } from './two-factor-status';
 import { countryOptions } from '../../fake-data';
 import { useUserStore, type UserInput } from '../../user-store';
 import {
@@ -268,6 +269,12 @@ export function UserForm({
               />
             </Field>
           </>
+        ) : null}
+
+        {/* Solo en la edición de quien ya es super administrador: es un estado
+            de la cuenta guardada, no algo que se elige al rellenar el formulario. */}
+        {isEditing && initialValues?.isPlatformAdmin === true ? (
+          <TwoFactorStatusPanel userId={userId} />
         ) : null}
       </Section>
 

@@ -391,6 +391,22 @@ export const copyEn = {
       'They will read and change data in every company, including ones they are not a member of. Every entry is recorded.',
     platformReason: 'Why they get it',
     platformReasonHelp: 'Read out loud at the periodic review of who holds this.',
+    twoFactorTitle: 'Second factor',
+    twoFactorActive: 'Active',
+    twoFactorPending: 'Setup not confirmed',
+    twoFactorNone: 'Not set up',
+    twoFactorActiveHelp:
+      'Asks for a code from their authenticator app every time they sign in.',
+    twoFactorPendingHelp: 'They started setting it up but have not entered the first code yet.',
+    twoFactorNoneHelp:
+      'They will set it up the next time they sign in. Nothing opens before that.',
+    twoFactorReset: 'Reset second factor',
+    twoFactorResetTitle: 'Reset the second factor?',
+    twoFactorResetWarning:
+      'All their sessions close, and next time they sign in they will have to set it up again with their phone. Do it only after confirming with this person that they lost or changed their phone. It is recorded in the audit log.',
+    twoFactorResetConfirm: 'Reset',
+    twoFactorResetCancel: 'Cancel',
+    twoFactorResetDone: 'Second factor reset. Their sessions were closed.',
     platformBadge: 'Super admin',
     sectionAccess: 'Company access',
     sectionPermissions: 'Resulting permissions',
