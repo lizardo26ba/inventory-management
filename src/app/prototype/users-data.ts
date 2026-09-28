@@ -171,7 +171,14 @@ export type User = {
   readonly isPlatformAdmin?: boolean;
   /** Por qué se concedió. Obligatorio: sirve en la revisión periódica. */
   readonly platformAdminReason?: string;
+  /**
+   * El segundo factor, que solo lleva el super administrador. RN-005, ADR 0014.
+   * Sin alta, con el alta a medio confirmar, o activo.
+   */
+  readonly twoFactor?: TwoFactorStatus;
 };
+
+export type TwoFactorStatus = 'none' | 'pending' | 'active';
 
 const SEED_USERS_BASE = [
   {
@@ -182,6 +189,7 @@ const SEED_USERS_BASE = [
     active: true,
     isPlatformAdmin: true,
     platformAdminReason: 'Responsable de la operación de la plataforma.',
+    twoFactor: 'active' as const,
     memberships: [
       { companyId: 'c-01', roleCode: 'admin' },
       { companyId: 'c-02', roleCode: 'warehouse' },
@@ -252,6 +260,42 @@ const SEED_USERS_BASE = [
       { companyId: 'c-10', roleCode: 'admin' },
       { companyId: 'c-13', roleCode: 'admin' },
     ],
+  },
+  // Dos super administradores más, para ver los otros estados del segundo
+  // factor, y la cuenta con la que arranca la maqueta, que no puede
+  // restablecerse a sí misma.
+  {
+    firstName: 'Elena',
+    lastName: 'Castillo',
+    email: 'elena.castillo@example.com',
+    countryCode: 'GT',
+    active: true,
+    isPlatformAdmin: true,
+    platformAdminReason: 'Soporte de segundo nivel.',
+    twoFactor: 'pending' as const,
+    memberships: [],
+  },
+  {
+    firstName: 'Tomas',
+    lastName: 'Rivas',
+    email: 'tomas.rivas@example.com',
+    countryCode: 'MX',
+    active: true,
+    isPlatformAdmin: true,
+    platformAdminReason: 'Recién incorporado al equipo de plataforma.',
+    twoFactor: 'none' as const,
+    memberships: [],
+  },
+  {
+    firstName: 'Platform',
+    lastName: 'admin',
+    email: 'admin@gt.com',
+    countryCode: 'GT',
+    active: true,
+    isPlatformAdmin: true,
+    platformAdminReason: 'Cuenta de la maqueta.',
+    twoFactor: 'active' as const,
+    memberships: [],
   },
 ];
 
