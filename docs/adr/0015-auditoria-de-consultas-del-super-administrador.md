@@ -1,6 +1,6 @@
 # 0015. Auditoría de las consultas del super administrador en la puerta de permisos
 
-**Estado:** sustituida por [0017](0017-bitacora-de-cambios-sin-purga.md). Las consultas ya no se registran; la bitácora
+**Estado:** sustituida por [0018](0018-bitacora-de-cambios-sin-purga.md). Las consultas ya no se registran; la bitácora
 guarda solo cambios
 **Fecha:** 2026-09-28
 **Decide:** propietario del producto

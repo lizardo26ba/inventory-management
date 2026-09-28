@@ -1,11 +1,12 @@
-# 0017. La bitácora guarda los cambios de todos los usuarios, no las consultas, y no se purga
+# 0018. La bitácora guarda los cambios de todos los usuarios, no las consultas, y no se purga
 
 **Estado:** aceptada
 **Fecha:** 2026-09-28
 **Decide:** propietario del producto
 **Consultados:** equipo de arquitectura, seguridad
 **Relacionadas:** [0005](0005-super-administrador-de-plataforma.md) (enmendada por este),
-[0015](0015-auditoria-de-consultas-del-super-administrador.md) (sustituida por este)
+[0015](0015-auditoria-de-consultas-del-super-administrador.md) y
+[0017](0017-bitacora-de-toda-la-actividad-sin-purga.md) (sustituidas por este)
 
 ## Contexto
 
@@ -15,7 +16,7 @@ transacción que el cambio, y no se edita ni se borra (RN-071).
 
 El ADR 0005 pedía además auditar las lecturas del super administrador, y el ADR 0015 lo
 puso en la puerta de permisos: una entrada por cada pantalla de consulta, escrita antes de
-leer. Se llegó a proponer extenderlo a todos los usuarios, y eso dejó ver el coste:
+leer. El ADR 0017 lo extendió a todos los usuarios, y eso dejó ver el coste:
 
 - Las lecturas son la inmensa mayoría de lo que hace la gente. Con todos los usuarios se
   estimaron, sin medir, entre 15 y 25 gigabytes al año, con archivo en frío casi seguro

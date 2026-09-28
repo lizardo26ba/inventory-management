@@ -51,9 +51,10 @@ referencia para personas.
 | [0012](adr/0012-fusion-con-combinacion-normal-y-sin-aprobacion-obligatoria.md) | Fusión con combinación normal, sin aprobación obligatoria con una sola persona        |
 | [0013](adr/0013-empresa-activa-en-la-sesion.md)                                | La empresa activa en la sesión, y lo que la base ve antes y después de elegirla       |
 | [0014](adr/0014-segundo-factor-del-super-administrador.md)                     | Segundo factor del super administrador con app autenticadora, sin códigos de respaldo |
-| [0015](adr/0015-auditoria-de-consultas-del-super-administrador.md)             | Auditoría de las consultas del super administrador. Sustituida por 0017               |
+| [0015](adr/0015-auditoria-de-consultas-del-super-administrador.md)             | Auditoría de las consultas del super administrador. Sustituida por 0018               |
 | [0016](adr/0016-despliegue-en-vercel-hasta-azure.md)                           | Despliegue en Vercel con Neon como etapa temporal hasta Azure                         |
-| [0017](adr/0017-bitacora-de-cambios-sin-purga.md)                              | La bitácora guarda los cambios de todos los usuarios, no las consultas, y no se purga |
+| [0017](adr/0017-bitacora-de-toda-la-actividad-sin-purga.md)                    | La bitácora registra las consultas de todos los usuarios. Sustituida por 0018         |
+| [0018](adr/0018-bitacora-de-cambios-sin-purga.md)                              | La bitácora guarda los cambios de todos los usuarios, no las consultas, y no se purga |
 
 ## Arquitectura
 

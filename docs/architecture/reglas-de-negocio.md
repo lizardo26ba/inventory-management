@@ -135,8 +135,8 @@ Confirmado por negocio. Ver [ADR 0008](../adr/0008-rastreo-por-lote-y-numero-de-
 | RN-070 | Toda operación que modifique inventario, permisos o datos maestros queda registrada con su autor.                           | Confirmada |
 | RN-071 | La bitácora de auditoría no se edita ni se borra desde la aplicación.                                                       | Confirmada |
 | RN-072 | Las acciones del super administrador se registran indicando la empresa afectada y que se ejecutaron con privilegio elevado. | Confirmada |
-| RN-073 | Las consultas de datos no se registran en la bitácora: solo los cambios, de cualquier usuario. ADR 0017.                    | Retirada   |
-| RN-074 | La bitácora se conserva sin plazo y no se purga. Si crece demasiado, se archiva en frío, sin borrar. ADR 0017.              | Confirmada |
+| RN-073 | Las consultas de datos no se registran en la bitácora: solo los cambios, de cualquier usuario. ADR 0018.                    | Retirada   |
+| RN-074 | La bitácora se conserva sin plazo y no se purga. Si crece demasiado, se archiva en frío, sin borrar. ADR 0018.              | Confirmada |
 
 ## 9. Preguntas abiertas para negocio
 

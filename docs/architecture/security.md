@@ -174,7 +174,7 @@ mandan por encima de ella.
   (RN-004). No queda dentro de una empresa por defecto ni arrastra la anterior.
 - **Todo lo que hace el super administrador dentro de una empresa queda registrado**, con
   la empresa afectada y la marca de privilegio elevado (RN-072). Sus consultas no: la
-  bitácora guarda cambios, no lecturas ([ADR 0017](../adr/0017-bitacora-de-cambios-sin-purga.md)).
+  bitácora guarda cambios, no lecturas ([ADR 0018](../adr/0018-bitacora-de-cambios-sin-purga.md)).
 - **El segundo factor es obligatorio para el super administrador, y solo para él**
   (RN-005). Es un código de app autenticadora que se pide en cada inicio de sesión. Un
   código no sirve dos veces, y uno equivocado cuenta como una contraseña equivocada para
@@ -250,7 +250,7 @@ vista desde dentro, con `audit:read`, llegará con las pantallas de la operació
   van al registro de la aplicación, que ya enmascara lo sensible.
 - Las consultas, de nadie. La bitácora es para auditar cambios: quién cambió qué, cuándo y
   de qué a qué. De una consulta del super administrador queda que entró a esa empresa, no
-  lo que miró. Es un riesgo aceptado en el [ADR 0017](../adr/0017-bitacora-de-cambios-sin-purga.md).
+  lo que miró. Es un riesgo aceptado en el [ADR 0018](../adr/0018-bitacora-de-cambios-sin-purga.md).
 - La purga por antigüedad. La bitácora se conserva sin plazo (RN-074). Si crece demasiado,
   se archiva en frío, sin borrar.
 

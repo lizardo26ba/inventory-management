@@ -1,7 +1,7 @@
 # 0005. Super administrador de plataforma con acceso transversal auditado
 
 **Estado:** aceptada
-**Enmendada por:** [0017](0017-bitacora-de-cambios-sin-purga.md), que retira la auditoría de lecturas del punto cuatro:
+**Enmendada por:** [0018](0018-bitacora-de-cambios-sin-purga.md), que retira la auditoría de lecturas del punto cuatro:
 la bitácora guarda solo cambios
 **Fecha:** 2026-09-10
 **Decide:** equipo de arquitectura

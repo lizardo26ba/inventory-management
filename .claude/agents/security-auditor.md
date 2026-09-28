@@ -35,7 +35,7 @@ cuatro controles:
 - El segundo factor está activo y superado antes de poder elegir organización. Ninguna
   configuración lo apaga; una variable o un atajo que lo salte es un hallazgo. ADR 0014.
 - Cada acción que cambia datos deja auditoría con la organización afectada y la marca de
-  privilegio elevado. Las lecturas no se auditan, de nadie: es una decisión del ADR 0017,
+  privilegio elevado. Las lecturas no se auditan, de nadie: es una decisión del ADR 0018,
   no un olvido.
 
 Rechaza cualquier comprobación de super administrador escrita fuera del punto único de
