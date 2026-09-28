@@ -13,6 +13,11 @@ import { useState } from 'react';
 
 import { ActionButton, useAsyncAction } from '@/components/ui/action-button';
 import { INPUT_CLASS } from '@/components/ui/form';
+import {
+  PASSWORD_INPUT_CLASS,
+  passwordInputType,
+  ShowPasswordSwitch,
+} from '@/components/ui/show-password-switch';
 import { useCopy } from '@/lib/i18n';
 import { changePassword } from '@/modules/auth/actions';
 import { changePasswordSchema, toFieldErrors } from '@/modules/auth/schema';
@@ -30,6 +35,7 @@ export function ChangePasswordForm(): React.ReactElement {
   });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [arePasswordsVisible, setArePasswordsVisible] = useState(false);
 
   function messageFor(field: string): string | undefined {
     const key = fieldErrors[field];
@@ -40,6 +46,8 @@ export function ChangePasswordForm(): React.ReactElement {
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     setFormError(null);
+    // Se vuelven a ocultar al enviar: la pantalla siguiente puede verla alguien más.
+    setArePasswordsVisible(false);
 
     const parsed = changePasswordSchema.safeParse(values);
     if (!parsed.success) {
@@ -105,14 +113,14 @@ export function ChangePasswordForm(): React.ReactElement {
             <input
               id={field.name}
               name={field.name}
-              type="password"
+              type={passwordInputType(arePasswordsVisible)}
               autoComplete={field.autoComplete}
               value={values[field.name]}
               onChange={(event) =>
                 setValues((current) => ({ ...current, [field.name]: event.target.value }))
               }
               aria-invalid={message !== undefined}
-              className={`${INPUT_CLASS} ${message === undefined ? 'border-border' : 'border-danger'}`}
+              className={`${INPUT_CLASS} ${PASSWORD_INPUT_CLASS} ${message === undefined ? 'border-border' : 'border-danger'}`}
             />
             {message !== undefined ? (
               <p className="text-danger mt-1.5 text-xs">{message}</p>
@@ -122,6 +130,12 @@ export function ChangePasswordForm(): React.ReactElement {
           </div>
         );
       })}
+
+      <ShowPasswordSwitch
+        checked={arePasswordsVisible}
+        label={copy.changePassword.showPasswords}
+        onChange={setArePasswordsVisible}
+      />
 
       <ActionButton
         type="submit"
