@@ -245,6 +245,38 @@ export const copyEs: Copy = {
     activating: 'Activando',
   },
 
+  result: {
+    successTitle: 'Listo',
+    errorTitle: 'No se pudo completar',
+    warningTitle: 'Atención',
+    close: 'Entendido',
+    changedMeanwhile:
+      'Alguien más cambió este registro mientras lo mirabas. Recarga la página y revísalo antes de volver a intentarlo.',
+    userSuspendDone: 'Se suspendió la cuenta de',
+    userSuspendFailed: 'No se pudo suspender la cuenta de',
+    userSuspendConsequence: 'No podrá entrar hasta que la reactiven.',
+    userActivateDone: 'Se reactivó la cuenta de',
+    userActivateFailed: 'No se pudo reactivar la cuenta de',
+    userActivateConsequence: 'Ya puede volver a entrar.',
+    userDeleteDone: 'Se eliminó la cuenta de',
+    userDeleteFailed: 'No se pudo eliminar la cuenta de',
+    userDeleteConsequence: 'Se le retiraron los accesos a empresas y se cerraron sus sesiones.',
+    companySuspendDone: 'Se suspendió la empresa',
+    companySuspendFailed: 'No se pudo suspender la empresa',
+    companySuspendConsequence:
+      'Sus usuarios no podrán trabajar en ella hasta que la reactiven.',
+    companyActivateDone: 'Se reactivó la empresa',
+    companyActivateFailed: 'No se pudo reactivar la empresa',
+    companyActivateConsequence: 'Sus usuarios ya pueden volver a trabajar en ella.',
+    companyDeleteDone: 'Se eliminó la empresa',
+    companyDeleteFailed: 'No se pudo eliminar la empresa',
+    companyDeleteConsequence: 'Ya no aparece en ninguna parte de la plataforma.',
+    twoFactorResetDone: 'Se restableció el segundo factor de',
+    twoFactorResetFailed: 'No se pudo restablecer el segundo factor de',
+    twoFactorResetConsequence:
+      'Se cerraron sus sesiones y lo activará de nuevo la próxima vez que entre.',
+  },
+
   organizations: {
     title: 'Empresas',
     subtitle: 'Todas las empresas que operan en la plataforma.',

@@ -229,6 +229,14 @@ export function IconAlert(props: IconProps): React.ReactElement {
   );
 }
 
+export function IconCheck(props: IconProps): React.ReactElement {
+  return (
+    <Svg {...props}>
+      <path d="m5 12.5 4.5 4.5L19 7.5" />
+    </Svg>
+  );
+}
+
 export function IconLock(props: IconProps): React.ReactElement {
   return (
     <Svg {...props}>

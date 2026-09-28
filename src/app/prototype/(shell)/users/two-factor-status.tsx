@@ -22,8 +22,9 @@ import { useCopy } from '@/lib/i18n';
 import { useSessionStore } from '../../session-store';
 import { buttonClass } from '../../ui/button';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { Notice } from '../../ui/notice';
 import { Tag } from '../../ui/tag';
+import { reportResult } from '../../report-result';
+import { useResultDialog } from '../../ui/result-dialog';
 import { useUserStore } from '../../user-store';
 import type { TwoFactorStatus } from '../../users-data';
 
@@ -36,7 +37,7 @@ export function TwoFactorStatusPanel({
   const { account } = useSessionStore();
   const { findById, resetTwoFactor } = useUserStore();
   const [isConfirming, setIsConfirming] = useState(false);
-  const [wasReset, setWasReset] = useState(false);
+  const showResult = useResultDialog();
 
   const user = findById(userId);
   const status: TwoFactorStatus = user?.twoFactor ?? 'none';
@@ -83,12 +84,6 @@ export function TwoFactorStatusPanel({
         </p>
       ) : null}
 
-      {wasReset ? (
-        <div className="mt-3">
-          <Notice tone="info">{copy.userForm.twoFactorResetDone}</Notice>
-        </div>
-      ) : null}
-
       {isConfirming ? (
         <ConfirmDialog
           title={copy.userForm.twoFactorResetTitle}
@@ -99,9 +94,10 @@ export function TwoFactorStatusPanel({
           onCancel={() => setIsConfirming(false)}
           // Se cierra cuando el restablecimiento termina, no al pulsar.
           onConfirm={async () => {
-            await resetTwoFactor(userId);
+            await reportResult(showResult, copy, 'twoFactorReset', fullName, () =>
+              resetTwoFactor(userId),
+            );
             setIsConfirming(false);
-            setWasReset(true);
           }}
         />
       ) : null}
