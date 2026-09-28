@@ -84,18 +84,31 @@ export function CatalogShell({
           </div>
         </div>
         {/* En un teléfono las familias se funden en una sola barra que se
-            desplaza de lado; los títulos de familia solo caben en la columna. */}
-        {/* Es `relative` para que las posiciones de los enlaces se midan desde
+            desplaza de lado, separadas por una raya; los títulos de familia
+            solo caben en la columna, donde cada familia lleva su línea encima.
+            Es `relative` para que las posiciones de los enlaces se midan desde
             el menú y no desde la página. */}
         <nav
           ref={navRef}
           aria-label="Componentes"
           className="relative flex gap-1 overflow-x-auto px-2 pb-3 md:block md:flex-1 md:overflow-x-visible md:overflow-y-auto"
         >
-          {groups.map(({ group, entries }) => (
-            <div key={group} className="contents md:mb-4 md:block">
-              <p className="text-text-muted hidden px-3 pb-1 text-xs font-medium tracking-wide uppercase md:block">
+          {groups.map(({ group, entries }, index) => (
+            <div
+              key={group}
+              className="md:border-border contents md:block md:border-t md:py-3 md:first:border-t-0 md:first:pt-1"
+            >
+              {index > 0 ? (
+                <span
+                  aria-hidden="true"
+                  className="bg-border mx-1 my-1.5 w-px shrink-0 md:hidden"
+                />
+              ) : null}
+              <p className="text-text hidden items-baseline justify-between px-3 pb-1.5 text-xs font-semibold tracking-wide uppercase md:flex">
                 {group}
+                <span className="text-text-muted font-normal tabular-nums">
+                  {entries.length}
+                </span>
               </p>
               <ul className="contents md:block">
                 {entries.map((entry) => {
