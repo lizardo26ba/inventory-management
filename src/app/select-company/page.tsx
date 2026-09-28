@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
-import { requiresPlatformAdminTwoFactor } from '@/lib/config/env.server';
 import { resolveLanding } from '@/modules/auth/landing';
 import { listCompanyChoices } from '@/modules/auth/repository';
 import { CHANGE_PASSWORD_PATH, SIGN_IN_PATH, SIGNED_IN_PATH } from '@/modules/auth/routes';
@@ -28,10 +27,7 @@ export default async function SelectCompanyPage(): Promise<React.ReactElement> {
   if (session === null) redirect(SIGN_IN_PATH);
   if (session.mustChangePassword) redirect(CHANGE_PASSWORD_PATH);
 
-  const landing = resolveLanding(
-    { ...session, organizationId: null },
-    { twoFactorRequired: requiresPlatformAdminTwoFactor },
-  );
+  const landing = resolveLanding({ ...session, organizationId: null });
   if (landing.kind !== 'chooseCompany') redirect(SIGNED_IN_PATH);
 
   const choices = await listCompanyChoices(session.userId);

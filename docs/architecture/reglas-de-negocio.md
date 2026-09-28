@@ -43,10 +43,9 @@ empresas. El segundo factor es una app autenticadora, sin códigos de respaldo; 
 el teléfono lo recupera con otro super administrador, que se lo restablece. Ver el
 [ADR 0014](../adr/0014-segundo-factor-del-super-administrador.md).
 
-Mientras no existan sus pantallas, RN-005 sigue suspendida de forma temporal y declarada:
-el segundo factor se exige o se salta con la variable `PLATFORM_ADMIN_TWO_FACTOR`, que por
-omisión lo exige. Ver la enmienda del
-[ADR 0005](../adr/0005-super-administrador-de-plataforma.md).
+Desde el 2026-09-27 RN-005 rige sin excepción, en todos los entornos. La suspensión
+temporal de la enmienda del [ADR 0005](../adr/0005-super-administrador-de-plataforma.md)
+quedó obsoleta: no hay configuración que apague el segundo factor.
 
 ## 2. Idioma y presentación
 

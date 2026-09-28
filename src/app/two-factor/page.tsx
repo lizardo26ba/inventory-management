@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 
-import { requiresPlatformAdminTwoFactor } from '@/lib/config/env.server';
 import { resolveLanding } from '@/modules/auth/landing';
 import { SIGN_IN_PATH, SIGNED_IN_PATH } from '@/modules/auth/routes';
 import { getSession } from '@/modules/auth/session';
@@ -20,9 +19,7 @@ export default async function TwoFactorPage(): Promise<React.ReactElement> {
   const session = await getSession();
   if (session === null) redirect(SIGN_IN_PATH);
 
-  const landing = resolveLanding(session, {
-    twoFactorRequired: requiresPlatformAdminTwoFactor,
-  });
+  const landing = resolveLanding(session);
   if (landing.kind !== 'twoFactorVerify') redirect(SIGNED_IN_PATH);
 
   return (

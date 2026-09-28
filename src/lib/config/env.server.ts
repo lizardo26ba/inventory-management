@@ -79,18 +79,6 @@ const serverSchema = z.object({
 
   SECRETS_PROVIDER: z.enum(['azure', 'aws', 'env']).default('env'),
   SECRETS_NAME: z.string().optional(),
-
-  /**
-   * Si el super administrador debe superar un segundo factor antes de entrar a
-   * una empresa. El ADR 0005 lo exige; esta variable permite saltarlo mientras
-   * las pantallas de alta y de verificación del segundo factor todavía no
-   * existen.
-   *
-   * Por omisión está exigido, en todos los entornos. Apagarlo hay que
-   * escribirlo, y donde se apague queda dicho en el registro de arranque. Ver la
-   * enmienda del ADR 0005.
-   */
-  PLATFORM_ADMIN_TWO_FACTOR: z.enum(['required', 'skipped']).default('required'),
 });
 
 export type ServerEnvironment = Readonly<z.infer<typeof serverSchema>>;
@@ -129,29 +117,3 @@ export const twoFactorEncryptionKey: Buffer = Buffer.from(
   'base64',
 );
 export const isTest = serverEnv.NODE_ENV === 'test';
-
-/**
- * Si hay que exigir el segundo factor al super administrador.
- *
- * Manda la variable, en todos los entornos, y su valor por omisión es exigirlo.
- * Antes producción lo imponía sin mirar la variable, y eso dejaba el despliegue
- * bloqueado sin salida: la puerta pide una marca que ninguna pantalla puede
- * poner todavía, así que toda pantalla de plataforma respondía con un error.
- *
- * Es una concesión con fecha de caducidad, no un permiso permanente. Se retira
- * en cuanto existan las pantallas de alta y de verificación, y entonces esta
- * variable desaparece. Ver la enmienda del ADR 0005.
- */
-export const requiresPlatformAdminTwoFactor =
-  serverEnv.PLATFORM_ADMIN_TWO_FACTOR === 'required';
-
-// Que se vea en el registro de arranque, y con más voz en producción. Un control
-// de seguridad apagado no puede ser algo que solo sepa quien editó la
-// configuración del despliegue.
-if (!requiresPlatformAdminTwoFactor) {
-  console.warn(
-    isProduction
-      ? '[configuración] PRODUCCIÓN con el segundo factor del super administrador SALTADO. Concesión temporal mientras no existen sus pantallas. Ver la enmienda del ADR 0005.'
-      : '[configuración] Segundo factor del super administrador SALTADO. Ver ADR 0005.',
-  );
-}

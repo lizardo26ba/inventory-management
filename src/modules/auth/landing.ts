@@ -38,21 +38,9 @@ export type Landing =
   | { readonly kind: 'company'; readonly organizationId: string }
   | { readonly kind: 'chooseCompany' };
 
-/**
- * `twoFactorRequired` llega de fuera porque esta función no lee la
- * configuración: así se prueba sin entorno. Desaparece con la variable que lo
- * permite apagar. Ver la enmienda del ADR 0005.
- */
-export function resolveLanding(
-  session: SessionContext,
-  options: { readonly twoFactorRequired: boolean },
-): Landing {
+export function resolveLanding(session: SessionContext): Landing {
   if (session.mustChangePassword) return { kind: 'changePassword' };
-  if (
-    options.twoFactorRequired &&
-    session.isPlatformAdmin &&
-    session.twoFactorVerifiedAt === null
-  ) {
+  if (session.isPlatformAdmin && session.twoFactorVerifiedAt === null) {
     return { kind: session.twoFactorEnabled ? 'twoFactorVerify' : 'twoFactorSetup' };
   }
   if (session.organizationId !== null) {

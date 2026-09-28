@@ -111,8 +111,9 @@ frente a administración plena.
 
 ## Enmienda 2026-09-11: el segundo factor se puede saltar por configuración
 
-**Estado:** vigente, temporal. Pasa a obsoleta con las pantallas del
-[ADR 0014](0014-segundo-factor-del-super-administrador.md)
+**Estado:** obsoleta desde el 2026-09-27. La variable se retiró del código y de la
+configuración con las pantallas del [ADR 0014](0014-segundo-factor-del-super-administrador.md),
+y el segundo factor ya no se puede apagar. Se conserva como registro de lo que rigió
 **Decide:** propietario del producto
 
 ### Qué cambia

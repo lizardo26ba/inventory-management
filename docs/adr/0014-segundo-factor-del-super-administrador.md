@@ -78,6 +78,8 @@ quién.
 
 **Nueve. La variable `PLATFORM_ADMIN_TWO_FACTOR` desaparece** cuando entren las pantallas,
 y con ella la enmienda del ADR 0005 pasa a obsoleta. Hasta entonces sigue como está.
+Se retiró el 2026-09-27, junto con el botón de restablecer y no antes: sin él, un super
+administrador que perdiera el teléfono no tendría cómo volver a entrar.
 
 Fuera de este registro: recordar el dispositivo, avisos por correo al activar o restablecer,
 y llaves de seguridad físicas (WebAuthn).
