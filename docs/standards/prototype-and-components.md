@@ -11,12 +11,12 @@ romper el linter.
 
 ## 1. Dos árboles con papeles distintos
 
-| Árbol                               | Qué es                                | Quién lo consume                    |
-| ----------------------------------- | ------------------------------------- | ----------------------------------- |
-| `src/app/prototype/`                | Boceto navegable con datos falsos     | Nadie. Se borra cuando sobra        |
-| `src/components/ui/`                | Piezas visuales sin lógica de negocio | Las pantallas reales                |
-| `src/modules/<dominio>/components/` | Interfaz propia de un dominio         | Las rutas de ese dominio            |
-| `src/app/catalog/`                  | Escaparate de `src/components/ui`     | Desarrollo. No existe en producción |
+| Árbol                               | Qué es                                | Quién lo consume                                    |
+| ----------------------------------- | ------------------------------------- | --------------------------------------------------- |
+| `src/app/prototype/`                | Boceto navegable con datos falsos     | Nadie. Se borra cuando sobra                        |
+| `src/components/ui/`                | Piezas visuales sin lógica de negocio | Las pantallas reales                                |
+| `src/modules/<dominio>/components/` | Interfaz propia de un dominio         | Las rutas de ese dominio                            |
+| `src/app/catalog/`                  | Escaparate de `src/components/ui`     | Desarrollo y la demo. Se enciende por configuración |
 
 El prototipo existe para decidir el diseño con algo que se puede tocar, no para adelantar
 código. Por eso puede romperse, contradecirse o probar tres versiones de la misma
@@ -118,9 +118,14 @@ mantiene al día por respeto: se mantiene mientras sirva para decidir algo.
 
 `/catalog` enseña los componentes reales de `src/components/ui`, uno por página, con datos
 inventados y en todos sus estados: normal, con error, deshabilitado, vacío, con texto
-largo. Tiene a mano el conmutador de tema y el de idioma. Responde `404` en producción y
-en las vistas previas de Vercel.
+largo. Tiene a mano el conmutador de tema y el de idioma.
 [ADR 0019](../adr/0019-catalogo-de-componentes-fuera-de-produccion.md).
+
+Dónde responde lo decide `COMPONENT_CATALOG_ENABLED`: `true` lo enciende y `false` lo
+apaga en cualquier entorno; sin la variable, se ve fuera de producción y responde `404`
+en producción. Mientras el proyecto sea una demo está encendido en _Production_ y
+_Preview_ de Vercel.
+[ADR 0020](../adr/0020-catalogo-de-componentes-visible-por-configuracion.md).
 
 No es un paso más del orden de la sección 3. El diseño se decide en el prototipo; el
 catálogo solo enseña lo que salió del paso 2. Si una variante se prueba primero en el

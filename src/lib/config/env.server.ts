@@ -19,6 +19,8 @@ import 'server-only';
 
 import { z } from 'zod';
 
+import { COMPONENT_CATALOG_FLAG_VALUES, isComponentCatalogVisible } from './component-catalog';
+
 /** Lo que `openssl rand -base64 32` produce, medido en caracteres. */
 const MINIMUM_SECRET_LENGTH = 32;
 
@@ -42,6 +44,13 @@ function decodesToKey(value: string): boolean {
 const serverSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
+
+  /**
+   * Enciende o apaga `/catalog`. Sin ella, se ve fuera de producción. Solo
+   * `true` o `false`: un `si` o un `1` fallan al arrancar en lugar de dejar el
+   * catálogo en un estado que nadie eligió. ADR 0020.
+   */
+  COMPONENT_CATALOG_ENABLED: z.enum(COMPONENT_CATALOG_FLAG_VALUES).optional(),
 
   // Dos roles distintos por mínimo privilegio: la aplicación solo lee y escribe
   // datos, el migrador es el único que puede alterar la estructura.
@@ -110,6 +119,12 @@ function readServerEnvironment(): ServerEnvironment {
 export const serverEnv: ServerEnvironment = readServerEnvironment();
 
 export const isProduction = serverEnv.NODE_ENV === 'production';
+
+/** Si `/catalog` responde en este despliegue. ADR 0020. */
+export const isComponentCatalogEnabled = isComponentCatalogVisible(
+  serverEnv.COMPONENT_CATALOG_ENABLED,
+  isProduction,
+);
 
 /** La clave del segundo factor, ya decodificada. Solo la usa el módulo de autenticación. */
 export const twoFactorEncryptionKey: Buffer = Buffer.from(

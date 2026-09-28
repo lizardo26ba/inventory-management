@@ -1,6 +1,8 @@
 # 0019. Catálogo de componentes propio, como ruta que no existe en producción
 
 **Estado:** aceptada
+**Enmendada por:** [0020](0020-catalogo-de-componentes-visible-por-configuracion.md), que ata la
+guarda a una variable de configuración: en la demo, el catálogo se ve en producción
 **Fecha:** 2026-09-28
 **Decide:** propietario del producto
 **Consultados:** equipo de frontend

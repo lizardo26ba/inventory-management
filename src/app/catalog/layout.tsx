@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import { notFound } from 'next/navigation';
 
-import { isProduction } from '@/lib/config/env.server';
+import { isComponentCatalogEnabled } from '@/lib/config/env.server';
 
 import { CatalogShell } from './catalog-shell';
 import { entriesByGroup } from './entries';
@@ -18,10 +18,10 @@ export const metadata: Metadata = {
  * todos sus estados, para verlas sin tener que llegar a la pantalla que las usa.
  * No es el prototipo: allí se decide el diseño, aquí se ve lo que ya se decidió.
  *
- * En producción no existe. La guarda va en el marco y no en cada página por la
- * misma razón que en el panel: una página nueva queda cerrada por nacer aquí
- * dentro. No enseña nada secreto, pero una dirección que responde en producción
- * sin ser parte del producto es superficie que nadie vigila.
+ * Responde solo donde la configuración lo enciende: sin la variable, fuera de
+ * producción; con ella, donde diga, que en la demo incluye producción. ADR 0020.
+ * La guarda va en el marco y no en cada página por la misma razón que en el
+ * panel: una página nueva queda cerrada por nacer aquí dentro.
  *
  * Los textos del propio catálogo están escritos en español y no pasan por
  * `src/lib/i18n`: es una herramienta de desarrollo, como la documentación. Los
@@ -33,7 +33,7 @@ export default function CatalogLayout({
 }: {
   readonly children: React.ReactNode;
 }): React.ReactElement {
-  if (isProduction) notFound();
+  if (!isComponentCatalogEnabled) notFound();
 
   return (
     <CatalogShell
