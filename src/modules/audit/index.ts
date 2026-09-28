@@ -16,6 +16,7 @@ export {
   findPlatformAuditEntry,
   listPlatformAuditEntries,
   recordAuditEntries,
+  recordAuditEntriesAlone,
 } from './repository';
 export {
   AUDIT_ENTRY_PARAM,

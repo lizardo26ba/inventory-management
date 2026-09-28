@@ -246,6 +246,26 @@ describe('aislamiento entre empresas', () => {
     ).rejects.toThrow();
   });
 
+  it('la consulta de la plataforma se registra con el alcance de la empresa consultada', async () => {
+    // Es el alcance con que la puerta escribe la entrada antes de leer. ADR 0015.
+    const correlationId = randomUUID();
+
+    await asOrganization(ORGANIZATION_A, false, (tx) =>
+      tx.auditLog.create({
+        data: {
+          organizationId: ORGANIZATION_A,
+          actingAsPlatformAdmin: true,
+          action: 'company_data.viewed',
+          entityType: 'CompanyData',
+          entityId: ORGANIZATION_A,
+          correlationId,
+        },
+      }),
+    );
+
+    expect(await prisma.auditLog.count({ where: { correlationId } })).toBe(1);
+  });
+
   it('la excepción del super administrador deja ver por encima de las empresas', async () => {
     const visible = await asOrganization(null, true, async (tx) => ({
       a: await countOrganizations(tx, ORGANIZATION_A),

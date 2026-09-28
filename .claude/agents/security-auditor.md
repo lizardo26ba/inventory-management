@@ -35,7 +35,9 @@ cuatro controles:
 - El segundo factor está activo y superado antes de poder elegir organización. Ninguna
   configuración lo apaga; una variable o un atajo que lo salte es un hallazgo. ADR 0014.
 - Cada acción, **incluidas las lecturas**, deja auditoría con la organización afectada y la
-  marca de privilegio elevado.
+  marca de privilegio elevado. Las lecturas las registra `requireCompanyPermission` al
+  pedir un permiso de consulta: una pantalla que lea datos de empresa sin pedirlo, o que
+  los lea antes de pedirlo, es un hallazgo. ADR 0015.
 
 Rechaza cualquier comprobación de super administrador escrita fuera del punto único de
 autorización. Cada una de esas comprobaciones dispersas es un lugar donde el aislamiento

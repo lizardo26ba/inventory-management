@@ -25,6 +25,7 @@ import {
   NotFoundError,
   TwoFactorRequiredError,
 } from '@/lib/errors';
+import { buildAuditContext, recordAuditEntriesAlone, type AuditFields } from '@/modules/audit';
 import { everyOrganizationPermission } from '@/modules/auth/company-access';
 import {
   deleteSession,
@@ -35,6 +36,7 @@ import {
   listCompanyPermissions,
   type ActiveSession,
 } from '@/modules/auth/repository';
+import { companyScopeOf } from '@/modules/auth/scope';
 import type { SessionContext } from '@/modules/auth/session-context';
 import {
   hashSessionToken,
@@ -318,13 +320,71 @@ function assertOrganizationScope(code: PermissionCode): void {
   }
 }
 
-/** Exige un permiso de empresa en la empresa activa. */
-export async function requireCompanyPermission(code: PermissionCode): Promise<CompanySession> {
+/** Las acciones de un permiso que consultan datos en lugar de cambiarlos. ADR 0015. */
+const CONSULTATION_ACTIONS: ReadonlySet<string> = new Set(['read', 'export']);
+
+function isConsultation(code: PermissionCode): boolean {
+  const permission = PERMISSIONS.find((candidate) => candidate.code === code);
+  return permission !== undefined && CONSULTATION_ACTIONS.has(permission.action);
+}
+
+/** Lo que una pantalla de consulta declara de sí misma al pedir su permiso. */
+export type ConsultationDetail = {
+  /** Los filtros con que consulta: texto buscado, página, orden. Nunca datos. */
+  readonly filters?: AuditFields;
+};
+
+/**
+ * Deja en la bitácora que la plataforma consultó datos de esta empresa. RN-073.
+ *
+ * Se escribe antes de leer y en su propia transacción: una consulta no tiene
+ * otra que compartir. Si falla, lanza, y la pantalla no llega a leer nada. Un
+ * acceso elevado sin rastro es lo que el ADR 0005 prohíbe. ADR 0015.
+ */
+async function recordPlatformConsultation(
+  session: CompanySession,
+  code: PermissionCode,
+  detail: ConsultationDetail,
+): Promise<void> {
+  const resource = code.slice(0, code.indexOf(':'));
+
+  await recordAuditEntriesAlone(
+    companyScopeOf(session),
+    await buildAuditContext(session, code),
+    [
+      {
+        action: 'company_data.viewed',
+        entityType: 'CompanyData',
+        entityId: session.organizationId,
+        entityLabel: resource,
+        organizationId: session.organizationId,
+        after: { resource, ...detail.filters },
+      },
+    ],
+  );
+}
+
+/**
+ * Exige un permiso de empresa en la empresa activa.
+ *
+ * Si es de consulta y quien lo pide es la plataforma, además lo registra: pedir
+ * el permiso es registrar la consulta, así que una pantalla nueva queda cubierta
+ * sin acordarse de nada. Cada pantalla lo pide una vez, y puede declarar sus
+ * filtros. RN-073, ADR 0015.
+ */
+export async function requireCompanyPermission(
+  code: PermissionCode,
+  consultation: ConsultationDetail = {},
+): Promise<CompanySession> {
   assertOrganizationScope(code);
 
   const session = await requireCompanySession();
   if (!session.permissions.has(code)) {
     throw new AuthorizationError(`Falta el permiso ${code}.`, { context: { code } });
+  }
+
+  if (session.actingAsPlatformAdmin && isConsultation(code)) {
+    await recordPlatformConsultation(session, code, consultation);
   }
 
   return session;

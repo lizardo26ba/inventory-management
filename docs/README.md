@@ -51,6 +51,7 @@ referencia para personas.
 | [0012](adr/0012-fusion-con-combinacion-normal-y-sin-aprobacion-obligatoria.md) | Fusión con combinación normal, sin aprobación obligatoria con una sola persona        |
 | [0013](adr/0013-empresa-activa-en-la-sesion.md)                                | La empresa activa en la sesión, y lo que la base ve antes y después de elegirla       |
 | [0014](adr/0014-segundo-factor-del-super-administrador.md)                     | Segundo factor del super administrador con app autenticadora, sin códigos de respaldo |
+| [0015](adr/0015-auditoria-de-consultas-del-super-administrador.md)             | Las consultas del super administrador se registran en la puerta de permisos           |
 
 ## Arquitectura
 
