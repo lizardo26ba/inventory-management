@@ -1,6 +1,7 @@
 # 0017. La bitácora registra las consultas de todos los usuarios y no se purga
 
-**Estado:** aceptada
+**Estado:** sustituida por [0018](0018-bitacora-de-cambios-sin-purga.md). Las consultas no se
+registran; la bitácora guarda solo cambios
 **Fecha:** 2026-09-28
 **Decide:** propietario del producto
 **Consultados:** equipo de arquitectura, seguridad

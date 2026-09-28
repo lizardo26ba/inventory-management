@@ -200,7 +200,7 @@ informe no depende de la tabla de tasas al consultarse. ADR 0006.
 
 | Tabla                | Para qué                                             |
 | -------------------- | ---------------------------------------------------- |
-| `audit_logs`         | Bitácora de solo inserción. RN-070 a RN-073          |
+| `audit_logs`         | Bitácora de solo inserción. RN-070 a RN-072          |
 | `document_sequences` | Correlativo sin huecos por empresa, país, tipo y año |
 | `idempotency_keys`   | Que un doble envío no genere dos movimientos         |
 | `outbox_events`      | Efectos externos que ocurren exactamente una vez     |
@@ -275,7 +275,7 @@ Escrito aquí para que nadie dé por supuesta una garantía que no existe.
 - **Inmutabilidad del libro de movimientos.** `stock_movements` tiene restricciones de
   cantidad, pero nada impide un `UPDATE`, como sí ocurre en la bitácora. Lo sostienen la
   revisión de código y que no exista ninguna función que edite.
-- **Retención de la bitácora.** Sin plazo y sin purga (RN-074). Al pasar de cinco gigabytes se decide cómo archivar en frío. ADR 0017.
+- **Retención de la bitácora.** Sin plazo y sin purga (RN-074). Al pasar de cinco gigabytes se decide cómo archivar en frío. ADR 0018.
 
 ## 11. Cómo se mantiene este documento
 

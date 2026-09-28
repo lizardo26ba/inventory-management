@@ -40,15 +40,6 @@ const repository = vi.hoisted(() => ({
 
 vi.mock('@/modules/auth/repository', () => repository);
 
-const AUDIT_CONTEXT = { correlationId: 'c-1' };
-
-const audit = vi.hoisted(() => ({
-  buildAuditContext: vi.fn(),
-  recordAuditEntriesAlone: vi.fn(),
-}));
-
-vi.mock('@/modules/audit', () => audit);
-
 vi.mock('@/modules/auth/service', () => ({
   hashSessionToken: () => 'huella',
   isSessionExpired: () => false,
@@ -123,8 +114,6 @@ beforeEach(() => {
   repository.findLiveMembershipCompany.mockResolvedValue(COMPANY);
   repository.findEnterableOrganization.mockResolvedValue(COMPANY);
   grants('product:read');
-  audit.buildAuditContext.mockResolvedValue(AUDIT_CONTEXT);
-  audit.recordAuditEntriesAlone.mockResolvedValue(undefined);
 });
 
 describe('getSession y la membresía viva (RN-006)', () => {
@@ -347,101 +336,5 @@ describe('requireTwoFactorChallenge (ADR 0014)', () => {
     repository.findSessionByHash.mockResolvedValue(null);
 
     await expect(requireTwoFactorChallenge()).rejects.toThrow('No hay sesión activa.');
-  });
-});
-
-/**
- * Las consultas dentro de una empresa. RN-073, ADR 0015, ADR 0017.
- *
- * Pedir un permiso de consulta es registrarlo, antes de leer, lo pida un miembro
- * o la plataforma. Si el registro falla, la puerta no se abre.
- */
-describe('requireCompanyPermission y las consultas', () => {
-  const platformInCompany = () =>
-    storedSession({
-      organizationId: 'org-1',
-      actingAsPlatformAdmin: true,
-      twoFactorVerifiedAt: VERIFIED,
-      user: { isPlatformAdmin: true },
-    });
-
-  it('registra la consulta, con la empresa, el recurso y los filtros', async () => {
-    repository.findSessionByHash.mockResolvedValue(platformInCompany());
-
-    await requireCompanyPermission('product:read', { filters: { q: 'tornillo', page: 2 } });
-
-    expect(audit.buildAuditContext).toHaveBeenCalledWith(
-      expect.objectContaining({ organizationId: 'org-1', actingAsPlatformAdmin: true }),
-      'product:read',
-    );
-    expect(audit.recordAuditEntriesAlone).toHaveBeenCalledTimes(1);
-    expect(audit.recordAuditEntriesAlone).toHaveBeenCalledWith(
-      { organizationId: 'org-1', userId: null, actingAsPlatformAdmin: false },
-      AUDIT_CONTEXT,
-      [
-        {
-          action: 'company_data.viewed',
-          entityType: 'CompanyData',
-          entityId: 'org-1',
-          entityLabel: 'product',
-          organizationId: 'org-1',
-          after: { resource: 'product', q: 'tornillo', page: 2 },
-        },
-      ],
-    );
-  });
-
-  it('si la bitácora falla, la consulta no se autoriza', async () => {
-    repository.findSessionByHash.mockResolvedValue(platformInCompany());
-    audit.recordAuditEntriesAlone.mockRejectedValue(new Error('bitácora caída'));
-
-    await expect(requireCompanyPermission('product:read')).rejects.toThrow('bitácora caída');
-  });
-
-  it('un permiso que cambia datos no se registra aquí: lo registra su escritura', async () => {
-    repository.findSessionByHash.mockResolvedValue(platformInCompany());
-
-    await requireCompanyPermission('product:create');
-
-    expect(audit.recordAuditEntriesAlone).not.toHaveBeenCalled();
-  });
-
-  it('un miembro de la empresa que consulta también deja su entrada, sin privilegio', async () => {
-    repository.findSessionByHash.mockResolvedValue(storedSession({ organizationId: 'org-1' }));
-
-    await requireCompanyPermission('product:read');
-
-    expect(audit.buildAuditContext).toHaveBeenCalledWith(
-      expect.objectContaining({ organizationId: 'org-1', actingAsPlatformAdmin: false }),
-      'product:read',
-    );
-    expect(audit.recordAuditEntriesAlone).toHaveBeenCalledWith(
-      { organizationId: 'org-1', userId: null, actingAsPlatformAdmin: false },
-      AUDIT_CONTEXT,
-      [expect.objectContaining({ action: 'company_data.viewed', entityLabel: 'product' })],
-    );
-  });
-
-  it('si la bitácora falla, tampoco un miembro consulta', async () => {
-    repository.findSessionByHash.mockResolvedValue(storedSession({ organizationId: 'org-1' }));
-    audit.recordAuditEntriesAlone.mockRejectedValue(new Error('bitácora caída'));
-
-    await expect(requireCompanyPermission('product:read')).rejects.toThrow('bitácora caída');
-  });
-
-  it('un permiso que falta no llega a registrar nada', async () => {
-    repository.findSessionByHash.mockResolvedValue(storedSession({ organizationId: 'org-1' }));
-
-    await expect(requireCompanyPermission('customer:read')).rejects.toThrow(AuthorizationError);
-    expect(audit.recordAuditEntriesAlone).not.toHaveBeenCalled();
-  });
-
-  it('decidir qué se dibuja no registra nada', async () => {
-    repository.findSessionByHash.mockResolvedValue(platformInCompany());
-
-    const session = await requireCompanySession();
-    holdsCompanyPermission(session, 'product:read');
-
-    expect(audit.recordAuditEntriesAlone).not.toHaveBeenCalled();
   });
 });

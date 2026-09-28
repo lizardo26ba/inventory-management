@@ -14,7 +14,7 @@ import { listOrganizations } from '@/modules/organizations/repository';
  *
  * Lo primero que hace es pedir el permiso, antes de leer nada. No es una
  * formalidad: la bitácora dice qué hizo cada persona en cada empresa, y es de lo
- * más sensible del sistema. RN-072, RN-073.
+ * más sensible del sistema. RN-072.
  *
  * Es una lectura por encima de las empresas, que solo alcanza el super
  * administrador. Lo declara el nombre de la consulta, que es la excepción del
