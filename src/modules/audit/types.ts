@@ -28,6 +28,7 @@ export const AUDIT_ACTIONS = [
   'user.activated',
   'user.deactivated',
   'user.deleted',
+  'user.two_factor_reset',
   'membership.granted',
   'membership.role_changed',
   'membership.revoked',
@@ -38,6 +39,8 @@ export const AUDIT_ACTIONS = [
   'auth.locked_out',
   'auth.company_entered',
   'auth.company_left',
+  'auth.two_factor_enabled',
+  'auth.two_factor_verified',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

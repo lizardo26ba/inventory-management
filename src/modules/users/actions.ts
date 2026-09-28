@@ -34,12 +34,14 @@ import {
   findUserById as findUser,
   listOrganizationChoices,
   setUserActive as updateUserActive,
+  resetUserTwoFactor,
   softDeleteUser as removeUser,
   updateUser as saveUser,
 } from './repository';
 import { USERS_PATH } from './routes';
 import {
   createUserSchema,
+  resetTwoFactorSchema,
   setUserActiveSchema,
   toFieldErrors,
   updateUserSchema,
@@ -353,6 +355,51 @@ export async function deleteUser(input: unknown): Promise<UserActionResult> {
     if (!removed) throw new NotFoundError('La cuenta no existe o ya fue eliminada.');
   } catch (error) {
     logger.failure('users.delete', error);
+    return { ok: false, error: toErrorPayload(error) };
+  }
+
+  revalidatePath(USERS_PATH);
+  return { ok: true };
+}
+
+/**
+ * Restablece el segundo factor de otro super administrador. ADR 0014.
+ *
+ * Es la salida para quien pierde o cambia el teléfono, porque no hay códigos de
+ * respaldo. Nadie se restablece el suyo: con solo la contraseña, alguien podría
+ * quitar el factor y dar de alta el de su propio teléfono.
+ */
+export async function resetTwoFactor(input: unknown): Promise<UserActionResult> {
+  const permission: PermissionCode = 'platform.two_factor:reset';
+
+  try {
+    const session = await requirePlatformPermission(permission);
+
+    const parsed = resetTwoFactorSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: { code: 'VALIDATION_FAILED', fieldErrors: toFieldErrors(parsed.error) },
+      };
+    }
+
+    if (parsed.data.id === session.userId) {
+      return {
+        ok: false,
+        error: { code: 'VALIDATION_FAILED', fieldErrors: { id: 'cannotResetOwnTwoFactor' } },
+      };
+    }
+
+    const result = await resetUserTwoFactor(
+      platformScopeOf(session),
+      parsed.data.id,
+      session.userId,
+      await buildAuditContext(session, permission),
+    );
+    if (result === 'NOT_FOUND')
+      throw new NotFoundError('La cuenta no existe o ya fue eliminada.');
+  } catch (error) {
+    logger.failure('users.resetTwoFactor', error);
     return { ok: false, error: toErrorPayload(error) };
   }
 

@@ -54,6 +54,20 @@ export const enterCompanySchema = z.strictObject({
 
 export type EnterCompanyInput = z.infer<typeof enterCompanySchema>;
 
+/** Seis cifras exactas: lo que genera una app autenticadora. ADR 0014. */
+const TWO_FACTOR_CODE = /^[0-9]{6}$/;
+
+/**
+ * Un código del segundo factor. Solo viaja el código: de quién es y qué se hace
+ * con él lo decide el servidor con la sesión. Estricto, como la entrada a una
+ * empresa.
+ */
+export const twoFactorCodeSchema = z.strictObject({
+  code: z.string().trim().regex(TWO_FACTOR_CODE, 'invalidTwoFactorCode'),
+});
+
+export type TwoFactorCodeInput = z.infer<typeof twoFactorCodeSchema>;
+
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, 'required'),

@@ -44,6 +44,10 @@ export const copyEs: Copy = {
     roleNotInOrganization: 'Ese rol es de otra empresa. Recarga la página.',
     cannotRevokeOwnPlatformAccess:
       'No puedes quitarte el acceso de plataforma a ti mismo. Pídeselo a otro super administrador.',
+    invalidTwoFactorCode:
+      'Ese código no es válido. Revisa que la hora de tu teléfono sea la correcta y vuelve a intentarlo.',
+    cannotResetOwnTwoFactor:
+      'No puedes restablecer tu propio segundo factor. Pídeselo a otro super administrador.',
   },
 
   errors: {
@@ -552,6 +556,7 @@ export const copyEs: Copy = {
     'user.activated': 'Usuario reactivado',
     'user.deactivated': 'Usuario suspendido',
     'user.deleted': 'Usuario eliminado',
+    'user.two_factor_reset': 'Segundo factor restablecido',
     'membership.granted': 'Acceso a empresa concedido',
     'membership.role_changed': 'Rol cambiado',
     'membership.revoked': 'Acceso a empresa retirado',
@@ -562,6 +567,8 @@ export const copyEs: Copy = {
     'auth.locked_out': 'Bloqueo por intentos fallidos',
     'auth.company_entered': 'Entrada a una empresa',
     'auth.company_left': 'Salida de una empresa',
+    'auth.two_factor_enabled': 'Segundo factor activado',
+    'auth.two_factor_verified': 'Segundo factor verificado',
   },
 
   admin: {

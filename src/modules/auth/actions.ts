@@ -34,6 +34,7 @@ import {
   enterCompanySchema,
   signInSchema,
   toFieldErrors,
+  twoFactorCodeSchema,
 } from '@/modules/auth/schema';
 import {
   createSessionToken,
@@ -49,12 +50,15 @@ import {
   authorizeCompanyEntry,
   clearSessionCookie,
   requireSession,
+  requireTwoFactorChallenge,
   SESSION_COOKIE_NAME,
   writeSessionCookie,
   type CompanyEntry,
 } from '@/modules/auth/session';
 
 import { cookies } from 'next/headers';
+
+import { submitTwoFactorCode, type TwoFactorPurpose } from '@/modules/auth/two-factor';
 
 export type ActionResult =
   { readonly ok: true } | { readonly ok: false; readonly error: ErrorPayload };
@@ -182,7 +186,6 @@ export async function signIn(input: unknown): Promise<ActionResult> {
     const entry = await authorizeAutomaticEntry({
       userId: candidate.id,
       isPlatformAdmin: candidate.isPlatformAdmin,
-      twoFactorVerifiedAt: null,
     });
     const sessionToken =
       entry === null
@@ -324,4 +327,66 @@ export async function leaveCompany(): Promise<void> {
   }
 
   redirect(SIGNED_IN_PATH);
+}
+
+/**
+ * Comprueba el código del segundo factor y traduce lo que responde.
+ *
+ * Si vale, la sesión rotó y el testigo nuevo va a la cookie. Si la cuenta quedó
+ * bloqueada, la sesión ya se cerró y la cookie se borra: seguir escribiendo
+ * códigos no tiene sentido hasta que pase el bloqueo.
+ */
+async function submitCode(
+  operation: string,
+  purpose: TwoFactorPurpose,
+  input: unknown,
+): Promise<ActionResult> {
+  const parsed = twoFactorCodeSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: { code: 'VALIDATION_FAILED', fieldErrors: toFieldErrors(parsed.error) },
+    };
+  }
+
+  try {
+    const session = await requireTwoFactorChallenge();
+    const outcome = await submitTwoFactorCode({
+      session,
+      purpose,
+      code: parsed.data.code,
+      currentTokenHash: await currentTokenHash(),
+      audit: await buildAuditContext(session, null),
+    });
+
+    switch (outcome.kind) {
+      case 'ACCEPTED':
+        await writeSessionCookie(outcome.token);
+        break;
+      case 'LOCKED':
+        await clearSessionCookie();
+        return { ok: false, error: { code: 'TOO_MANY_ATTEMPTS' } };
+      case 'INVALID':
+        return {
+          ok: false,
+          error: { code: 'VALIDATION_FAILED', fieldErrors: { code: 'invalidTwoFactorCode' } },
+        };
+      case 'WRONG_STATE':
+        return { ok: false, error: { code: 'CONFLICT' } };
+    }
+  } catch (error) {
+    return failed(operation, error);
+  }
+
+  redirect(SIGNED_IN_PATH);
+}
+
+/** Confirma el alta del segundo factor con el primer código de la app. ADR 0014. */
+export async function confirmTwoFactorSetup(input: unknown): Promise<ActionResult> {
+  return submitCode('confirmTwoFactorSetup', 'CONFIRM_SETUP', input);
+}
+
+/** Supera el segundo factor en esta sesión. RN-005. */
+export async function verifyTwoFactor(input: unknown): Promise<ActionResult> {
+  return submitCode('verifyTwoFactor', 'VERIFY', input);
 }

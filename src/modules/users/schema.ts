@@ -155,6 +155,11 @@ export const setUserActiveSchema = userIdSchema.extend({
 
 export type SetUserActiveInput = z.infer<typeof setUserActiveSchema>;
 
+/** Restablecer el segundo factor de alguien. Solo viaja de quién. ADR 0014. */
+export const resetTwoFactorSchema = z.strictObject({
+  id: z.string().uuid('required'),
+});
+
 /**
  * Edición.
  *

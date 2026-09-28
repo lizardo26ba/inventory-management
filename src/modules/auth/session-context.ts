@@ -20,6 +20,9 @@ export type SessionContext = {
   readonly isPlatformAdmin: boolean;
   /** Cierto mientras un super administrador opera en una empresa ajena. */
   readonly actingAsPlatformAdmin: boolean;
+  /** Si la cuenta tiene un segundo factor activo. Solo cuenta para la plataforma. */
+  readonly twoFactorEnabled: boolean;
+  /** Cuándo superó esta sesión el segundo factor, o nunca. */
   readonly twoFactorVerifiedAt: Date | null;
   readonly mustChangePassword: boolean;
 };
