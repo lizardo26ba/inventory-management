@@ -320,7 +320,7 @@ function assertOrganizationScope(code: PermissionCode): void {
   }
 }
 
-/** Las acciones de un permiso que consultan datos en lugar de cambiarlos. ADR 0015. */
+/** Las acciones de un permiso que consultan datos en lugar de cambiarlos. ADR 0015, ADR 0017. */
 const CONSULTATION_ACTIONS: ReadonlySet<string> = new Set(['read', 'export']);
 
 function isConsultation(code: PermissionCode): boolean {
@@ -335,13 +335,17 @@ export type ConsultationDetail = {
 };
 
 /**
- * Deja en la bitácora que la plataforma consultó datos de esta empresa. RN-073.
+ * Deja en la bitácora que alguien consultó datos de esta empresa. RN-073.
+ *
+ * Vale para cualquier persona, miembro o super administrador. La entrada del
+ * segundo sale marcada como privilegio elevado porque su sesión lo dice, no
+ * porque esta función lo decida. ADR 0017.
  *
  * Se escribe antes de leer y en su propia transacción: una consulta no tiene
- * otra que compartir. Si falla, lanza, y la pantalla no llega a leer nada. Un
- * acceso elevado sin rastro es lo que el ADR 0005 prohíbe. ADR 0015.
+ * otra que compartir. Si falla, lanza, y la pantalla no llega a leer nada. Una
+ * consulta sin rastro es lo que esta bitácora quiere impedir. ADR 0015.
  */
-async function recordPlatformConsultation(
+async function recordConsultation(
   session: CompanySession,
   code: PermissionCode,
   detail: ConsultationDetail,
@@ -367,10 +371,10 @@ async function recordPlatformConsultation(
 /**
  * Exige un permiso de empresa en la empresa activa.
  *
- * Si es de consulta y quien lo pide es la plataforma, además lo registra: pedir
- * el permiso es registrar la consulta, así que una pantalla nueva queda cubierta
- * sin acordarse de nada. Cada pantalla lo pide una vez, y puede declarar sus
- * filtros. RN-073, ADR 0015.
+ * Si es de consulta, además lo registra, lo pida quien lo pida: pedir el permiso
+ * es registrar la consulta, así que una pantalla nueva queda cubierta sin
+ * acordarse de nada. Cada pantalla lo pide una vez, y puede declarar sus
+ * filtros. RN-073, ADR 0015, ADR 0017.
  */
 export async function requireCompanyPermission(
   code: PermissionCode,
@@ -383,8 +387,8 @@ export async function requireCompanyPermission(
     throw new AuthorizationError(`Falta el permiso ${code}.`, { context: { code } });
   }
 
-  if (session.actingAsPlatformAdmin && isConsultation(code)) {
-    await recordPlatformConsultation(session, code, consultation);
+  if (isConsultation(code)) {
+    await recordConsultation(session, code, consultation);
   }
 
   return session;

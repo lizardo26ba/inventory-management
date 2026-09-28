@@ -130,20 +130,23 @@ Confirmado por negocio. Ver [ADR 0008](../adr/0008-rastreo-por-lote-y-numero-de-
 
 ## 8. Auditoría
 
-| Id     | Regla                                                                                                                       | Estado               |
-| ------ | --------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| RN-070 | Toda operación que modifique inventario, permisos o datos maestros queda registrada con su autor.                           | Confirmada           |
-| RN-071 | La bitácora de auditoría no se edita ni se borra desde la aplicación.                                                       | Confirmada           |
-| RN-072 | Las acciones del super administrador se registran indicando la empresa afectada y que se ejecutaron con privilegio elevado. | Confirmada           |
-| RN-073 | Las consultas de datos que hace el super administrador dentro de una empresa también se registran.                          | Confirmada           |
-| RN-074 | Plazo de retención de la bitácora.                                                                                          | Pendiente de negocio |
+| Id     | Regla                                                                                                                       | Estado     |
+| ------ | --------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| RN-070 | Toda operación que modifique inventario, permisos o datos maestros queda registrada con su autor.                           | Confirmada |
+| RN-071 | La bitácora de auditoría no se edita ni se borra desde la aplicación.                                                       | Confirmada |
+| RN-072 | Las acciones del super administrador se registran indicando la empresa afectada y que se ejecutaron con privilegio elevado. | Confirmada |
+| RN-073 | Las consultas de datos que hace cualquier usuario dentro de una empresa también se registran. ADR 0017.                     | Confirmada |
+| RN-074 | La bitácora se conserva sin plazo y no se purga. Si crece demasiado, se archiva en frío, sin borrar. ADR 0017.              | Confirmada |
 
 ## 9. Preguntas abiertas para negocio
 
 Estas no son reglas todavía. Son decisiones que nadie ha tomado y que conviene resolver
 antes de que el diseño las fije por omisión.
 
-1. ¿Cuánto tiempo debe conservarse la bitácora de auditoría? Hay países con mínimo legal.
+1. **Datos personales en la bitácora.** Cada entrada guarda la dirección de red y el
+   navegador de quien operó. Si algún país donde se opere fija un plazo máximo para
+   conservar datos personales, habrá que tratar esas dos columnas sin borrar las entradas.
+   Pendiente de asesoría legal. La retención en sí ya está decidida: RN-074.
 2. ¿El correlativo debe cumplir algún requisito fiscal en los países donde se opera?
 3. **Costeo con lotes.** RN-036 fijaba promedio ponderado, pero con lotes cada uno arrastra
    su propio costo de adquisición, que es identificación específica y no promedio. Ambas

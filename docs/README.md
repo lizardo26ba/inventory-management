@@ -53,6 +53,7 @@ referencia para personas.
 | [0014](adr/0014-segundo-factor-del-super-administrador.md)                     | Segundo factor del super administrador con app autenticadora, sin códigos de respaldo |
 | [0015](adr/0015-auditoria-de-consultas-del-super-administrador.md)             | Las consultas del super administrador se registran en la puerta de permisos           |
 | [0016](adr/0016-despliegue-en-vercel-hasta-azure.md)                           | Despliegue en Vercel con Neon como etapa temporal hasta Azure                         |
+| [0017](adr/0017-bitacora-de-toda-la-actividad-sin-purga.md)                    | La bitácora registra las consultas de todos los usuarios y no se purga                |
 
 ## Arquitectura
 

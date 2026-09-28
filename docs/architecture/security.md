@@ -219,10 +219,12 @@ de plataforma, además de siete sucesos de sesión: entrar, cambiar la contrase�
 bloqueado por intentos fallidos, entrar a una empresa, salir de ella, activar el segundo
 factor y superarlo. Restablecer el segundo factor de otra persona también se registra,
 con quién lo hizo. Entrar como plataforma queda marcado como privilegio elevado. Dentro de una
-empresa, cada consulta del super administrador deja también su entrada (RN-073): la
-escribe la puerta de permisos al pedir un permiso de lectura, antes de leer, con el
-recurso y los filtros de la pantalla. Si no se puede escribir, la consulta no ocurre. Ver
-el [ADR 0015](../adr/0015-auditoria-de-consultas-del-super-administrador.md). Cada entrada se escribe en la misma transacción que el
+empresa, cada consulta de datos deja también su entrada, la haga un miembro o el super
+administrador (RN-073). La escribe la puerta de permisos al pedir un permiso de lectura,
+antes de leer, con el recurso y los filtros de la pantalla. Si no se puede escribir, la
+consulta no ocurre. Ver el
+[ADR 0015](../adr/0015-auditoria-de-consultas-del-super-administrador.md) y el
+[ADR 0017](../adr/0017-bitacora-de-toda-la-actividad-sin-purga.md). Cada entrada se escribe en la misma transacción que el
 cambio: si el cambio se revierte, la entrada también, y si la entrada no se puede escribir,
 el cambio no ocurre.
 
@@ -254,9 +256,10 @@ vista desde dentro, con `audit:read`, llegará con las pantallas de la operació
   van al registro de la aplicación, que ya enmascara lo sensible.
 - Lo que la plataforma vio al consultar. Se registra qué consultó y con qué filtros, nunca
   los datos mostrados ni cada registro de la lista. ADR 0015.
-- Las consultas de los miembros de una empresa. RN-073 es sobre el super administrador.
-- La purga por antigüedad. El plazo de retención (RN-074) está pendiente de negocio y hasta
-  entonces no se borra nada.
+- La navegación que no lee datos de empresa, como abrir un menú o cambiar de idioma.
+- La purga por antigüedad. La bitácora se conserva sin plazo (RN-074). Si crece demasiado,
+  se archiva en frío, sin borrar, según el
+  [ADR 0017](../adr/0017-bitacora-de-toda-la-actividad-sin-purga.md).
 
 **Cómo se protege.** Un disparador de la base rechaza cualquier `UPDATE`, `DELETE` o
 `TRUNCATE` sobre `audit_logs` (RN-071). Hoy la aplicación y las migraciones comparten el

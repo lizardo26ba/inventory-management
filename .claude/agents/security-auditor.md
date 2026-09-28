@@ -36,8 +36,8 @@ cuatro controles:
   configuración lo apaga; una variable o un atajo que lo salte es un hallazgo. ADR 0014.
 - Cada acción, **incluidas las lecturas**, deja auditoría con la organización afectada y la
   marca de privilegio elevado. Las lecturas las registra `requireCompanyPermission` al
-  pedir un permiso de consulta: una pantalla que lea datos de empresa sin pedirlo, o que
-  los lea antes de pedirlo, es un hallazgo. ADR 0015.
+  pedir un permiso de consulta, para cualquier usuario: una pantalla que lea datos de
+  empresa sin pedirlo, o que los lea antes de pedirlo, es un hallazgo. ADR 0015, ADR 0017.
 
 Rechaza cualquier comprobación de super administrador escrita fuera del punto único de
 autorización. Cada una de esas comprobaciones dispersas es un lugar donde el aislamiento

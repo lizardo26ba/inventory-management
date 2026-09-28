@@ -275,7 +275,7 @@ Escrito aquí para que nadie dé por supuesta una garantía que no existe.
 - **Inmutabilidad del libro de movimientos.** `stock_movements` tiene restricciones de
   cantidad, pero nada impide un `UPDATE`, como sí ocurre en la bitácora. Lo sostienen la
   revisión de código y que no exista ninguna función que edite.
-- **Retención de la bitácora.** RN-074 sigue pendiente de negocio, así que no se borra nada.
+- **Retención de la bitácora.** Sin plazo y sin purga (RN-074). Al pasar de cinco gigabytes se decide cómo archivar en frío. ADR 0017.
 
 ## 11. Cómo se mantiene este documento
 
