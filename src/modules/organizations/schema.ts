@@ -7,6 +7,10 @@
  * valores con los que se puede consultar, o los sustituye por el valor de
  * partida. No falla: una dirección mal escrita muestra la primera página, no un
  * error.
+ *
+ * Los formularios y las acciones sí son estrictos: un campo que el esquema no
+ * conoce se rechaza. La lista tolera parámetros de más porque una dirección los
+ * arrastra sin culpa de nadie; un formulario no.
  */
 
 import { z } from 'zod';
@@ -97,7 +101,7 @@ export function parseOrganizationListQuery(
  * La zona horaria tampoco se pide. Sale del país elegido, que es lo que el
  * catálogo ya sabe, y preguntarla sería pedir dos veces el mismo dato.
  */
-export const createOrganizationSchema = z.object({
+export const createOrganizationSchema = z.strictObject({
   name: z.string().trim().min(1, 'required').max(120, 'tooLong'),
   legalName: z.string().trim().min(1, 'required').max(200, 'tooLong'),
   countryCode: z.string().trim().length(2, 'required').toUpperCase(),
@@ -119,7 +123,7 @@ export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
  * identificador llega del navegador como cualquier otro dato y por eso pasa por
  * el esquema igual que un formulario entero.
  */
-export const organizationIdSchema = z.object({
+export const organizationIdSchema = z.strictObject({
   id: z.string().uuid('required'),
 });
 

@@ -198,10 +198,12 @@ export function OrganizationForm({
       return;
     }
 
+    // Viaja exactamente lo que pide el esquema, que es estricto: el número sin
+    // prefijo es cosa de la pantalla, y la moneda base no se edita.
+    const { phoneNumber, baseCurrencyCode, ...fields } = values;
     const submitted = {
-      ...values,
-      phone:
-        values.phoneNumber.trim() === '' ? '' : `${phonePrefix} ${values.phoneNumber}`.trim(),
+      ...fields,
+      phone: phoneNumber.trim() === '' ? '' : `${phonePrefix} ${phoneNumber}`.trim(),
     };
 
     // El mismo esquema que usa el servidor, para que el aviso llegue sin
@@ -212,7 +214,7 @@ export function OrganizationForm({
           id: organization.id,
           version: organization.version,
         })
-      : createOrganizationSchema.safeParse(submitted);
+      : createOrganizationSchema.safeParse({ ...submitted, baseCurrencyCode });
 
     if (!parsed.success) {
       const next: Record<string, string> = {};
