@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { isProduction } from '@/lib/config/env.server';
 
 import { CatalogShell } from './catalog-shell';
-import { CATALOG_ENTRIES } from './entries';
+import { entriesByGroup } from './entries';
 
 export const metadata: Metadata = {
   title: 'Catálogo de componentes · Inventario',
@@ -36,7 +36,12 @@ export default function CatalogLayout({
   if (isProduction) notFound();
 
   return (
-    <CatalogShell entries={CATALOG_ENTRIES.map(({ slug, title }) => ({ slug, title }))}>
+    <CatalogShell
+      groups={entriesByGroup().map(({ group, entries }) => ({
+        group,
+        entries: entries.map(({ slug, title }) => ({ slug, title })),
+      }))}
+    >
       {children}
     </CatalogShell>
   );

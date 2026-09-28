@@ -141,6 +141,7 @@ Reglas:
   una herramienta de desarrollo. Los de los componentes sí, porque el idioma es parte de
   lo que se revisa.
 
-Para añadir un componente: una entrada en `CATALOG_ENTRIES`, una carpeta
+Para añadir un componente: una entrada en `CATALOG_ENTRIES` con su familia de
+`CATALOG_GROUPS`, que decide dónde aparece en el menú, una carpeta
 `src/app/catalog/<slug>/page.tsx` que use `CatalogHeader` y `Specimen`, y, si el
 componente necesita estado, un archivo de cliente junto a la página que lo guarde.
