@@ -417,7 +417,6 @@ export const copyEs: Copy = {
       'Se cierran todas sus sesiones, y la próxima vez que entre tendrá que activarlo otra vez con su teléfono. Hazlo solo después de confirmar con esta persona que perdió o cambió el teléfono. Queda registrado en la bitácora.',
     twoFactorResetConfirm: 'Restablecer',
     twoFactorResetCancel: 'Cancelar',
-    twoFactorResetDone: 'Segundo factor restablecido. Sus sesiones se cerraron.',
     platformBadge: 'Super administrador',
     sectionAccess: 'Acceso a empresas',
     sectionPermissions: 'Permisos resultantes',

@@ -19,40 +19,11 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { IconPencil, IconTrash } from '@/components/ui/icons';
 import { RowMenu, type RowMenuAction } from '@/components/ui/row-menu';
 import { Toggle } from '@/components/ui/toggle';
-import type { ErrorPayload } from '@/lib/errors';
-import { useCopy, type Copy } from '@/lib/i18n';
+import { resultMessageFor, useResultDialog } from '@/components/ui/result-dialog';
+import { useCopy } from '@/lib/i18n';
 
 import { deleteUser, setUserActive } from '../actions';
 import { userEditPath } from '../routes';
-
-/**
- * El aviso cuando la escritura falla. Un fallo se ve, nunca se traga.
- *
- * Se le pone ancho máximo y se le devuelve el salto de línea, porque la celda
- * del estado no lo permite: un mensaje en una sola línea ensancharía la columna
- * y empujaría la tabla a desplazarse en horizontal.
- */
-function RowError({ message }: { readonly message: string }): React.ReactElement {
-  return (
-    <p role="alert" className="text-danger mt-1 max-w-[14rem] text-xs whitespace-normal">
-      {message}
-    </p>
-  );
-}
-
-function messageFor(error: ErrorPayload, copy: Copy): string {
-  switch (error.code) {
-    case 'NOT_AUTHORIZED':
-    case 'TWO_FACTOR_REQUIRED':
-      return copy.errors.notAuthorized;
-    case 'NOT_AUTHENTICATED':
-      return copy.errors.sessionExpired;
-    case 'NOT_FOUND':
-      return copy.errors.notFound;
-    default:
-      return copy.errors.generic;
-  }
-}
 
 export function UserStatusToggle({
   id,
@@ -64,7 +35,7 @@ export function UserStatusToggle({
   readonly isActive: boolean;
 }): React.ReactElement {
   const copy = useCopy();
-  const [error, setError] = useState<string | null>(null);
+  const showResult = useResultDialog();
 
   return (
     <div>
@@ -73,18 +44,19 @@ export function UserStatusToggle({
           checked={isActive}
           label={`${copy.users.toggleActive} · ${name}`}
           onChange={async (next) => {
-            setError(null);
             const result = await setUserActive({ id, isActive: next });
             // La fila la vuelve a pintar el servidor al revalidar. Si falló, se
-            // queda como estaba y lo dice, en lugar de mentir con el color.
-            if (!result.ok) setError(messageFor(result.error, copy));
+            // queda como estaba y el diálogo dice por qué, en lugar de mentir
+            // con el color.
+            showResult(
+              resultMessageFor(copy, next ? 'userActivate' : 'userSuspend', name, result),
+            );
           }}
         />
         <span className={`text-xs ${isActive ? 'text-success' : 'text-text-muted'}`}>
           {isActive ? copy.status.active : copy.status.inactive}
         </span>
       </span>
-      {error !== null ? <RowError message={error} /> : null}
     </div>
   );
 }
@@ -99,7 +71,7 @@ export function UserRowMenu({
   const copy = useCopy();
   const router = useRouter();
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const showResult = useResultDialog();
 
   const actions: readonly RowMenuAction[] = [
     {
@@ -119,8 +91,6 @@ export function UserRowMenu({
     <div className="flex flex-col items-end">
       <RowMenu label={`${copy.users.rowMenu} · ${name}`} actions={actions} />
 
-      {error !== null ? <RowError message={error} /> : null}
-
       {isConfirmingDelete ? (
         <ConfirmDialog
           title={copy.users.deleteTitle}
@@ -132,10 +102,9 @@ export function UserRowMenu({
           // Se cierra cuando la eliminación termina, no al pulsar. Cerrarlo antes
           // dejaría la fila a la vista como si no hubiera pasado nada.
           onConfirm={async () => {
-            setError(null);
             const result = await deleteUser({ id });
             setIsConfirmingDelete(false);
-            if (!result.ok) setError(messageFor(result.error, copy));
+            showResult(resultMessageFor(copy, 'userDelete', name, result));
           }}
         />
       ) : null}

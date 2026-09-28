@@ -21,10 +21,9 @@ import { useState } from 'react';
 
 import { buttonClass } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Notice } from '@/components/ui/notice';
+import { resultMessageFor, useResultDialog } from '@/components/ui/result-dialog';
 import { Tag } from '@/components/ui/tag';
 import { useCopy } from '@/lib/i18n';
-import { errorReason } from '@/lib/i18n/error-reason';
 
 import { resetTwoFactor } from '../actions';
 import type { TwoFactorStatus } from '../types';
@@ -43,8 +42,7 @@ export function TwoFactorStatusPanel({
   const copy = useCopy();
   const router = useRouter();
   const [isConfirming, setIsConfirming] = useState(false);
-  const [wasReset, setWasReset] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
+  const showResult = useResultDialog();
 
   const label = {
     ACTIVE: copy.userForm.twoFactorActive,
@@ -61,22 +59,9 @@ export function TwoFactorStatusPanel({
   async function confirmReset(): Promise<void> {
     const result = await resetTwoFactor({ id: userId });
     setIsConfirming(false);
-
-    if (result.ok) {
-      setFailure(null);
-      setWasReset(true);
-      // El estado nuevo lo trae el servidor, no se supone aquí.
-      router.refresh();
-      return;
-    }
-
-    setWasReset(false);
-    const fieldError = result.error.fieldErrors?.id;
-    setFailure(
-      fieldError === 'cannotResetOwnTwoFactor'
-        ? copy.fieldErrors.cannotResetOwnTwoFactor
-        : errorReason(copy, result.error.code),
-    );
+    showResult(resultMessageFor(copy, 'twoFactorReset', fullName, result));
+    // El estado nuevo lo trae el servidor, no se supone aquí.
+    if (result.ok) router.refresh();
   }
 
   return (
@@ -104,18 +89,6 @@ export function TwoFactorStatusPanel({
       {status !== 'NONE' && isSelf ? (
         <p className="text-text-muted mt-2 text-xs">
           {copy.fieldErrors.cannotResetOwnTwoFactor}
-        </p>
-      ) : null}
-
-      {wasReset ? (
-        <div className="mt-3">
-          <Notice tone="info">{copy.userForm.twoFactorResetDone}</Notice>
-        </div>
-      ) : null}
-
-      {failure !== null ? (
-        <p role="alert" className="text-danger mt-2 text-xs">
-          {failure}
         </p>
       ) : null}
 
