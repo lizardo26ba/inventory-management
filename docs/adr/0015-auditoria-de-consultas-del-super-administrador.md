@@ -1,6 +1,7 @@
 # 0015. Auditoría de las consultas del super administrador en la puerta de permisos
 
 **Estado:** aceptada
+**Enmendada por:** [0017](0017-bitacora-de-toda-la-actividad-sin-purga.md), que extiende el registro a las consultas de todos los usuarios
 **Fecha:** 2026-09-28
 **Decide:** propietario del producto
 **Consultados:** equipo de arquitectura, seguridad
