@@ -30,6 +30,8 @@ import { TableBody, TableProgress } from '../../ui/table-loading';
 import { useSimulatedQuery } from '../../simulated-query';
 import { SortableHeader, sortRows, useTableSort } from '../../ui/table-sort';
 import { Toggle } from '../../ui/toggle';
+import { reportResult } from '../../report-result';
+import { useResultDialog } from '../../ui/result-dialog';
 import { useUserStore } from '../../user-store';
 import { findRole, type User } from '../../users-data';
 import { UserRowMenu } from './user-row-menu';
@@ -66,6 +68,7 @@ export function UsersView(): React.ReactElement {
 
   const searchParams = useSearchParams();
   const { users, setUserActive } = useUserStore();
+  const showResult = useResultDialog();
   const { companies } = useCompanyStore();
 
   const query = (searchParams.get('q') ?? '').trim().toLowerCase();
@@ -272,7 +275,15 @@ export function UsersView(): React.ReactElement {
                             <Toggle
                               checked={user.active}
                               label={`${copy.users.toggleActive} · ${user.firstName} ${user.lastName}`}
-                              onChange={(next) => setUserActive(user.id, next)}
+                              onChange={(next) =>
+                                reportResult(
+                                  showResult,
+                                  copy,
+                                  next ? 'userActivate' : 'userSuspend',
+                                  `${user.firstName} ${user.lastName}`,
+                                  () => setUserActive(user.id, next),
+                                )
+                              }
                             />
                             <span
                               className={`text-xs ${

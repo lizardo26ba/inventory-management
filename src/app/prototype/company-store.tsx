@@ -21,6 +21,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 import { buildCompanyCode } from './company-code';
+import { DemoOutcomeError, FAILING_COMPANY_TOGGLE } from './demo-outcome';
 import { simulateWrite } from './latency';
 import { useSessionStore } from './session-store';
 import {
@@ -191,6 +192,7 @@ export function CompanyStoreProvider({
 
   const setCompanyActive = useCallback(async (id: string, active: boolean) => {
     await simulateWrite();
+    if (id === FAILING_COMPANY_TOGGLE) throw new DemoOutcomeError('error');
     setCompanies((current) =>
       current.map((company) => (company.id === id ? { ...company, active } : company)),
     );

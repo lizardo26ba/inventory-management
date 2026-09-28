@@ -266,6 +266,41 @@ export const copyEn = {
     activating: 'Activating',
   },
 
+  /**
+   * El diálogo de resultado. El título es genérico por tono; el texto se arma con
+   * la acción, el nombre del registro y, si hace falta, la consecuencia o el motivo.
+   */
+  result: {
+    successTitle: 'Done',
+    errorTitle: 'It could not be completed',
+    warningTitle: 'Heads up',
+    close: 'Got it',
+    changedMeanwhile:
+      'Someone else changed this record while you were looking at it. Reload the page and check it before trying again.',
+    userSuspendDone: 'Suspended the account of',
+    userSuspendFailed: 'Could not suspend the account of',
+    userSuspendConsequence: 'They cannot sign in until it is reactivated.',
+    userActivateDone: 'Reactivated the account of',
+    userActivateFailed: 'Could not reactivate the account of',
+    userActivateConsequence: 'They can sign in again.',
+    userDeleteDone: 'Deleted the account of',
+    userDeleteFailed: 'Could not delete the account of',
+    userDeleteConsequence: 'Their company access was removed and their sessions were closed.',
+    companySuspendDone: 'Suspended the company',
+    companySuspendFailed: 'Could not suspend the company',
+    companySuspendConsequence: 'Its users cannot work in it until it is reactivated.',
+    companyActivateDone: 'Reactivated the company',
+    companyActivateFailed: 'Could not reactivate the company',
+    companyActivateConsequence: 'Its users can work in it again.',
+    companyDeleteDone: 'Deleted the company',
+    companyDeleteFailed: 'Could not delete the company',
+    companyDeleteConsequence: 'It no longer appears anywhere on the platform.',
+    twoFactorResetDone: 'Reset the second factor of',
+    twoFactorResetFailed: 'Could not reset the second factor of',
+    twoFactorResetConsequence:
+      'Their sessions were closed, and they will set it up again next time they sign in.',
+  },
+
   organizations: {
     title: 'Companies',
     subtitle: 'Every company that operates on the platform.',

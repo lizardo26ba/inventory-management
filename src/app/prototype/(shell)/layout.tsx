@@ -1,5 +1,6 @@
 import { AppShell } from '../app-shell';
 import { CompanyStoreProvider } from '../company-store';
+import { ResultDialogProvider } from '../ui/result-dialog';
 import { UserStoreProvider } from '../user-store';
 
 /**
@@ -17,7 +18,9 @@ export default function PrototypeShellLayout({
   return (
     <CompanyStoreProvider>
       <UserStoreProvider>
-        <AppShell>{children}</AppShell>
+        <ResultDialogProvider>
+          <AppShell>{children}</AppShell>
+        </ResultDialogProvider>
       </UserStoreProvider>
     </CompanyStoreProvider>
   );

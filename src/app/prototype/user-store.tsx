@@ -15,6 +15,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
+import { DemoOutcomeError, FAILING_USER_DELETE, STALE_USER_TOGGLE } from './demo-outcome';
 import { simulateWrite } from './latency';
 import { users as seedUsers, type Membership, type User } from './users-data';
 
@@ -85,11 +86,13 @@ export function UserStoreProvider({
 
   const setUserActive = useCallback(async (id: string, active: boolean) => {
     await simulateWrite();
+    if (id === STALE_USER_TOGGLE) throw new DemoOutcomeError('warning');
     setUsers((current) => current.map((user) => (user.id === id ? { ...user, active } : user)));
   }, []);
 
   const deleteUser = useCallback(async (id: string) => {
     await simulateWrite();
+    if (id === FAILING_USER_DELETE) throw new DemoOutcomeError('error');
     setUsers((current) => current.filter((user) => user.id !== id));
   }, []);
 

@@ -45,6 +45,8 @@ import { TableBody, TableProgress } from '../../ui/table-loading';
 import { useSimulatedQuery } from '../../simulated-query';
 import { SortableHeader, sortRows, useTableSort } from '../../ui/table-sort';
 import { Toggle } from '../../ui/toggle';
+import { reportResult } from '../../report-result';
+import { useResultDialog } from '../../ui/result-dialog';
 import { CompanyRowMenu } from './row-menu';
 import { buttonClass } from '../../ui/button';
 import { TablePagination } from '../../ui/pagination';
@@ -81,6 +83,7 @@ export function CompaniesView(): React.ReactElement {
 
   const searchParams = useSearchParams();
   const { companies, setCompanyActive } = useCompanyStore();
+  const showResult = useResultDialog();
 
   const query = (searchParams.get('q') ?? '').trim().toLowerCase();
 
@@ -298,7 +301,15 @@ export function CompaniesView(): React.ReactElement {
                         <Toggle
                           checked={company.active}
                           label={`${copy.organizations.toggleActive} · ${company.name}`}
-                          onChange={(next) => setCompanyActive(company.id, next)}
+                          onChange={(next) =>
+                            reportResult(
+                              showResult,
+                              copy,
+                              next ? 'companyActivate' : 'companySuspend',
+                              company.name,
+                              () => setCompanyActive(company.id, next),
+                            )
+                          }
                         />
                         <span
                           className={`text-xs ${

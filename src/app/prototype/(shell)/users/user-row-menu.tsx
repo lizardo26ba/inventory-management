@@ -17,6 +17,8 @@ import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { useCopy } from '@/lib/i18n';
 import { IconPencil, IconTrash } from '../../ui/icons';
 import { RowMenu } from '../../ui/row-menu';
+import { reportResult } from '../../report-result';
+import { useResultDialog } from '../../ui/result-dialog';
 import { useUserStore } from '../../user-store';
 import type { User } from '../../users-data';
 
@@ -25,6 +27,7 @@ export function UserRowMenu({ user }: { readonly user: User }): React.ReactEleme
 
   const router = useRouter();
   const { deleteUser } = useUserStore();
+  const showResult = useResultDialog();
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   const fullName = `${user.firstName} ${user.lastName}`;
@@ -58,7 +61,9 @@ export function UserRowMenu({ user }: { readonly user: User }): React.ReactEleme
           onCancel={() => setIsConfirmingDelete(false)}
           // Se cierra cuando la eliminación termina, no al pulsar.
           onConfirm={async () => {
-            await deleteUser(user.id);
+            await reportResult(showResult, copy, 'userDelete', fullName, () =>
+              deleteUser(user.id),
+            );
             setIsConfirmingDelete(false);
           }}
         />

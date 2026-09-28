@@ -20,12 +20,15 @@ import { useCopy } from '@/lib/i18n';
 import type { Company } from '../../fake-data';
 import { IconEye, IconPencil, IconTrash } from '../../ui/icons';
 import { RowMenu } from '../../ui/row-menu';
+import { reportResult } from '../../report-result';
+import { useResultDialog } from '../../ui/result-dialog';
 
 export function CompanyRowMenu({ company }: { readonly company: Company }): React.ReactElement {
   const copy = useCopy();
 
   const router = useRouter();
   const { deleteCompany } = useCompanyStore();
+  const showResult = useResultDialog();
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   return (
@@ -64,7 +67,9 @@ export function CompanyRowMenu({ company }: { readonly company: Company }): Reac
           // termina. Cerrarlo antes dejaría la fila a la vista como si no
           // hubiera pasado nada.
           onConfirm={async () => {
-            await deleteCompany(company.id);
+            await reportResult(showResult, copy, 'companyDelete', company.name, () =>
+              deleteCompany(company.id),
+            );
             setIsConfirmingDelete(false);
           }}
         />
