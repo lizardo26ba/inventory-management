@@ -140,6 +140,60 @@ export const CATALOG_ENTRIES: readonly CatalogEntry[] = [
     summary: 'Todos los iconos propios, en la misma rejilla y el mismo trazo.',
     files: ['icons.tsx'],
   },
+  {
+    slug: 'action-button',
+    title: 'Botón de acción',
+    summary: 'Un botón que espera a su operación y no la lanza dos veces.',
+    files: ['action-button.tsx'],
+  },
+  {
+    slug: 'checkbox',
+    title: 'Casilla',
+    summary: 'Una casilla que se marca o que solo informa.',
+    files: ['checkbox.tsx'],
+  },
+  {
+    slug: 'toggle',
+    title: 'Interruptor',
+    summary: 'Enciende o apaga algo, y espera si el cambio se guarda en el servidor.',
+    files: ['toggle.tsx'],
+  },
+  {
+    slug: 'show-password-switch',
+    title: 'Mostrar contraseña',
+    summary: 'El interruptor que deja ver lo que se escribe en un campo de contraseña.',
+    files: ['show-password-switch.tsx'],
+  },
+  {
+    slug: 'choice-list',
+    title: 'Lista de opciones',
+    summary: 'Elegir una entre pocas, con lo que identifica a cada una.',
+    files: ['choice-list.tsx'],
+  },
+  {
+    slug: 'filter-input',
+    title: 'Filtro local',
+    summary: 'Filtra en el navegador una lista corta que ya está en pantalla.',
+    files: ['filter-input.tsx'],
+  },
+  {
+    slug: 'search-input',
+    title: 'Buscador',
+    summary: 'Lleva la búsqueda a la dirección para que la resuelva el servidor.',
+    files: ['search-input.tsx'],
+  },
+  {
+    slug: 'country-and-phone',
+    title: 'País y teléfono',
+    summary: 'Selector de país con bandera y el teléfono con su prefijo.',
+    files: ['country-select.tsx', 'phone-field.tsx'],
+  },
+  {
+    slug: 'one-time-code-field',
+    title: 'Código de un solo uso',
+    summary: 'Una casilla por dígito, con pegado, flechas y nombre para cada una.',
+    files: ['one-time-code-field.tsx'],
+  },
 ];
 
 /**
@@ -149,22 +203,12 @@ export const CATALOG_ENTRIES: readonly CatalogEntry[] = [
  * añadir su entrada arriba.
  */
 export const PENDING_FILES: readonly string[] = [
-  'action-button.tsx',
-  'checkbox.tsx',
-  'choice-list.tsx',
-  'country-select.tsx',
   'cursor-pagination.tsx',
-  'filter-input.tsx',
   'language-switcher.tsx',
-  'one-time-code-field.tsx',
   'pagination.tsx',
-  'phone-field.tsx',
   'row-menu.tsx',
-  'search-input.tsx',
-  'show-password-switch.tsx',
   'side-panel.tsx',
   'table-sort.tsx',
-  'toggle.tsx',
   'url-filters.tsx',
 ];
 
