@@ -54,10 +54,28 @@ fuga entre organizaciones es el fallo más grave del producto.
 
 ### 2.1 Excepción del super administrador
 
-Ver [ADR 0005](../../docs/adr/0005-super-administrador-de-plataforma.md). El acceso
-transversal existe, pero no relaja ninguna regla de este documento. La seguridad a nivel
-de fila se sortea únicamente mediante una excepción explícita, activada al inicio de la
-transacción y solo cuando la sesión es de un super administrador con organización elegida.
+Ver [ADR 0005](../../docs/adr/0005-super-administrador-de-plataforma.md),
+[ADR 0010](../../docs/adr/0010-aislamiento-con-seguridad-a-nivel-de-fila.md) y
+[ADR 0013](../../docs/adr/0013-empresa-activa-en-la-sesion.md). El acceso transversal
+existe, pero no relaja ninguna regla de este documento.
+
+Cada transacción declara al empezar uno de tres alcances, con `withScope` de
+`src/lib/db/scope.ts`. Los construye `src/modules/auth/scope.ts` a partir de la sesión, y
+en ningún otro sitio:
+
+| Alcance    | Cuándo                                            | Qué ve la base                                  |
+| ---------- | ------------------------------------------------- | ----------------------------------------------- |
+| Plataforma | Pantallas de plataforma, sin empresa              | Todas las empresas: la excepción está encendida |
+| Empresa    | La operación, también para el super administrador | Solo la empresa activa: la excepción va apagada |
+| Personal   | Antes de elegir empresa                           | Las membresías, empresas y roles de la persona  |
+
+**La excepción de plataforma se enciende solo sin empresa elegida**, en las pantallas que
+miran por encima de todas: la lista de empresas, la de usuarios y la bitácora. Un super
+administrador dentro de una empresa trabaja con el alcance de empresa, igual que un
+miembro. Su privilegio se nota en la autorización y en la bitácora, no en qué filas
+alcanza. Encender la excepción dentro de una empresa le dejaría ver las demás desde una
+pantalla que solo debía enseñar una.
+
 Prohibido conceder al usuario de aplicación privilegios que salten la política de forma
 permanente.
 
