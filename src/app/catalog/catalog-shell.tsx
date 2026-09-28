@@ -2,12 +2,34 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { IconMoon, IconSun } from '@/components/ui/icons';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
 
 import { CATALOG_PATH } from './paths';
+
+/**
+ * Deja el enlace de la página actual a la vista dentro del menú.
+ *
+ * En un teléfono el menú es una barra que se desplaza de lado, y al llegar a una
+ * página del final el enlace marcado quedaba fuera, así que no se veía dónde se
+ * estaba. En pantalla ancha pasa lo mismo en vertical cuando el menú no cabe.
+ *
+ * Se mueve el desplazamiento del menú y no se llama a `scrollIntoView`, que
+ * también desplazaría la página entera para enseñar el enlace.
+ */
+function centerCurrentLink(nav: HTMLElement): void {
+  const link = nav.querySelector<HTMLElement>('[aria-current="page"]');
+  if (link === null) return;
+
+  if (nav.scrollWidth > nav.clientWidth) {
+    nav.scrollLeft = link.offsetLeft - (nav.clientWidth - link.offsetWidth) / 2;
+  }
+  if (nav.scrollHeight > nav.clientHeight) {
+    nav.scrollTop = link.offsetTop - (nav.clientHeight - link.offsetHeight) / 2;
+  }
+}
 
 type NavGroup = {
   readonly group: string;
@@ -30,6 +52,11 @@ export function CatalogShell({
 }): React.ReactElement {
   const pathname = usePathname();
   const [isDark, setIsDark] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (navRef.current !== null) centerCurrentLink(navRef.current);
+  }, [pathname]);
 
   function toggleTheme(): void {
     const next = !isDark;
@@ -58,9 +85,12 @@ export function CatalogShell({
         </div>
         {/* En un teléfono las familias se funden en una sola barra que se
             desplaza de lado; los títulos de familia solo caben en la columna. */}
+        {/* Es `relative` para que las posiciones de los enlaces se midan desde
+            el menú y no desde la página. */}
         <nav
+          ref={navRef}
           aria-label="Componentes"
-          className="flex gap-1 overflow-x-auto px-2 pb-3 md:block md:flex-1 md:overflow-x-visible md:overflow-y-auto"
+          className="relative flex gap-1 overflow-x-auto px-2 pb-3 md:block md:flex-1 md:overflow-x-visible md:overflow-y-auto"
         >
           {groups.map(({ group, entries }) => (
             <div key={group} className="contents md:mb-4 md:block">
