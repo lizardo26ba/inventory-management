@@ -23,6 +23,11 @@ import { ActionButton, useAsyncAction } from '../ui/action-button';
 import { Field, INPUT_CLASS, inputBorderClass } from '../ui/form';
 import { FormAlert } from '../ui/form-alert';
 import { IconLock } from '../ui/icons';
+import {
+  PASSWORD_INPUT_CLASS,
+  passwordInputType,
+  ShowPasswordSwitch,
+} from '../ui/show-password-switch';
 
 type FieldErrors = {
   readonly email?: string;
@@ -40,6 +45,7 @@ export function LoginForm(): React.ReactElement {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -53,6 +59,9 @@ export function LoginForm(): React.ReactElement {
 
     setFieldErrors(errors);
     setFormError(null);
+    // Se vuelve a ocultar al enviar: quien la mostró para revisarla ya no la
+    // necesita a la vista, y la pantalla siguiente puede verla alguien más.
+    setIsPasswordVisible(false);
 
     if (errors.email !== undefined || errors.password !== undefined) return;
 
@@ -102,7 +111,7 @@ export function LoginForm(): React.ReactElement {
         <input
           id={passwordId}
           name="password"
-          type="password"
+          type={passwordInputType(isPasswordVisible)}
           autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -111,9 +120,15 @@ export function LoginForm(): React.ReactElement {
           aria-describedby={
             fieldErrors.password !== undefined ? `${passwordId}-error` : undefined
           }
-          className={`${INPUT_CLASS} ${inputBorderClass(fieldErrors.password !== undefined)}`}
+          className={`${INPUT_CLASS} ${PASSWORD_INPUT_CLASS} ${inputBorderClass(fieldErrors.password !== undefined)}`}
         />
       </Field>
+
+      <ShowPasswordSwitch
+        checked={isPasswordVisible}
+        label={copy.login.showPassword}
+        onChange={setIsPasswordVisible}
+      />
 
       <ActionButton
         type="submit"
