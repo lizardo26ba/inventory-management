@@ -634,6 +634,7 @@ export const copyEn = {
     'auth.company_left': 'Left a company',
     'auth.two_factor_enabled': 'Second factor turned on',
     'auth.two_factor_verified': 'Second factor verified',
+    'company_data.viewed': 'Company data viewed',
   },
 
   admin: {

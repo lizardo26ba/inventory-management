@@ -583,6 +583,7 @@ export const copyEs: Copy = {
     'auth.company_left': 'Salida de una empresa',
     'auth.two_factor_enabled': 'Segundo factor activado',
     'auth.two_factor_verified': 'Segundo factor verificado',
+    'company_data.viewed': 'Consulta de datos de la empresa',
   },
 
   admin: {

@@ -218,7 +218,11 @@ lista.
 de plataforma, además de siete sucesos de sesión: entrar, cambiar la contraseña, quedar
 bloqueado por intentos fallidos, entrar a una empresa, salir de ella, activar el segundo
 factor y superarlo. Restablecer el segundo factor de otra persona también se registra,
-con quién lo hizo. Entrar como plataforma queda marcado como privilegio elevado. Cada entrada se escribe en la misma transacción que el
+con quién lo hizo. Entrar como plataforma queda marcado como privilegio elevado. Dentro de una
+empresa, cada consulta del super administrador deja también su entrada (RN-073): la
+escribe la puerta de permisos al pedir un permiso de lectura, antes de leer, con el
+recurso y los filtros de la pantalla. Si no se puede escribir, la consulta no ocurre. Ver
+el [ADR 0015](../adr/0015-auditoria-de-consultas-del-super-administrador.md). Cada entrada se escribe en la misma transacción que el
 cambio: si el cambio se revierte, la entrada también, y si la entrada no se puede escribir,
 el cambio no ocurre.
 
@@ -227,9 +231,6 @@ el cambio no ocurre.
 encima de todas las empresas, que es la excepción declarada del
 [ADR 0005](../adr/0005-super-administrador-de-plataforma.md). La bitácora de una empresa
 vista desde dentro, con `audit:read`, llegará con las pantallas de la operación.
-
-**Lo que todavía no se registra.** Las consultas del super administrador dentro de una
-empresa, que pide RN-073. Llegan con las primeras pantallas que lean datos de empresa.
 
 **Qué guarda cada entrada.**
 
@@ -251,8 +252,9 @@ empresa, que pide RN-073. Llegan con las primeras pantallas que lean datos de em
   no hay forma de limpiarlo después.
 - Los intentos de entrar fallidos y los accesos denegados. No tienen a quién atribuirse y
   van al registro de la aplicación, que ya enmascara lo sensible.
-- Las consultas del super administrador dentro de una empresa (RN-073). Se registrarán
-  cuando exista la acción de entrar a una empresa, que todavía no está construida.
+- Lo que la plataforma vio al consultar. Se registra qué consultó y con qué filtros, nunca
+  los datos mostrados ni cada registro de la lista. ADR 0015.
+- Las consultas de los miembros de una empresa. RN-073 es sobre el super administrador.
 - La purga por antigüedad. El plazo de retención (RN-074) está pendiente de negocio y hasta
   entonces no se borra nada.
 

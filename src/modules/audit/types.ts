@@ -41,6 +41,7 @@ export const AUDIT_ACTIONS = [
   'auth.company_left',
   'auth.two_factor_enabled',
   'auth.two_factor_verified',
+  'company_data.viewed',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -50,6 +51,8 @@ export const AUDIT_ENTITY_TYPES = [
   'User',
   'Membership',
   'PlatformAdmin',
+  /** Los datos de una empresa, consultados como plataforma. Su identificador es la empresa. ADR 0015. */
+  'CompanyData',
 ] as const;
 
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
