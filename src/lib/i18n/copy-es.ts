@@ -273,6 +273,15 @@ export const copyEs: Copy = {
     companyDeleteConsequence: 'Ya no aparece en ninguna parte de la plataforma.',
     twoFactorResetDone: 'Se restableció el segundo factor de',
     twoFactorResetFailed: 'No se pudo restablecer el segundo factor de',
+    warehouseArchiveDone: 'Se archivó el almacén',
+    warehouseArchiveFailed: 'No se pudo archivar el almacén',
+    warehouseArchiveConsequence:
+      'Ya no acepta movimientos. Su historial se conserva y puedes reactivarlo.',
+    warehouseActivateDone: 'Se reactivó el almacén',
+    warehouseActivateFailed: 'No se pudo reactivar el almacén',
+    warehouseActivateConsequence: 'Vuelve a aceptar movimientos.',
+    warehouseHasStock:
+      'Todavía guarda existencias. Trasládalas o dales salida primero, y luego archívalo.',
     twoFactorResetConsequence:
       'Se cerraron sus sesiones y lo activará de nuevo la próxima vez que entre.',
   },
@@ -346,6 +355,57 @@ export const copyEs: Copy = {
     duplicateTaxId: 'Otra empresa de este país ya usa ese identificador fiscal.',
     duplicateTaxIdHelp:
       'Dos empresas del mismo país no pueden compartirlo. Revisa el número, o abre la empresa que ya lo tiene.',
+  },
+
+  warehouses: {
+    title: 'Almacenes',
+    subtitle: 'Donde esta empresa guarda su mercancía. Todo movimiento ocurre en uno de ellos.',
+    create: 'Nuevo almacén',
+    searchPlaceholder: 'Buscar por nombre o código',
+    columnName: 'Almacén',
+    columnCode: 'Código',
+    columnCountry: 'País',
+    columnTimeZone: 'Zona horaria',
+    columnStatus: 'Estado',
+    resultCount: 'almacenes',
+    toggleActive: 'Activar o archivar',
+    archived: 'Archivado',
+    empty: 'Ningún almacén coincide con esta búsqueda.',
+    noneTitle: 'Todavía no hay almacenes',
+    none: 'Las existencias siempre viven en un almacén, así que es lo primero que hay que crear. Crea uno para empezar a registrar movimientos.',
+    noneReadOnly:
+      'Las existencias siempre viven en un almacén. Pide a un administrador de esta empresa que cree el primero.',
+    backToOverview: 'Volver al resumen',
+  },
+
+  warehouseForm: {
+    title: 'Nuevo almacén',
+    subtitle: 'Un lugar donde esta empresa guarda mercancía. Puede estar en otro país.',
+    editTitle: 'Editar el almacén',
+    editSubtitle:
+      'Los cambios aplican de aquí en adelante. Los movimientos pasados conservan la hora con la que se mostraron.',
+    sectionIdentity: 'Identidad',
+    sectionLocation: 'Ubicación',
+    code: 'Código',
+    codeHelp:
+      'Corto y único dentro de esta empresa, como PRIN o NORTE. Aparece en documentos y etiquetas, y no se puede cambiar después.',
+    codeFixed: 'No se puede cambiar una vez creado el almacén.',
+    codeInvalid: 'Usa de 2 a 10 letras, dígitos o guiones, sin espacios.',
+    duplicateCode: 'Otro almacén de esta empresa ya usa ese código.',
+    name: 'Nombre',
+    namePlaceholder: 'Como se le conoce, por ejemplo Bodega central',
+    address: 'Dirección',
+    country: 'País',
+    countryHelp: 'Puede ser distinto del país de la empresa.',
+    timeZone: 'Zona horaria',
+    timeZoneHelp:
+      'La hora de los movimientos y el corte diario de existencias de este almacén se muestran en esta zona.',
+    submit: 'Crear el almacén',
+    save: 'Guardar los cambios',
+    cancel: 'Cancelar',
+    back: 'Volver a almacenes',
+    notFound: 'Ese almacén no existe en esta empresa.',
+    requiredField: 'Este campo es obligatorio.',
   },
 
   users: {

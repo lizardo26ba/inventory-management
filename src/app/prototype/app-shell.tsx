@@ -22,6 +22,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { Avatar } from './ui/avatar';
+import { useCompanyPermissions } from './company-permissions';
 import { useCompanyStore } from './company-store';
 import type { Copy } from '@/lib/i18n';
 import { useCopy } from '@/lib/i18n';
@@ -60,13 +61,23 @@ type NavItem = {
    */
   readonly label: (copy: Copy) => string;
   readonly Icon: (props: { readonly className?: string }) => React.ReactElement;
+  /**
+   * El permiso sin el cual la sección no se dibuja, como en la navegación
+   * real. Por ahora solo lo lleva lo que ya tiene pantalla diseñada.
+   */
+  readonly permission?: string;
 };
 
 const OPERATION_ITEMS = [
   { href: '/prototype', label: (copy) => copy.nav.overview, Icon: IconOverview },
   { href: '/prototype/products', label: (copy) => copy.nav.products, Icon: IconProducts },
   { href: '/prototype/stock', label: (copy) => copy.nav.stock, Icon: IconStock },
-  { href: '/prototype/warehouses', label: (copy) => copy.nav.warehouses, Icon: IconWarehouse },
+  {
+    href: '/prototype/warehouses',
+    label: (copy) => copy.nav.warehouses,
+    Icon: IconWarehouse,
+    permission: 'warehouse.read',
+  },
   { href: '/prototype/purchases', label: (copy) => copy.nav.purchases, Icon: IconPurchases },
   { href: '/prototype/sales', label: (copy) => copy.nav.sales, Icon: IconSales },
 ] as const satisfies readonly NavItem[];
@@ -100,6 +111,10 @@ function NavGroup({
   readonly onNavigate: () => void;
 }): React.ReactElement {
   const copy = useCopy();
+  const permissions = useCompanyPermissions();
+  const allowed = items.filter(
+    (item) => item.permission === undefined || permissions.has(item.permission),
+  );
 
   return (
     <div className="px-3 py-2">
@@ -107,7 +122,7 @@ function NavGroup({
         {title}
       </p>
       <ul className="space-y-0.5">
-        {items.map((item) => {
+        {allowed.map((item) => {
           // El resumen vive en la raíz, así que solo coincide exacto. Las demás
           // secciones siguen marcadas mientras se navega dentro de ellas.
           const isActive =

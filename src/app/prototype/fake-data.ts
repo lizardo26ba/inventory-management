@@ -587,6 +587,21 @@ export type CountryOption = {
   /** Un número de ejemplo, ya separado, para el texto de ayuda. */
   readonly phoneExample: string;
   readonly defaultCurrency: string;
+  /**
+   * Las zonas horarias del país; la primera es la que se propone. Un almacén
+   * elige una de su país: México tiene varias y Guatemala una sola.
+   */
+  readonly timeZones: readonly TimeZoneOption[];
+};
+
+/**
+ * Una zona horaria. El identificador es el de la base de datos de zonas, que es
+ * lo que se guarda; el rótulo es la ciudad que la representa, porque nadie
+ * reconoce su zona por un identificador técnico.
+ */
+export type TimeZoneOption = {
+  readonly id: string;
+  readonly label: string;
 };
 
 /** Opciones del formulario de empresa. En la aplicación real vienen sembradas. */
@@ -599,6 +614,7 @@ export const countryOptions: readonly CountryOption[] = [
     phoneMask: '#### ####',
     phoneExample: '5555 4444',
     defaultCurrency: 'GTQ',
+    timeZones: [{ id: 'America/Guatemala', label: 'Guatemala City' }],
   },
   {
     code: 'MX',
@@ -608,6 +624,13 @@ export const countryOptions: readonly CountryOption[] = [
     phoneMask: '## #### ####',
     phoneExample: '55 1234 5678',
     defaultCurrency: 'MXN',
+    timeZones: [
+      { id: 'America/Mexico_City', label: 'Mexico City' },
+      { id: 'America/Cancun', label: 'Cancun' },
+      { id: 'America/Mazatlan', label: 'Mazatlan' },
+      { id: 'America/Hermosillo', label: 'Hermosillo' },
+      { id: 'America/Tijuana', label: 'Tijuana' },
+    ],
   },
 ];
 
@@ -615,8 +638,102 @@ export function findCountry(code: string): CountryOption | undefined {
   return countryOptions.find((country) => country.code === code);
 }
 
+export function findTimeZone(countryCode: string, id: string): TimeZoneOption | undefined {
+  return findCountry(countryCode)?.timeZones.find((zone) => zone.id === id);
+}
+
 export const currencyOptions = [
   { code: 'GTQ', name: 'Guatemalan quetzal' },
   { code: 'MXN', name: 'Mexican peso' },
   { code: 'USD', name: 'United States dollar' },
 ] as const;
+
+export type Warehouse = {
+  readonly id: string;
+  /** La empresa dueña. Un almacén nunca se ve desde otra. ADR 0003. */
+  readonly companyId: string;
+  readonly code: string;
+  readonly name: string;
+  readonly address?: string;
+  /** Puede ser distinto del de la empresa. RN-021. */
+  readonly countryCode: string;
+  /** Manda sobre la hora de sus movimientos y sobre su corte diario. RN-014. */
+  readonly timeZone: string;
+  readonly active: boolean;
+  /**
+   * Si guarda existencias. En la aplicación real sale del saldo materializado;
+   * aquí es un dato fijo para poder ver qué pasa al intentar archivarlo.
+   */
+  readonly hasStock: boolean;
+};
+
+/**
+ * La primera empresa tiene un almacén en México para que se vea una empresa
+ * guatemalteca operando en otro país, que es el caso de RN-021.
+ */
+const HAND_WRITTEN_WAREHOUSES: readonly Warehouse[] = [
+  {
+    id: 'w-01',
+    companyId: 'c-01',
+    code: 'MAIN',
+    name: 'Main warehouse',
+    address: '12 Avenida 4-32, Zona 12, Guatemala City',
+    countryCode: 'GT',
+    timeZone: 'America/Guatemala',
+    active: true,
+    hasStock: true,
+  },
+  {
+    id: 'w-02',
+    companyId: 'c-01',
+    code: 'NORTH',
+    name: 'Branch north',
+    address: 'Km 8.5 Carretera al Atlantico, Guatemala',
+    countryCode: 'GT',
+    timeZone: 'America/Guatemala',
+    active: true,
+    hasStock: true,
+  },
+  {
+    id: 'w-03',
+    companyId: 'c-01',
+    code: 'CUN',
+    name: 'Cancun outlet',
+    countryCode: 'MX',
+    timeZone: 'America/Cancun',
+    active: true,
+    hasStock: false,
+  },
+];
+
+/** Tantos como el mayor número de almacenes de una empresa de ejemplo. */
+const GENERIC_WAREHOUSES = [
+  ['MAIN', 'Main warehouse'],
+  ['NORTH', 'Branch north'],
+  ['SOUTH', 'Branch south'],
+  ['EAST', 'Branch east'],
+  ['WEST', 'Branch west'],
+  ['RET', 'Returns'],
+] as const;
+
+const HAND_WRITTEN_OWNERS = new Set(HAND_WRITTEN_WAREHOUSES.map((w) => w.companyId));
+
+/** El resto de empresas tiene tantos almacenes como dice su ficha. */
+export const warehouses: readonly Warehouse[] = [
+  ...HAND_WRITTEN_WAREHOUSES,
+  ...companies
+    .filter((company) => !HAND_WRITTEN_OWNERS.has(company.id))
+    .flatMap((company) =>
+      GENERIC_WAREHOUSES.slice(0, company.warehouseCount).map(([code, name], index) => ({
+        id: `w-${company.id}-${String(index + 1)}`,
+        companyId: company.id,
+        code,
+        name,
+        countryCode: company.countryCode,
+        timeZone: findCountry(company.countryCode)?.timeZones[0]?.id ?? '',
+        active: true,
+        // El principal guarda mercancía; las sucursales de ejemplo, no.
+        hasStock: index === 0,
+      })),
+    ),
+];
