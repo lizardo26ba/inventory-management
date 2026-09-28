@@ -35,27 +35,28 @@ referencia para personas.
 
 ## Decisiones de arquitectura
 
-| Registro                                                                       | Decisión                                                                              |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| [0001](adr/0001-stack-tecnologico.md)                                          | Next.js, PostgreSQL y Prisma en TypeScript                                            |
-| [0002](adr/0002-existencias-como-libro-de-movimientos.md)                      | Existencias como libro de movimientos inmutable                                       |
-| [0003](adr/0003-multiempresa-con-identificador-de-organizacion.md)             | Multiempresa con base compartida e identificador de organización                      |
-| [0004](adr/0004-autenticacion-con-credenciales-propias.md)                     | Autenticación con credenciales propias y sesión en cookie                             |
-| [0005](adr/0005-super-administrador-de-plataforma.md)                          | Super administrador de plataforma con acceso transversal auditado                     |
-| [0006](adr/0006-operacion-multipais-y-multimoneda.md)                          | Operación multipaís con moneda base por organización                                  |
-| [0007](adr/0007-sesion-propia-sin-libreria-de-autenticacion.md)                | Sesión propia en base de datos, sustituye la parte de librería de 0004                |
-| [0008](adr/0008-rastreo-por-lote-y-numero-de-serie.md)                         | Rastreo por lote y por número de serie, configurable por producto                     |
-| [0009](adr/0009-pruebas-de-integracion-en-rama-de-neon.md)                     | Pruebas de integración contra una rama de Neon dedicada                               |
-| [0010](adr/0010-aislamiento-con-seguridad-a-nivel-de-fila.md)                  | Seguridad a nivel de fila con un rol de aplicación sin privilegio de salto            |
-| [0011](adr/0011-integracion-continua-en-github-actions.md)                     | Integración continua en GitHub Actions, con PostgreSQL en contenedor                  |
-| [0012](adr/0012-fusion-con-combinacion-normal-y-sin-aprobacion-obligatoria.md) | Fusión con combinación normal, sin aprobación obligatoria con una sola persona        |
-| [0013](adr/0013-empresa-activa-en-la-sesion.md)                                | La empresa activa en la sesión, y lo que la base ve antes y después de elegirla       |
-| [0014](adr/0014-segundo-factor-del-super-administrador.md)                     | Segundo factor del super administrador con app autenticadora, sin códigos de respaldo |
-| [0015](adr/0015-auditoria-de-consultas-del-super-administrador.md)             | Auditoría de las consultas del super administrador. Sustituida por 0018               |
-| [0016](adr/0016-despliegue-en-vercel-hasta-azure.md)                           | Despliegue en Vercel con Neon como etapa temporal hasta Azure                         |
-| [0017](adr/0017-bitacora-de-toda-la-actividad-sin-purga.md)                    | La bitácora registra las consultas de todos los usuarios. Sustituida por 0018         |
-| [0018](adr/0018-bitacora-de-cambios-sin-purga.md)                              | La bitácora guarda los cambios de todos los usuarios, no las consultas, y no se purga |
-| [0019](adr/0019-catalogo-de-componentes-fuera-de-produccion.md)                | Catálogo de componentes propio, como ruta que no existe en producción                 |
+| Registro                                                                       | Decisión                                                                                  |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| [0001](adr/0001-stack-tecnologico.md)                                          | Next.js, PostgreSQL y Prisma en TypeScript                                                |
+| [0002](adr/0002-existencias-como-libro-de-movimientos.md)                      | Existencias como libro de movimientos inmutable                                           |
+| [0003](adr/0003-multiempresa-con-identificador-de-organizacion.md)             | Multiempresa con base compartida e identificador de organización                          |
+| [0004](adr/0004-autenticacion-con-credenciales-propias.md)                     | Autenticación con credenciales propias y sesión en cookie                                 |
+| [0005](adr/0005-super-administrador-de-plataforma.md)                          | Super administrador de plataforma con acceso transversal auditado                         |
+| [0006](adr/0006-operacion-multipais-y-multimoneda.md)                          | Operación multipaís con moneda base por organización                                      |
+| [0007](adr/0007-sesion-propia-sin-libreria-de-autenticacion.md)                | Sesión propia en base de datos, sustituye la parte de librería de 0004                    |
+| [0008](adr/0008-rastreo-por-lote-y-numero-de-serie.md)                         | Rastreo por lote y por número de serie, configurable por producto                         |
+| [0009](adr/0009-pruebas-de-integracion-en-rama-de-neon.md)                     | Pruebas de integración contra una rama de Neon dedicada                                   |
+| [0010](adr/0010-aislamiento-con-seguridad-a-nivel-de-fila.md)                  | Seguridad a nivel de fila con un rol de aplicación sin privilegio de salto                |
+| [0011](adr/0011-integracion-continua-en-github-actions.md)                     | Integración continua en GitHub Actions, con PostgreSQL en contenedor                      |
+| [0012](adr/0012-fusion-con-combinacion-normal-y-sin-aprobacion-obligatoria.md) | Fusión con combinación normal, sin aprobación obligatoria con una sola persona            |
+| [0013](adr/0013-empresa-activa-en-la-sesion.md)                                | La empresa activa en la sesión, y lo que la base ve antes y después de elegirla           |
+| [0014](adr/0014-segundo-factor-del-super-administrador.md)                     | Segundo factor del super administrador con app autenticadora, sin códigos de respaldo     |
+| [0015](adr/0015-auditoria-de-consultas-del-super-administrador.md)             | Auditoría de las consultas del super administrador. Sustituida por 0018                   |
+| [0016](adr/0016-despliegue-en-vercel-hasta-azure.md)                           | Despliegue en Vercel con Neon como etapa temporal hasta Azure                             |
+| [0017](adr/0017-bitacora-de-toda-la-actividad-sin-purga.md)                    | La bitácora registra las consultas de todos los usuarios. Sustituida por 0018             |
+| [0018](adr/0018-bitacora-de-cambios-sin-purga.md)                              | La bitácora guarda los cambios de todos los usuarios, no las consultas, y no se purga     |
+| [0019](adr/0019-catalogo-de-componentes-fuera-de-produccion.md)                | Catálogo de componentes propio, como ruta que no existe en producción. Enmendada por 0020 |
+| [0020](adr/0020-catalogo-de-componentes-visible-por-configuracion.md)          | El catálogo se enciende por configuración, y en la demo se ve en producción               |
 
 ## Arquitectura
 
