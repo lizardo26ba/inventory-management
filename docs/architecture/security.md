@@ -178,15 +178,14 @@ mandan por encima de ella.
 - **El segundo factor es obligatorio para el super administrador, y solo para él**
   (RN-005). Es un código de app autenticadora que se pide en cada inicio de sesión. Un
   código no sirve dos veces, y uno equivocado cuenta como una contraseña equivocada para
-  el bloqueo de la cuenta. Hoy está suspendido de forma declarada porque sus pantallas no
-  existen: lo gobierna la variable `PLATFORM_ADMIN_TWO_FACTOR`, que por omisión lo exige.
-  Ver el [ADR 0014](../adr/0014-segundo-factor-del-super-administrador.md) y la enmienda del
-  [ADR 0005](../adr/0005-super-administrador-de-plataforma.md).
+  el bloqueo de la cuenta. No hay configuración que lo apague. Ver el
+  [ADR 0014](../adr/0014-segundo-factor-del-super-administrador.md).
 - **Un código del segundo factor equivocado cuenta como una contraseña equivocada**: suma
   al mismo contador y, al quinto, bloquea la cuenta quince minutos y cierra la sesión a
   medio verificar. Superarlo rota el testigo de la sesión, igual que cambiar de empresa.
 - **Solo otro super administrador restablece un segundo factor**, y nunca el propio. Al
-  restablecerlo se cierran todas las sesiones de esa persona. No hay códigos de respaldo,
+  restablecerlo se cierran todas las sesiones de esa persona. Se hace desde la edición del
+  usuario, que enseña en qué estado está su segundo factor. No hay códigos de respaldo,
   así que la operación mantiene al menos dos super administradores. ADR 0014.
 - **Suspender a un usuario o retirarle el acceso corta su sesión de inmediato**, no al
   expirar (RN-006). Con empresa activa, cada petición vuelve a leer la membresía, o la

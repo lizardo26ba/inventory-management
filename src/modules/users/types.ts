@@ -53,8 +53,15 @@ export type UsersSummary = {
   readonly administratorCount: number;
 };
 
+/**
+ * El segundo factor de una cuenta, visto desde fuera. RN-005, ADR 0014.
+ * Sin alta, con el alta a medio confirmar, o activo.
+ */
+export type TwoFactorStatus = 'NONE' | 'PENDING' | 'ACTIVE';
+
 export type UserDetail = UserListItem & {
   readonly version: number;
+  readonly twoFactorStatus: TwoFactorStatus;
   /** Motivo de la concesión de plataforma, o nulo si no la tiene. */
   readonly platformAdminReason: string | null;
   readonly mustChangePassword: boolean;

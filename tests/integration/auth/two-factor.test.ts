@@ -20,7 +20,7 @@ import {
   findTwoFactorState,
   savePendingTwoFactorSecret,
 } from '@/modules/auth/repository';
-import { resetUserTwoFactor } from '@/modules/users/repository';
+import { findUserById, resetUserTwoFactor } from '@/modules/users/repository';
 
 const ADMIN = randomUUID();
 const OTHER_ADMIN = randomUUID();
@@ -103,6 +103,10 @@ describe('el ciclo del segundo factor', () => {
     const state = await findTwoFactorState(ADMIN);
     expect(state?.sealedSecret).toBe('v1:primero');
     expect(state?.enabledAt).toBeNull();
+    // La ficha lo ve como un alta a medio confirmar, sin recibir el secreto.
+    const detail = await findUserById(PLATFORM_SCOPE, ADMIN);
+    expect(detail?.twoFactorStatus).toBe('PENDING');
+    expect(detail).not.toHaveProperty('twoFactorSecret');
   });
 
   it('verificar no sirve mientras el alta está pendiente', async () => {
@@ -141,6 +145,7 @@ describe('el ciclo del segundo factor', () => {
 
     const entry = await prisma.auditLog.findFirstOrThrow({ where: { correlationId } });
     expect(entry.action).toBe('auth.two_factor_enabled');
+    expect((await findUserById(PLATFORM_SCOPE, ADMIN))?.twoFactorStatus).toBe('ACTIVE');
   });
 
   it('el mismo paso no vale dos veces, ni uno anterior', async () => {
@@ -202,6 +207,7 @@ describe('restablecer', () => {
     const entry = await prisma.auditLog.findFirstOrThrow({ where: { correlationId } });
     expect(entry).toMatchObject({ action: 'user.two_factor_reset', actorId: OTHER_ADMIN });
     expect(entry.after).toEqual({ twoFactorEnabled: false });
+    expect((await findUserById(PLATFORM_SCOPE, ADMIN))?.twoFactorStatus).toBe('NONE');
   });
 
   it('sin alta no hay nada que restablecer, y no se escribe nada', async () => {

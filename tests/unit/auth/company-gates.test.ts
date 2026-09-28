@@ -16,16 +16,11 @@ import { AuthorizationError, NotFoundError, TwoFactorRequiredError } from '@/lib
 import type { ActiveSession } from '@/modules/auth/repository';
 import type { SessionContext } from '@/modules/auth/session-context';
 
-let twoFactorRequired = true;
-
 vi.mock('server-only', () => ({}));
 
 vi.mock('@/lib/config/env.server', () => ({
   get isProduction(): boolean {
     return false;
-  },
-  get requiresPlatformAdminTwoFactor(): boolean {
-    return twoFactorRequired;
   },
 }));
 
@@ -116,7 +111,6 @@ function grants(...codes: PermissionCode[]): void {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  twoFactorRequired = true;
   repository.findLiveMembershipCompany.mockResolvedValue(COMPANY);
   repository.findEnterableOrganization.mockResolvedValue(COMPANY);
   grants('product:read');
@@ -276,18 +270,10 @@ describe('authorizeCompanyEntry', () => {
     expect(repository.findLiveMembershipCompany).not.toHaveBeenCalled();
   });
 
-  it('un super administrador sin segundo factor no entra, si se exige', async () => {
+  it('un super administrador sin segundo factor no entra', async () => {
     await expect(
       authorizeCompanyEntry(sessionOf({ isPlatformAdmin: true }), 'org-1'),
     ).rejects.toThrow(TwoFactorRequiredError);
-  });
-
-  it('entra sin segundo factor mientras la configuración lo suspende', async () => {
-    twoFactorRequired = false;
-
-    await expect(
-      authorizeCompanyEntry(sessionOf({ isPlatformAdmin: true }), 'org-1'),
-    ).resolves.toMatchObject({ actingAsPlatformAdmin: true });
   });
 
   it('no entra en una empresa borrada', async () => {

@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 
 import { resolveLanding } from '@/modules/auth/landing';
 import { findCompanySummary } from '@/modules/auth/repository';
-import { requiresPlatformAdminTwoFactor } from '@/lib/config/env.server';
 import {
   CHANGE_PASSWORD_PATH,
   SELECT_COMPANY_PATH,
@@ -26,9 +25,7 @@ export default async function RootPage(): Promise<React.ReactElement> {
   const session = await getSession();
   if (session === null) redirect(SIGN_IN_PATH);
 
-  const landing = resolveLanding(session, {
-    twoFactorRequired: requiresPlatformAdminTwoFactor,
-  });
+  const landing = resolveLanding(session);
 
   switch (landing.kind) {
     case 'changePassword':

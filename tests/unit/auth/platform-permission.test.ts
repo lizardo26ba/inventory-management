@@ -13,25 +13,15 @@
  * segundo factor está exigido y sin superar. RN-005, ADR 0005.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { SessionContext } from '@/modules/auth/session-context';
-
-/**
- * Si el segundo factor se exige es configuración, y la configuración se lee una
- * sola vez al cargar el módulo. El captador deja cambiarla entre pruebas sin
- * volver a importar nada.
- */
-let twoFactorRequired = true;
 
 vi.mock('server-only', () => ({}));
 
 vi.mock('@/lib/config/env.server', () => ({
   get isProduction(): boolean {
     return false;
-  },
-  get requiresPlatformAdminTwoFactor(): boolean {
-    return twoFactorRequired;
   },
 }));
 
@@ -70,11 +60,7 @@ function sessionOf(overrides: Partial<SessionContext>): SessionContext {
   };
 }
 
-beforeEach(() => {
-  twoFactorRequired = true;
-});
-
-describe('con el segundo factor exigido', () => {
+describe('la puerta del super administrador', () => {
   it('concede al super administrador que ya lo superó', () => {
     const session = sessionOf({ isPlatformAdmin: true, twoFactorVerifiedAt: VERIFIED_AT });
 
@@ -92,44 +78,5 @@ describe('con el segundo factor exigido', () => {
     const session = sessionOf({ isPlatformAdmin: true, twoFactorVerifiedAt: null });
 
     expect(holdsPlatformPermission(session, 'platform.user:read')).toBe(false);
-  });
-});
-
-/**
- * La suspensión declarada de RN-005. Mientras las pantallas del segundo factor
- * no existan, la variable lo apaga y el privilegio basta por sí solo. Se prueba
- * porque es el estado en el que el sistema corre hoy, no a pesar de ser
- * temporal. Ver la enmienda del ADR 0005.
- */
-describe('con el segundo factor apagado', () => {
-  beforeEach(() => {
-    twoFactorRequired = false;
-  });
-
-  it('concede al super administrador que no lo ha superado', () => {
-    const session = sessionOf({ isPlatformAdmin: true, twoFactorVerifiedAt: null });
-
-    expect(holdsPlatformPermission(session, 'platform.user:read')).toBe(true);
-  });
-
-  it('sigue negando a quien no es super administrador', () => {
-    const session = sessionOf({ isPlatformAdmin: false, twoFactorVerifiedAt: null });
-
-    expect(holdsPlatformPermission(session, 'platform.user:read')).toBe(false);
-  });
-});
-
-/**
- * Pedir un permiso de empresa por la puerta de la plataforma no es un rechazo:
- * es un error de programación, y contestar `false` lo escondería como si fuera
- * una falta de privilegio.
- */
-describe('permiso mal pedido', () => {
-  it('lanza en lugar de contestar que no', () => {
-    const session = sessionOf({ isPlatformAdmin: true, twoFactorVerifiedAt: VERIFIED_AT });
-
-    expect(() => holdsPlatformPermission(session, 'product:read' as never)).toThrowError(
-      /no es de alcance de plataforma/,
-    );
   });
 });

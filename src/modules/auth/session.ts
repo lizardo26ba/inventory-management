@@ -18,7 +18,7 @@ import 'server-only';
 import { cookies } from 'next/headers';
 
 import { PERMISSIONS, type PermissionCode } from '@/lib/auth/permissions';
-import { isProduction, requiresPlatformAdminTwoFactor } from '@/lib/config/env.server';
+import { isProduction } from '@/lib/config/env.server';
 import {
   AuthenticationError,
   AuthorizationError,
@@ -143,13 +143,8 @@ type PlatformAdminVerdict = 'GRANTED' | 'NOT_PLATFORM_ADMIN' | 'TWO_FACTOR_MISSI
  *
  * Dos condiciones, no una. Ser super administrador da el acceso transversal; el
  * segundo factor es lo que confirma que quien lo usa es quien dice ser, y no
- * alguien sentado frente a una sesión abierta. El ADR 0005 exige las dos.
- *
- * La segunda se puede saltar mientras las pantallas de alta y de verificación
- * del segundo factor no existan, y eso incluye producción. No es un agujero
- * escondido: la variable se escribe a mano, lleva por omisión el valor seguro, y
- * el arranque avisa en el registro allí donde está apagada. Es temporal y se
- * retira con las pantallas. Ver la enmienda del ADR 0005.
+ * alguien sentado frente a una sesión abierta. El ADR 0005 exige las dos, y
+ * desde el ADR 0014 no hay configuración que apague la segunda.
  *
  * Contesta en lugar de lanzar porque hay dos preguntas distintas sobre lo mismo:
  * cerrarle el paso a quien no puede, y saber de antemano qué ofrecerle a quien
@@ -162,7 +157,7 @@ type PlatformAdminVerdict = 'GRANTED' | 'NOT_PLATFORM_ADMIN' | 'TWO_FACTOR_MISSI
 function judgePlatformAdmin(session: SessionContext): PlatformAdminVerdict {
   if (!session.isPlatformAdmin) return 'NOT_PLATFORM_ADMIN';
 
-  if (requiresPlatformAdminTwoFactor && session.twoFactorVerifiedAt === null) {
+  if (session.twoFactorVerifiedAt === null) {
     return 'TWO_FACTOR_MISSING';
   }
 
