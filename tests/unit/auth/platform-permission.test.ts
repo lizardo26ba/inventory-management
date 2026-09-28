@@ -33,10 +33,6 @@ vi.mock('@/modules/auth/repository', () => ({
   deleteSession: vi.fn(),
   findSessionByHash: vi.fn(),
 }));
-vi.mock('@/modules/audit', () => ({
-  buildAuditContext: vi.fn(),
-  recordAuditEntriesAlone: vi.fn(),
-}));
 vi.mock('@/modules/auth/service', () => ({
   hashSessionToken: vi.fn(),
   isSessionExpired: vi.fn(),

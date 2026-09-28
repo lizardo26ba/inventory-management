@@ -200,7 +200,7 @@ informe no depende de la tabla de tasas al consultarse. ADR 0006.
 
 | Tabla                | Para qué                                             |
 | -------------------- | ---------------------------------------------------- |
-| `audit_logs`         | Bitácora de solo inserción. RN-070 a RN-073          |
+| `audit_logs`         | Bitácora de solo inserción. RN-070 a RN-072          |
 | `document_sequences` | Correlativo sin huecos por empresa, país, tipo y año |
 | `idempotency_keys`   | Que un doble envío no genere dos movimientos         |
 | `outbox_events`      | Efectos externos que ocurren exactamente una vez     |

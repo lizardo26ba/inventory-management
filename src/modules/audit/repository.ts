@@ -47,21 +47,6 @@ export async function recordAuditEntries(
   });
 }
 
-/**
- * Escribe entradas en una transacción propia.
- *
- * Solo para lo que no tiene transacción que compartir: una consulta. Lo que
- * cambia datos usa `recordAuditEntries` dentro de la suya. Quien llama escribe
- * antes de leer, así que si esto falla, la lectura no ocurre. ADR 0015.
- */
-export async function recordAuditEntriesAlone(
-  scope: DataScope,
-  context: AuditContext,
-  entries: readonly AuditEntry[],
-): Promise<void> {
-  await withScope(scope, (tx) => recordAuditEntries(tx, context, entries));
-}
-
 const LIST_SELECT = {
   id: true,
   createdAt: true,
