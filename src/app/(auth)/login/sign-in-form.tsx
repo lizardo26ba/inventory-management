@@ -18,6 +18,11 @@ import { ActionButton, useAsyncAction } from '@/components/ui/action-button';
 import { Field, INPUT_CLASS, inputBorderClass } from '@/components/ui/form';
 import { FormAlert } from '@/components/ui/form-alert';
 import { IconLock } from '@/components/ui/icons';
+import {
+  PASSWORD_INPUT_CLASS,
+  passwordInputType,
+  ShowPasswordSwitch,
+} from '@/components/ui/show-password-switch';
 import { useCopy } from '@/lib/i18n';
 import { signIn } from '@/modules/auth/actions';
 import { signInSchema, toFieldErrors } from '@/modules/auth/schema';
@@ -30,6 +35,7 @@ export function SignInForm(): React.ReactElement {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -42,6 +48,8 @@ export function SignInForm(): React.ReactElement {
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     setFormError(null);
+    // Se vuelve a ocultar al enviar: la pantalla siguiente puede verla alguien más.
+    setIsPasswordVisible(false);
 
     const parsed = signInSchema.safeParse({ email, password });
     if (!parsed.success) {
@@ -93,16 +101,22 @@ export function SignInForm(): React.ReactElement {
         <input
           id="password"
           name="password"
-          type="password"
+          type={passwordInputType(isPasswordVisible)}
           autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder={copy.login.passwordPlaceholder}
           aria-invalid={messageFor('password') !== undefined}
           aria-describedby={messageFor('password') !== undefined ? 'password-error' : undefined}
-          className={`${INPUT_CLASS} ${inputBorderClass(messageFor('password') !== undefined)}`}
+          className={`${INPUT_CLASS} ${PASSWORD_INPUT_CLASS} ${inputBorderClass(messageFor('password') !== undefined)}`}
         />
       </Field>
+
+      <ShowPasswordSwitch
+        checked={isPasswordVisible}
+        label={copy.login.showPassword}
+        onChange={setIsPasswordVisible}
+      />
 
       <ActionButton
         type="submit"
