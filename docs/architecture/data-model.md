@@ -3,7 +3,7 @@
 **Audiencia:** desarrollo
 **Estado:** vigente
 **Responsable:** equipo de arquitectura
-**Última revisión:** 2026-09-27
+**Última revisión:** 2026-09-28
 
 Qué guarda cada tabla, qué invariante defiende la base y cómo se relacionan entre sí. Al
 terminar sabes dónde vive un dato, qué no puede ocurrirle y qué garantías no puedes dar por
@@ -146,6 +146,7 @@ erDiagram
 Lo que la base impide por sí sola:
 
 - Repetir código, código de barras o serie dentro de la misma empresa.
+- Un código de almacén que no sea de 2 a 10 mayúsculas, dígitos o guiones (RN-090).
 - Un lote que caduque antes de fabricarse.
 - Un movimiento de cantidad cero, o con costo unitario negativo.
 - Un saldo negativo, una reserva negativa o una reserva mayor que el saldo.
@@ -229,6 +230,7 @@ y es lo esperado; cualquier **otra** diferencia es un desalineamiento que hay qu
 | Restricciones `CHECK` de cantidad y costo | `20260911002110_init`                                   |
 | Disparador y formato de la bitácora       | `20260915050000_bitacora_de_auditoria`                  |
 | Restricciones `CHECK` del segundo factor  | `20260927220000_segundo_factor_del_super_administrador` |
+| Formato del código de almacén             | `20260928230000_formato_del_codigo_de_almacen`          |
 
 Por qué no están en Prisma:
 
@@ -275,6 +277,15 @@ Escrito aquí para que nadie dé por supuesta una garantía que no existe.
 - **Inmutabilidad del libro de movimientos.** `stock_movements` tiene restricciones de
   cantidad, pero nada impide un `UPDATE`, como sí ocurre en la bitácora. Lo sostienen la
   revisión de código y que no exista ninguna función que edite.
+- **El código de un almacén no cambia (RN-091).** Es una regla sobre la historia de la
+  fila, no sobre la fila, y expresarla exigiría un disparador, que las reglas prohíben para
+  lógica de negocio. La sostiene que ningún esquema ni repositorio admita cambiarlo.
+- **Un almacén con existencias no se archiva (RN-092).** Cruza dos tablas y no cabe en una
+  restricción. La defiende el repositorio de almacenes: bloquea la fila del almacén con
+  `FOR UPDATE` y lee sus saldos en la misma transacción. **Contrato para el módulo de
+  existencias:** todo movimiento bloquea esa misma fila con `FOR SHARE` y comprueba que el
+  almacén sigue activo antes de escribir. Sin eso, un movimiento y un archivado simultáneos
+  pueden cruzarse.
 - **Retención de la bitácora.** Sin plazo y sin purga (RN-074). Al pasar de cinco gigabytes se decide cómo archivar en frío. ADR 0018.
 
 ## 11. Cómo se mantiene este documento
