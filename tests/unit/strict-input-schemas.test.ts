@@ -32,6 +32,11 @@ import {
   updateUserSchema,
   userIdSchema,
 } from '@/modules/users/schema';
+import {
+  createWarehouseSchema,
+  setWarehouseActiveSchema,
+  updateWarehouseSchema,
+} from '@/modules/warehouses/schema';
 
 const ID = '0199a0b0-0000-7000-8000-000000000001';
 const OTHER_ID = '0199a0b0-0000-7000-8000-000000000002';
@@ -52,6 +57,15 @@ const user = {
 };
 
 const { baseCurrencyCode: _currency, ...editableOrganization } = organization;
+
+const warehouse = {
+  code: 'MAIN',
+  name: 'Bodega central',
+  countryCode: 'GT',
+  timeZone: 'America/Guatemala',
+};
+
+const { code: _code, ...editableWarehouse } = warehouse;
 
 const CASES: readonly (readonly [string, z.ZodType, Record<string, unknown>])[] = [
   ['entrar', signInSchema, { email: 'ana@example.test', password: 'x' }],
@@ -79,6 +93,9 @@ const CASES: readonly (readonly [string, z.ZodType, Record<string, unknown>])[] 
   ['un usuario por su identificador', userIdSchema, { id: ID }],
   ['estado de un usuario', setUserActiveSchema, { id: ID, isActive: true }],
   ['restablecer el segundo factor', resetTwoFactorSchema, { id: ID }],
+  ['alta de almacén', createWarehouseSchema, warehouse],
+  ['edición de almacén', updateWarehouseSchema, { ...editableWarehouse, id: ID, version: 0 }],
+  ['estado de un almacén', setWarehouseActiveSchema, { id: ID, isActive: false }],
 ];
 
 describe.each(CASES)('%s', (_name, schema, valid) => {

@@ -166,7 +166,9 @@ export type ResultAction =
   | 'companySuspend'
   | 'companyActivate'
   | 'companyDelete'
-  | 'twoFactorReset';
+  | 'twoFactorReset'
+  | 'warehouseArchive'
+  | 'warehouseActivate';
 
 type ActionOutcome =
   { readonly ok: true } | { readonly ok: false; readonly error: ErrorPayload };
