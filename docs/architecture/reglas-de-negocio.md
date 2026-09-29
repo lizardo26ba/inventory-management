@@ -118,8 +118,11 @@ en ese almacén. Por eso tampoco cambia: una etiqueta impresa con el código ant
 de corresponder a su almacén.
 
 RN-092 evita mercancía contada en un sitio donde ya no se puede mover. Para archivar, las
-existencias se trasladan o se les da salida antes. Por el principio 4 de las reglas de
-arquitectura, la regla se defenderá también en la base de datos, no solo en el servicio.
+existencias se trasladan o se les da salida antes. La regla cruza dos tablas y no cabe en
+una restricción, y un disparador sería lógica de negocio en la base, que las reglas del
+arquitecto de datos prohíben. La defiende el repositorio con un bloqueo de fila; el
+mecanismo y lo que exige al módulo de existencias están en el
+[modelo de datos](data-model.md), sección 10. RN-090, en cambio, sí la defiende la base.
 
 RN-093 se sigue del [ADR 0002](../adr/0002-existencias-como-libro-de-movimientos.md): los
 movimientos de un almacén son parte del libro, y el libro no se reescribe.

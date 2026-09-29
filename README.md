@@ -9,8 +9,9 @@ La primera versión cubre existencias, compras y ventas.
 
 En construcción. Las reglas y el modelo de datos están completos. La aplicación ya se usa
 para administrar la plataforma: se entra con credenciales propias y desde ahí se gestionan
-las empresas y las personas que acceden a ellas. Los dominios de negocio, que son
-existencias, compras y ventas, todavía no existen.
+las empresas y las personas que acceden a ellas. Dentro de una empresa ya se gestionan sus
+almacenes. El resto de la operación, que son existencias, compras y ventas, todavía no
+existe.
 
 | Pieza                               | Estado                           |
 | ----------------------------------- | -------------------------------- |
@@ -25,6 +26,7 @@ existencias, compras y ventas, todavía no existen.
 | Empresas                            | Alta, edición, activación y baja |
 | Usuarios                            | Alta, edición, activación y baja |
 | Prototipo de diseño                 | En curso                         |
+| Almacenes                           | Alta, edición y archivo          |
 | Roles por empresa                   | Pendiente                        |
 | Existencias, compras y ventas       | Pendiente                        |
 | Bitácora de auditoría               | Consulta de plataforma           |

@@ -15,7 +15,7 @@
 import type { PermissionCode } from '@/lib/auth/permissions';
 
 /** Cómo se nombra una sección entre el servidor y el marco. */
-export type NavSectionKey = 'overview' | 'organizations' | 'users' | 'audit';
+export type NavSectionKey = 'overview' | 'warehouses' | 'organizations' | 'users' | 'audit';
 
 export type NavSection = {
   readonly key: NavSectionKey;
@@ -51,4 +51,5 @@ export const ADMINISTRATION_SECTIONS = [
  */
 export const OPERATION_SECTIONS = [
   { key: 'overview', href: '/', permission: null },
+  { key: 'warehouses', href: '/warehouses', permission: 'warehouse:read' },
 ] as const satisfies readonly NavSection[];

@@ -61,6 +61,10 @@ export const copyEn = {
       'That code is not valid. Check that your phone shows the right time and try again.',
     cannotResetOwnTwoFactor:
       'You cannot reset your own second factor. Ask another super administrator.',
+    invalidWarehouseCode: 'Use 2 to 10 letters, digits or dashes, with no spaces.',
+    duplicateWarehouseCode: 'Another warehouse of this company already uses this code.',
+    unknownTimeZone: 'Pick a time zone of the country you chose.',
+    warehouseHasStock: 'It still holds stock. Move or issue it first, then archive it.',
   },
 
   /** Lo que se enseña cuando una operación entera falla. */
@@ -162,7 +166,7 @@ export const copyEn = {
     recentTitle: 'Recent movements',
     viewAll: 'View all',
     notReady:
-      'The operation of this company starts here. Its screens are on their way, beginning with products and warehouses.',
+      'The operation of this company starts here. Warehouses are ready; stock, purchases and sales come next, and this summary will show them.',
   },
 
   products: {
@@ -729,6 +733,10 @@ export const copyEn = {
     'auth.company_left': 'Left a company',
     'auth.two_factor_enabled': 'Second factor turned on',
     'auth.two_factor_verified': 'Second factor verified',
+    'warehouse.created': 'Warehouse created',
+    'warehouse.updated': 'Warehouse updated',
+    'warehouse.archived': 'Warehouse archived',
+    'warehouse.activated': 'Warehouse reactivated',
   },
 
   admin: {

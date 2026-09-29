@@ -48,6 +48,11 @@ export const copyEs: Copy = {
       'Ese código no es válido. Revisa que la hora de tu teléfono sea la correcta y vuelve a intentarlo.',
     cannotResetOwnTwoFactor:
       'No puedes restablecer tu propio segundo factor. Pídeselo a otro super administrador.',
+    invalidWarehouseCode: 'Usa de 2 a 10 letras, dígitos o guiones, sin espacios.',
+    duplicateWarehouseCode: 'Otro almacén de esta empresa ya usa ese código.',
+    unknownTimeZone: 'Elige una zona horaria del país que elegiste.',
+    warehouseHasStock:
+      'Todavía guarda existencias. Trasládalas o dales salida primero, y luego archívalo.',
   },
 
   errors: {
@@ -140,7 +145,7 @@ export const copyEs: Copy = {
     recentTitle: 'Movimientos recientes',
     viewAll: 'Ver todo',
     notReady:
-      'Aquí empieza la operación de esta empresa. Sus pantallas van llegando, empezando por los productos y los almacenes.',
+      'Aquí empieza la operación de esta empresa. Los almacenes ya están listos; las existencias, compras y ventas vienen después, y este resumen las mostrará.',
   },
 
   products: {
@@ -676,6 +681,10 @@ export const copyEs: Copy = {
     'auth.company_left': 'Salida de una empresa',
     'auth.two_factor_enabled': 'Segundo factor activado',
     'auth.two_factor_verified': 'Segundo factor verificado',
+    'warehouse.created': 'Almacén creado',
+    'warehouse.updated': 'Almacén modificado',
+    'warehouse.archived': 'Almacén archivado',
+    'warehouse.activated': 'Almacén reactivado',
   },
 
   admin: {

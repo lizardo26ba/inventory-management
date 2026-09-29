@@ -41,6 +41,7 @@ import {
   IconShield,
   IconSignOut,
   IconUsers,
+  IconWarehouse,
   IconSun,
 } from '@/components/ui/icons';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
@@ -96,6 +97,7 @@ const SECTION_PRESENTATION: Record<
   }
 > = {
   overview: { label: (copy) => copy.nav.overview, Icon: IconOverview },
+  warehouses: { label: (copy) => copy.nav.warehouses, Icon: IconWarehouse },
   organizations: { label: (copy) => copy.nav.organizations, Icon: IconOrganizations },
   users: { label: (copy) => copy.nav.users, Icon: IconUsers },
   audit: { label: (copy) => copy.nav.audit, Icon: IconAudit },
